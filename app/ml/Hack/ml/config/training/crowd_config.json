@@ -1,0 +1,17 @@
+{
+  "project_name": "SafeShe",
+  "random_state": 42,
+  "test_size": 0.2,
+  "validation_size": 0.1,
+  "shuffle": true,
+  "n_splits": 5,
+  "scoring": "neg_mean_absolute_error",
+  "cv_jobs": -1,
+  "model_save_format": "pkl",
+  "preprocess_save_format": "pkl",
+  "dataset_filename": "crowd_dataset.csv",
+  "model_filename": "crowd_model.pkl",
+  "metrics_filename": "crowd_metrics.json",
+  "feature_importance_filename": "crowd_feature_importance.json",
+  "target_column": "crowd_score"
+}

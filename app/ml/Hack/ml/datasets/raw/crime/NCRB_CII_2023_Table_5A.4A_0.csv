@@ -1,0 +1,63 @@
+Sl. No.,Crime Head,Cases Reported against Juveniles - ( Col. 3),Cases Reported against Juveniles - Boys - ( Col. 4),Cases Reported against Juveniles - Girls - ( Col. 5),Cases Reported against Juveniles - Transgender - ( Col. 6),Cases Reported against Juveniles - Total - ( Col. 7),12 Years & Above and below 16 Years - Boys - ( Col. 8),12 Years & Above and below 16 Years - Girls - ( Col. 9),12 Years & Above and below 16 Years - Transgender - ( Col. 10),12 Years & Above and below 16 Years - Total - ( Col. 11),16 Years & Above and below 18 Years - Boys - ( Col. 12),16 Years & Above and below 18 Years - Girls - ( Col. 13),16 Years & Above and below 18 Years - Transgender - ( Col. 14),16 Years & Above and below 18 Years - Total - ( Col. 15),Total - Boys - ( Col. 16),Total - Girls - ( Col. 17),Total - Transgender - ( Col. 18),Total - Total - ( Col. 19)
+1,Murder,995,6,0,0,6,301,7,0,308,1151,20,0,1171,1458,27,0,1485
+2,Culpable Homicide not amounting to Murder,41,3,0,0,3,11,0,0,11,32,0,0,32,46,0,0,46
+3,Causing Death by Negligence,455,1,0,0,1,114,1,0,115,344,1,0,345,459,2,0,461
+4,Dowry Deaths,14,0,0,0,0,1,0,0,1,8,5,0,13,9,5,0,14
+5,Abetment of Suicide,93,0,0,0,0,19,4,0,23,72,11,0,83,91,15,0,106
+6,Attempt to Commit Murder,1476,2,0,0,2,446,3,0,449,1724,21,0,1745,2172,24,0,2196
+7,Attempt to commit Culpable Homicide,143,1,0,0,1,28,0,0,28,193,1,0,194,222,1,0,223
+8,Attempt to Commit Suicide,32,0,0,0,0,6,2,0,8,15,8,0,23,21,10,0,31
+9,"Miscarriage, Infanticide, Foeticide and Abandonment",4,0,0,0,0,0,0,0,0,3,1,0,4,3,1,0,4
+10,Hurt,5836,62,1,0,63,1738,21,0,1759,5782,73,0,5855,7582,95,0,7677
+11,Wrongful Restraint/Confinement,67,0,0,0,0,12,0,0,12,73,1,0,74,85,1,0,86
+12,Assault on Women with Intent to Outrage her Modesty,811,3,0,0,3,161,0,0,161,788,4,0,792,952,4,0,956
+13,Kidnapping and Abduction,931,4,0,0,4,151,0,0,151,852,3,0,855,1007,3,0,1010
+14,Human Trafficking,6,2,0,0,2,1,0,0,1,4,0,0,4,7,0,0,7
+15,Exploitation of Trafficked Person,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+16,Selling of Minors for Prostitution,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+17,Buying of Minors for Prostitution,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+18,Rape,977,10,0,0,10,264,0,0,264,806,5,0,811,1080,5,0,1085
+19,Attempt to Commit Rape,16,0,0,0,0,2,0,0,2,14,0,0,14,16,0,0,16
+20,Unnatural Offences,70,3,0,0,3,38,0,0,38,51,0,0,51,92,0,0,92
+Offences Affecting the Human Body (Total),Offences Affecting the Human Body (Total),11967,97,1,0,98,3293,38,0,3331,11912,154,0,12066,15302,193,0,15495
+21,Offences against State,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+Offences against the State (Total),Offences against the State (Total),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+22,Unlawful Assembly,90,0,0,0,0,31,1,0,32,137,4,0,141,168,5,0,173
+23,Riots,693,0,1,0,1,156,4,0,160,981,22,0,1003,1137,27,0,1164
+24,Offences promoting enmity between different groups,33,0,0,0,0,6,0,0,6,41,0,0,41,47,0,0,47
+25,Affray,26,0,0,0,0,5,1,0,6,48,0,0,48,53,1,0,54
+Offences against Public Tranquillity (Total),Offences against Public Tranquillity (Total),842,0,1,0,1,198,6,0,204,1207,26,0,1233,1405,33,0,1438
+26,Theft,6557,55,0,0,55,1865,6,0,1871,6397,26,0,6423,8317,32,0,8349
+27,Burglary,2015,19,0,0,19,688,3,0,691,1982,21,0,2003,2689,24,0,2713
+28,Extortion & Blackmailing,92,0,0,0,0,19,0,0,19,112,3,0,115,131,3,0,134
+29,Robbery,1030,3,0,0,3,199,3,0,202,1314,3,0,1317,1516,6,0,1522
+30,Attempt to Commit Dacoity/Robbery,7,0,0,0,0,3,0,0,3,8,0,0,8,11,0,0,11
+31,Dacoity,137,1,0,0,1,30,0,0,30,195,2,0,197,226,2,0,228
+32,Making Preparation and Assembly for committing Dacoity,69,0,0,0,0,11,0,0,11,76,0,0,76,87,0,0,87
+33,Criminal Misappropriation,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+34,Criminal Breach of Trust,7,0,0,0,0,0,0,0,0,7,0,0,7,7,0,0,7
+35,Dishonestly Receiving/Dealing-in Stolen Property,102,0,0,0,0,13,0,0,13,131,0,0,131,144,0,0,144
+Offences against Property (Total),Offences against Property (Total),10016,78,0,0,78,2828,12,0,2840,10222,55,0,10277,13128,67,0,13195
+36,Counterfeiting,4,0,0,0,0,2,0,0,2,4,0,0,4,6,0,0,6
+37,"Forgery, Cheating & Fraud",171,3,0,0,3,23,1,0,24,156,2,0,158,182,3,0,185
+Offences Relating to Documents & Property Marks (Total),Offences Relating to Documents & Property Marks (Total),175,3,0,0,3,25,1,0,26,160,2,0,162,188,3,0,191
+38,Offences relating to Elections,1,0,0,0,0,0,0,0,0,1,0,0,1,1,0,0,1
+39,Disobedience to order duly promulgated by Public Servant,17,0,0,0,0,1,0,0,1,19,0,0,19,20,0,0,20
+40,Harbouring an Offender,1,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1
+41,Offences relating to Adulteration or Sale of Food/Drugs,1,0,0,0,0,0,0,0,0,2,0,0,2,2,0,0,2
+42,Rash Driving on Public way,938,7,0,0,7,165,1,0,166,775,4,0,779,947,5,0,952
+43,Obstruction on Public way,10,0,0,0,0,0,0,0,0,12,0,0,12,12,0,0,12
+44,Sale of obscene Books/Objects,1,0,0,0,0,0,0,0,0,1,0,0,1,1,0,0,1
+45,Obscene Acts and Songs at Public Places,102,0,0,0,0,21,0,0,21,87,0,0,87,108,0,0,108
+46,Offences relating to Religion,42,1,0,0,1,11,0,0,11,38,2,0,40,50,2,0,52
+47,Cheating by Impersonation,5,0,0,0,0,2,0,0,2,3,0,0,3,5,0,0,5
+48,Offences related to Mischief,5,0,0,0,0,0,0,0,0,5,0,0,5,5,0,0,5
+49,Arson,41,0,0,0,0,17,0,0,17,46,0,0,46,63,0,0,63
+50,Criminal Trespass,231,0,0,0,0,46,0,0,46,230,9,0,239,276,9,0,285
+51,Cruelty by Husband or his Relatives,48,0,0,0,0,7,1,0,8,32,9,0,41,39,10,0,49
+52,Circulate False/Fake News/Rumours,16,0,0,0,0,9,0,0,9,13,0,0,13,22,0,0,22
+53,Criminal Intimidation,1043,0,0,0,0,140,0,0,140,992,23,0,1015,1132,23,0,1155
+54,Insult to the Modesty of Women,23,0,0,0,0,5,0,0,5,22,0,0,22,27,0,0,27
+Miscellaneous IPC Crimes (Total),Miscellaneous IPC Crimes (Total),2525,8,0,0,8,424,3,0,427,2278,47,0,2325,2710,50,0,2760
+55,Other IPC crimes,1168,12,0,0,12,329,2,0,331,1236,16,0,1252,1577,18,0,1595
+Total Cognizable IPC crimes,Total Cognizable IPC crimes,26693,198,2,0,200,7097,62,0,7159,27015,300,0,27315,34310,364,0,34674
