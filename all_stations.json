@@ -1,0 +1,422 @@
+[
+  {
+    "name": "Vandalur",
+    "type": "Suburban",
+    "coordinates": [
+      12.8916061,
+      80.084974
+    ],
+    "road_distance_km": 10.5,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Urappakkam",
+    "type": "Suburban",
+    "coordinates": [
+      12.8673657,
+      80.0720222
+    ],
+    "road_distance_km": 11.9,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Perungalattur",
+    "type": "Suburban",
+    "coordinates": [
+      12.9052432,
+      80.095046
+    ],
+    "road_distance_km": 12.2,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Tambaram",
+    "type": "Suburban",
+    "coordinates": [
+      12.9257923,
+      80.1179194
+    ],
+    "road_distance_km": 16.4,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Sholinganallur Metro",
+    "type": "Metro",
+    "coordinates": [
+      12.9009583,
+      80.2279647
+    ],
+    "road_distance_km": 19.2,
+    "operational_status": "Planned/Under Construction"
+  },
+  {
+    "name": "Guduvancheri",
+    "type": "Suburban",
+    "coordinates": [
+      12.8452303,
+      80.0576503
+    ],
+    "road_distance_km": 14.8,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Tambaram Sanatorium",
+    "type": "Suburban",
+    "coordinates": [
+      12.9369591,
+      80.1307034
+    ],
+    "road_distance_km": 14.6,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Chromepet",
+    "type": "Suburban",
+    "coordinates": [
+      12.9521897,
+      80.1411677
+    ],
+    "road_distance_km": 16.3,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Pallavaram",
+    "type": "Suburban",
+    "coordinates": [
+      12.9675742,
+      80.1520504
+    ],
+    "road_distance_km": 18.3,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Kattangulathur",
+    "type": "Suburban",
+    "coordinates": [
+      12.8055581,
+      80.0266339
+    ],
+    "road_distance_km": 20.0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Tirusulam",
+    "type": "Suburban",
+    "coordinates": [
+      12.9804609,
+      80.1657933
+    ],
+    "road_distance_km": 20.6,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "\u0b9a\u0bc6\u0ba9\u0bcd\u0ba9\u0bc8 \u0bb5\u0bbf\u0bae\u0bbe\u0ba9 \u0ba8\u0bbf\u0bb2\u0bc8\u0baf\u0bae\u0bcd",
+    "type": "Metro",
+    "coordinates": [
+      12.9807725,
+      80.1641832
+    ],
+    "road_distance_km": 20.6,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Chennai International Airport",
+    "type": "Metro",
+    "coordinates": [
+      12.9808092,
+      80.1642026
+    ],
+    "road_distance_km": 20.6,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "\u0b9a\u0bc6\u0ba9\u0bcd\u0ba9\u0bc8 \u0bb5\u0bbf\u0bae\u0bbe\u0ba9 \u0ba8\u0bbf\u0bb2\u0bc8\u0baf\u0bae\u0bcd",
+    "type": "Metro",
+    "coordinates": [
+      12.9808178,
+      80.1641592
+    ],
+    "road_distance_km": 20.6,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Velachery",
+    "type": "Suburban",
+    "coordinates": [
+      12.9676192,
+      80.2195082
+    ],
+    "road_distance_km": 22.1,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Meenambakkam",
+    "type": "Suburban",
+    "coordinates": [
+      12.9846976,
+      80.1750925
+    ],
+    "road_distance_km": 22.7,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Puzhudivakkam",
+    "type": "MRTS",
+    "coordinates": [
+      12.9771578,
+      80.2054236
+    ],
+    "road_distance_km": 23.9,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Adambakkam",
+    "type": "MRTS",
+    "coordinates": [
+      12.9823811,
+      80.1968882
+    ],
+    "road_distance_km": 26.7,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "\u0bae\u0bc0\u0ba9\u0bae\u0bcd\u0baa\u0bbe\u0b95\u0bcd\u0b95\u0bae\u0bcd",
+    "type": "Metro",
+    "coordinates": [
+      12.9876388,
+      80.1764698
+    ],
+    "road_distance_km": 22.3,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "\u0bae\u0bc0\u0ba9\u0bae\u0bcd\u0baa\u0bbe\u0b95\u0bcd\u0b95\u0bae\u0bcd",
+    "type": "Metro",
+    "coordinates": [
+      12.9876709,
+      80.1764378
+    ],
+    "road_distance_km": 21.6,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Meenambakkam",
+    "type": "Metro",
+    "coordinates": [
+      12.9876728,
+      80.1764787
+    ],
+    "road_distance_km": 22.3,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Palavanthangal",
+    "type": "Suburban",
+    "coordinates": [
+      12.9906385,
+      80.1879401
+    ],
+    "road_distance_km": 25.2,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Perungudi",
+    "type": "Suburban",
+    "coordinates": [
+      12.9760584,
+      80.2321916
+    ],
+    "road_distance_km": 28.5,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Saint Thomas Mount",
+    "type": "Suburban",
+    "coordinates": [
+      12.9947654,
+      80.1993715
+    ],
+    "road_distance_km": 27.2,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Saint Thomas Mount",
+    "type": "Metro",
+    "coordinates": [
+      12.995,
+      80.198582
+    ],
+    "road_distance_km": 25.8,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Taramani",
+    "type": "Suburban",
+    "coordinates": [
+      12.9786584,
+      80.2416441
+    ],
+    "road_distance_km": 27.4,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Nanganallur Road",
+    "type": "Metro",
+    "coordinates": [
+      12.9998483,
+      80.1940028
+    ],
+    "road_distance_km": 24.5,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Nanganallur Road",
+    "type": "Metro",
+    "coordinates": [
+      12.9998739,
+      80.1939756
+    ],
+    "road_distance_km": 23.9,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Nanganallur Road",
+    "type": "Metro",
+    "coordinates": [
+      12.9998798,
+      80.1940099
+    ],
+    "road_distance_km": 23.9,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Regional Transport Office,Meenambakkam",
+    "type": "Metro",
+    "coordinates": [
+      12.9993186,
+      80.2009894
+    ],
+    "road_distance_km": 26.2,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Chennai Beach",
+    "type": "Suburban",
+    "coordinates": [
+      13.0924,
+      80.2929
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Chennai Central",
+    "type": "Metro",
+    "coordinates": [
+      13.0825,
+      80.275
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Chennai Egmore",
+    "type": "Metro",
+    "coordinates": [
+      13.0784,
+      80.2608
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Guindy",
+    "type": "Metro",
+    "coordinates": [
+      13.0084,
+      80.2137
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Mambalam",
+    "type": "Suburban",
+    "coordinates": [
+      13.0378,
+      80.2285
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Koyambedu",
+    "type": "Metro",
+    "coordinates": [
+      13.0732,
+      80.1947
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Alandur",
+    "type": "Metro",
+    "coordinates": [
+      13.0041,
+      80.2014
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Tirumangalam",
+    "type": "Metro",
+    "coordinates": [
+      13.0851,
+      80.1901
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Vadapalani",
+    "type": "Metro",
+    "coordinates": [
+      13.0503,
+      80.212
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Teynampet",
+    "type": "Metro",
+    "coordinates": [
+      13.0398,
+      80.249
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "Thousand Lights",
+    "type": "Metro",
+    "coordinates": [
+      13.0592,
+      80.2584
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  },
+  {
+    "name": "LIC",
+    "type": "Metro",
+    "coordinates": [
+      13.0649,
+      80.2657
+    ],
+    "road_distance_km": 0,
+    "operational_status": "Operational"
+  }
+]
