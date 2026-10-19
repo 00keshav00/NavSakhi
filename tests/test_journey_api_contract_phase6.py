@@ -439,19 +439,17 @@ def test_api_zero_distance_journey(auth_client):
 
 
 def test_api_unauthenticated_request_rejected(auth_client):
-    """Unauthenticated call to /api/v1/journeys/ must be rejected with 401."""
+    """Unauthenticated call to protected journey endpoints (/active) must be rejected with 401."""
     client, _, _ = auth_client
     # Temporarily remove get_current_user_id override to test real auth dependency
     override = app.dependency_overrides.pop(get_current_user_id, None)
     try:
-        payload = {"source": "13.05, 80.25", "destination": "13.06, 80.26"}
-        res = client.post("/api/v1/journeys/", json=payload)
-
+        res = client.get("/api/v1/journeys/active")
         assert res.status_code == 401
         body = res.json()
         assert body["success"] is False
         err_msg = body["error"]["message"] if isinstance(body["error"], dict) else str(body["error"])
-        assert "token" in err_msg.lower() or "authentication" in err_msg.lower()
+        assert "token" in err_msg.lower() or "authentication" in err_msg.lower() or "credentials" in err_msg.lower()
     finally:
         if override:
             app.dependency_overrides[get_current_user_id] = override

@@ -92,6 +92,19 @@ export function enrichGeoJsonWithSelection(
         featureGeometry = seg.polyline.geometry;
       }
 
+      // Elevate active route colors to vibrant, unmistakable accents.
+      // Inactive routes use a subdued, low-contrast slate (#94A3B8) so they never compete with the active path.
+      let segmentColor: string;
+      if (isActive) {
+        if (seg?.color && seg.color !== "#0284C7") {
+          segmentColor = seg.color;
+        } else {
+          segmentColor = "#E13B7A"; // NavSakhi radiant brand rose
+        }
+      } else {
+        segmentColor = "#94A3B8";
+      }
+
       const feature: GeoJSON.Feature = {
         type: "Feature",
         geometry: featureGeometry,
@@ -104,10 +117,10 @@ export function enrichGeoJsonWithSelection(
           transportMode: seg?.transport_mode || "walk",
           origin: seg?.origin,
           destination: seg?.destination,
-          color: seg?.color || (isActive ? "#8B5CF6" : "#94A3B8"),
-          isActive,
-          isLegFocused,
-          isLegHovered,
+          color: segmentColor,
+          isActive: Boolean(isActive),
+          isLegFocused: Boolean(isLegFocused),
+          isLegHovered: Boolean(isLegHovered),
         },
       };
 

@@ -105,6 +105,7 @@ interface SafeMapProps {
   routeGeometry?: GeoJSON.FeatureCollection | null;
   hasSearched?: boolean;
   isLoading?: boolean;
+  hasError?: boolean;
   activeRouteId?: string | null;
   focusedLegIndex?: number | null;
   hoveredLegIndex?: number | null;
@@ -124,6 +125,7 @@ export default function SafeMap({
   routeGeometry, // Expects a FeatureCollection
   hasSearched = false,
   isLoading = false,
+  hasError = false,
   activeRouteId = null,
   focusedLegIndex = null,
   isDesktop = false,
@@ -308,6 +310,7 @@ export default function SafeMap({
 
   const hasEmptyGeometry =
     !isLoading &&
+    !hasError &&
     hasSearched &&
     (!routeGeometry || !routeGeometry.features || routeGeometry.features.length === 0);
 
@@ -460,8 +463,8 @@ export default function SafeMap({
                   <span>Walking</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 rounded-full bg-[#0284C7]" />
-                  <span>Cab / Vehicle</span>
+                  <span className="w-3 h-1 rounded-full bg-[#E13B7A]" />
+                  <span>Selected Route / Vehicle</span>
                 </div>
               </div>
             </div>
@@ -686,39 +689,44 @@ export default function SafeMap({
         {/* 6. ROUTE LAYERS (ACTIVE HIGHLIGHTED, INACTIVE SUBDUED) */}
         {routeGeometry && (
           <Source id="route-source" type="geojson" data={routeGeometry}>
-            {/* Inactive Alternative Routes (Subdued, lower opacity) */}
+            {/* Inactive Alternative Routes (Subdued Backdrop) */}
             <Layer
               id="route-layer-bg-inactive"
               type="line"
               filter={["!=", ["get", "isActive"], true]}
               layout={{ "line-join": "round", "line-cap": "round" }}
-              paint={{ "line-color": "#0f172a", "line-width": 6, "line-opacity": 0.4 }}
+              paint={{ "line-color": "#0f172a", "line-width": 5, "line-opacity": 0.2 }}
             />
             <Layer
               id="route-layer-fg-inactive"
               type="line"
               filter={["!=", ["get", "isActive"], true]}
               layout={{ "line-join": "round", "line-cap": "round" }}
-              paint={{ "line-color": ["get", "color"], "line-width": 4, "line-opacity": 0.35 }}
+              paint={{ "line-color": ["get", "color"], "line-width": 3.5, "line-opacity": 0.35 }}
             />
 
-            {/* Active Selected Route (Prominent Glow & Shadow) */}
+            {/* Active Selected Route (Prominent Luminous Glow) */}
             <Layer
               id="route-layer-glow-active"
               type="line"
               filter={["==", ["get", "isActive"], true]}
               layout={{ "line-join": "round", "line-cap": "round" }}
-              paint={{ "line-color": ["get", "color"], "line-width": 16, "line-opacity": 0.25 }}
+              paint={{
+                "line-color": ["get", "color"],
+                "line-width": 18,
+                "line-opacity": 0.45,
+                "line-blur": 3,
+              }}
             />
-            {/* Active Selected Route (Dark Casing) */}
+            {/* Active Selected Route (Crisp Contrast Casing) */}
             <Layer
               id="route-layer-outline-active"
               type="line"
               filter={["==", ["get", "isActive"], true]}
               layout={{ "line-join": "round", "line-cap": "round" }}
-              paint={{ "line-color": "#020617", "line-width": 10, "line-opacity": 0.9 }}
+              paint={{ "line-color": "#ffffff", "line-width": 9, "line-opacity": 0.95 }}
             />
-            {/* Active Selected Route (Foreground Colored Stroke) */}
+            {/* Active Selected Route (Vibrant Foreground Colored Stroke) */}
             <Layer
               id="route-layer-fg-active"
               type="line"

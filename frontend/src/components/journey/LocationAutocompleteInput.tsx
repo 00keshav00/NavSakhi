@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { 
   MapPin, Train, Bus, Shield, Landmark, Navigation, 
-  Loader2, X, Check, Compass, AlertCircle
+  Loader2, X, Check, Compass
 } from "lucide-react";
 import { journeyService } from "@/api/services/journeyService";
 import { LocationSuggestion } from "@/types/journey";
@@ -34,10 +34,10 @@ export function LocationAutocompleteInput({
   ariaLabel,
 }: LocationAutocompleteInputProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
-  const [errorNotice, setErrorNotice] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,6 +49,7 @@ export function LocationAutocompleteInput({
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setIsFocused(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -64,25 +65,28 @@ export function LocationAutocompleteInput({
       setSuggestions([]);
       setIsLoading(false);
       setIsOpen(false);
-      setErrorNotice(null);
       return;
     }
 
     setIsLoading(true);
-    setErrorNotice(null);
 
     try {
       const results = await journeyService.autocomplete(trimmed, 8);
       // Discard stale out-of-order response
       if (latestQueryRef.current !== trimmed) return;
 
-      setSuggestions(results);
-      setHighlightedIndex(-1);
-      setIsOpen(true);
-    } catch (err) {
+      if (results && results.length > 0) {
+        setSuggestions(results);
+        setHighlightedIndex(-1);
+        setIsOpen(true);
+      } else {
+        setSuggestions([]);
+        setIsOpen(false);
+      }
+    } catch {
       if (latestQueryRef.current !== trimmed) return;
-      setErrorNotice("Search temporarily unavailable");
       setSuggestions([]);
+      setIsOpen(false);
     } finally {
       if (latestQueryRef.current === trimmed) {
         setIsLoading(false);
@@ -103,6 +107,15 @@ export function LocationAutocompleteInput({
       onSelectSuggestion(null);
     }
 
+    if (newText.trim().length < 2) {
+      setSuggestions([]);
+      setIsOpen(false);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      return;
+    }
+
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
@@ -118,7 +131,7 @@ export function LocationAutocompleteInput({
     onSelectSuggestion(item);
     setIsOpen(false);
     setSuggestions([]);
-    inputRef.current?.focus();
+    setIsFocused(false);
   };
 
   const handleClear = () => {
@@ -130,6 +143,18 @@ export function LocationAutocompleteInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsOpen(false);
+      return;
+    }
+
+    if (e.key === "Tab") {
+      setIsOpen(false);
+      return;
+    }
+
     if (!isOpen || suggestions.length === 0) {
       if (e.key === "ArrowDown" && value.trim().length >= 2) {
         performSearch(value);
@@ -148,10 +173,15 @@ export function LocationAutocompleteInput({
         e.preventDefault();
         handleSelect(suggestions[highlightedIndex]);
       }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setIsOpen(false);
     }
+  };
+
+  const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (containerRef.current?.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    setIsFocused(false);
+    setIsOpen(false);
   };
 
   const getPlaceIcon = (type: string) => {
@@ -196,8 +226,15 @@ export function LocationAutocompleteInput({
   const activeDescendantId =
     highlightedIndex >= 0 ? `${id}-option-${highlightedIndex}` : undefined;
 
+  // The dropdown is ONLY visible when there are real, verified suggestions to show
+  const showDropdown = isOpen && isFocused && suggestions.length > 0;
+
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div
+      ref={containerRef}
+      onBlur={handleContainerBlur}
+      className="relative w-full"
+    >
       <div className="relative flex items-center">
         {/* Leading icon */}
         {leadingIcon && (
@@ -213,6 +250,7 @@ export function LocationAutocompleteInput({
           value={value}
           onChange={handleInputChange}
           onFocus={() => {
+            setIsFocused(true);
             if (value.trim().length >= 2 && suggestions.length > 0) {
               setIsOpen(true);
             }
@@ -222,7 +260,7 @@ export function LocationAutocompleteInput({
           aria-label={ariaLabel || placeholder}
           role="combobox"
           aria-autocomplete="list"
-          aria-expanded={isOpen}
+          aria-expanded={showDropdown}
           aria-controls={listboxId}
           aria-activedescendant={activeDescendantId}
           className={`w-full h-10 bg-background border border-border rounded-lg text-xs font-medium text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary transition-colors ${
@@ -267,29 +305,17 @@ export function LocationAutocompleteInput({
         </div>
       )}
 
-      {/* Autocomplete Dropdown */}
-      {isOpen && (
+      {/* Autocomplete Dropdown - STRICTLY rendered ONLY when genuine suggestions exist */}
+      {showDropdown && (
         <div
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-1.5 max-h-64 overflow-y-auto rounded-xl bg-card border border-border/80 shadow-2xl backdrop-blur-md z-50 p-1 flex flex-col gap-0.5 divide-y divide-border/20"
+          onMouseDown={(e) => {
+            // Prevent input blur before option selection click fires
+            e.preventDefault();
+          }}
+          className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto rounded-xl bg-card border border-border/80 shadow-2xl backdrop-blur-md z-40 p-1 flex flex-col gap-0.5 divide-y divide-border/20"
         >
-          {errorNotice && (
-            <div className="flex items-center gap-1.5 p-2 text-[11px] text-amber-400/90 bg-amber-500/10 rounded-lg">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>{errorNotice}</span>
-            </div>
-          )}
-
-          {suggestions.length === 0 && !isLoading && !errorNotice && (
-            <div className="p-3 text-center text-xs text-muted-foreground">
-              No matching verified places found.
-              <div className="text-[10px] text-zinc-400 mt-0.5">
-                Tip: Enter explicit coordinates (e.g. 12.8448, 80.1527) or landmark name.
-              </div>
-            </div>
-          )}
-
           {suggestions.map((item, idx) => {
             const isHighlighted = idx === highlightedIndex;
             const isSelected = selectedSuggestion?.id === item.id;

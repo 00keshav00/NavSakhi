@@ -143,6 +143,7 @@ export default function JourneyPage() {
           routeGeometry={activeGeoJson}
           hasSearched={hasSearched}
           isLoading={isLoading}
+          hasError={isError}
           activeRouteId={effectiveRouteId}
           focusedLegIndex={focusedLegIndex}
           hoveredLegIndex={hoveredLegIndex}
