@@ -1,0 +1,53 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# Temporary test outputs and scratch
+*.tmp
+test_outdir/
+test_*.parquet
+test_segments.parquet
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+
+# Raw extracts and raster files
+*.pbf
+*.tif
+
+# Exclude intermediate checkpoints and training archives
+checkpoints/
+reports/
+outputs/
+archive_v1/
+ml/models/archive_v1/
+
+# Explicitly preserve frozen models and runtime parquet datasets
+!ml/models/
+!ml/models/*
+!ml/datasets/processed/*.parquet
+!ml/datasets/validation/*.parquet

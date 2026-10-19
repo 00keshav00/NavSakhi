@@ -1,0 +1,20 @@
+{
+  "exposure_coefficients": {
+    "Walk": 1.00,
+    "Bicycle": 0.90,
+    "Two-Wheeler": 0.80,
+    "Auto Rickshaw": 0.70,
+    "Personal Car": 0.65,
+    "Cab": 0.60,
+    "Female-only Cab": 0.50,
+    "Public Bus": 0.50
+  },
+  "transit_safety_scores": {
+    "Metro": 90.0,
+    "Local Train": 85.0
+  },
+  "transit_modes": [
+    "Metro",
+    "Local Train"
+  ]
+}

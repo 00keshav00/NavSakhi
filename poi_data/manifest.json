@@ -1,0 +1,39 @@
+{
+  "dataset_name": "safeshe_chennai_verified_pois",
+  "dataset_version": "1.0.0",
+  "created_at": "2026-10-18T10:36:44.753504Z",
+  "publisher": "OpenStreetMap contributors",
+  "source_url": "https://www.openstreetmap.org",
+  "source_pbf_file": "app\\ml\\Hack\\ml\\datasets\\raw\\osm\\chennai_v1.osm.pbf",
+  "license": "Open Database License (ODbL) 1.0",
+  "attribution_requirement": "© OpenStreetMap contributors. Data available under the Open Database License.",
+  "geographic_coverage": {
+    "region": "Chennai Metropolitan Area (CMA), Tamil Nadu, India",
+    "bounds": {
+      "min_lat": 12.75,
+      "max_lat": 13.35,
+      "min_lon": 79.9,
+      "max_lon": 80.45
+    }
+  },
+  "total_records": 2054,
+  "category_breakdown": {
+    "clinic": 637,
+    "fire_station": 17,
+    "hospital": 975,
+    "pharmacy": 304,
+    "police": 121
+  },
+  "data_provenance": "Extracted directly from canonical chennai_v1.osm.pbf road and infrastructure extract.",
+  "known_limitations": [
+    "Facility operating hours and 24-hour emergency status are not universally tagged in OSM.",
+    "Specialized clinics are distinguished from full hospitals; only hospitals are marked as default emergency departments.",
+    "Coverage reflects mapped OSM records as of extract timestamp."
+  ],
+  "validation_rules_applied": [
+    "Coordinates verified within Chennai CMA geographic bounding box [12.75-13.35 N, 79.90-80.45 E].",
+    "Building footprints converted to representative geometric centroids.",
+    "Deduplication by stable OSM ID and spatial proximity threshold (0.0001 deg).",
+    "Preservation of genuine OSM IDs and source provenance."
+  ]
+}

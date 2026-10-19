@@ -1,0 +1,9 @@
+{
+  "project_name": "SafeShe",
+  "random_state": 42,
+  "default_output_precision": 4,
+  "crowd_model_filename": "crowd_model.pkl",
+  "safety_model_filename": "safety_model.pkl",
+  "crowd_preprocessor_filename": "crowd_preprocessor.pkl",
+  "safety_preprocessor_filename": "safety_preprocessor.pkl"
+}

@@ -1,0 +1,8335 @@
+{
+  "mode": "Suburban",
+  "station_count": 104,
+  "stations": [
+    {
+      "id": "SRR_MSB",
+      "stop_id": "MSB",
+      "code": "MSB",
+      "name": "Chennai Beach",
+      "raw_name": "CHENNAI BEACH JN.",
+      "lat": 13.092295629904,
+      "lon": 80.291892662644,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MSB_P_1",
+          "platform_code": "1",
+          "lat": 13.092295629904,
+          "lon": 80.291892662644
+        },
+        {
+          "stop_id": "MSB_P_4",
+          "platform_code": "4",
+          "lat": 13.092295629904,
+          "lon": 80.291892662644
+        },
+        {
+          "stop_id": "MSB_P_6",
+          "platform_code": "6",
+          "lat": 13.092295629904,
+          "lon": 80.291892662644
+        },
+        {
+          "stop_id": "MSB_P_9",
+          "platform_code": "9",
+          "lat": 13.092295629904,
+          "lon": 80.291892662644
+        },
+        {
+          "stop_id": "MSB_P_2",
+          "platform_code": "2",
+          "lat": 13.092295629904,
+          "lon": 80.291892662644
+        },
+        {
+          "stop_id": "MSB_P_3",
+          "platform_code": "3",
+          "lat": 13.092295629904,
+          "lon": 80.291892662644
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MSB_1",
+          "name": "A1",
+          "lat": 13.09421216,
+          "lon": 80.29245809
+        },
+        {
+          "stop_id": "MSB_2",
+          "name": "B1",
+          "lat": 13.09126019,
+          "lon": 80.29145809
+        }
+      ],
+      "child_stop_ids": [
+        "MSB_1",
+        "MSB_2",
+        "MSB_P_1",
+        "MSB_P_4",
+        "MSB_P_6",
+        "MSB_P_9",
+        "MSB_P_2",
+        "MSB_P_3"
+      ]
+    },
+    {
+      "id": "SRR_TBM",
+      "stop_id": "TBM",
+      "code": "TBM",
+      "name": "Tambaram",
+      "raw_name": "TAMBARAM",
+      "lat": 12.92534508,
+      "lon": 80.11891922,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TBM_P_1",
+          "platform_code": "1",
+          "lat": 12.92534508,
+          "lon": 80.11891922
+        },
+        {
+          "stop_id": "TBM_P_2",
+          "platform_code": "2",
+          "lat": 12.92534508,
+          "lon": 80.11891922
+        },
+        {
+          "stop_id": "TBM_P_3",
+          "platform_code": "3",
+          "lat": 12.92534508,
+          "lon": 80.11891922
+        },
+        {
+          "stop_id": "TBM_P_4",
+          "platform_code": "4",
+          "lat": 12.92534508,
+          "lon": 80.11891922
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TBM_1",
+          "name": "A1",
+          "lat": 12.92471366,
+          "lon": 80.11904648
+        },
+        {
+          "stop_id": "TBM_2",
+          "name": "AL1",
+          "lat": 12.92478114,
+          "lon": 80.11910802
+        },
+        {
+          "stop_id": "TBM_3",
+          "name": "B1",
+          "lat": 12.92586076,
+          "lon": 80.11785572
+        },
+        {
+          "stop_id": "TBM_4",
+          "name": "R1",
+          "lat": 12.92724477,
+          "lon": 80.11798187
+        },
+        {
+          "stop_id": "TBM_5",
+          "name": "R2",
+          "lat": 12.92689689,
+          "lon": 80.11831572
+        }
+      ],
+      "child_stop_ids": [
+        "TBM_1",
+        "TBM_2",
+        "TBM_3",
+        "TBM_4",
+        "TBM_5",
+        "TBM_P_1",
+        "TBM_P_2",
+        "TBM_P_3",
+        "TBM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MS",
+      "stop_id": "MS",
+      "code": "MS",
+      "name": "Chennai Egmore",
+      "raw_name": "CHENNAI EGMORE",
+      "lat": 13.07825171,
+      "lon": 80.26103334,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MS_P_1",
+          "platform_code": "1",
+          "lat": 13.07825171,
+          "lon": 80.26103334
+        },
+        {
+          "stop_id": "MS_P_10",
+          "platform_code": "10",
+          "lat": 13.07825171,
+          "lon": 80.26103334
+        },
+        {
+          "stop_id": "MS_P_2",
+          "platform_code": "2",
+          "lat": 13.07825171,
+          "lon": 80.26103334
+        },
+        {
+          "stop_id": "MS_P_3",
+          "platform_code": "3",
+          "lat": 13.07825171,
+          "lon": 80.26103334
+        },
+        {
+          "stop_id": "MS_P_4",
+          "platform_code": "4",
+          "lat": 13.07825171,
+          "lon": 80.26103334
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MS_1",
+          "name": "A1",
+          "lat": 13.07735337,
+          "lon": 80.2603929
+        },
+        {
+          "stop_id": "MS_2",
+          "name": "A2",
+          "lat": 13.077664,
+          "lon": 80.26134018
+        },
+        {
+          "stop_id": "MS_3",
+          "name": "A3",
+          "lat": 13.07778504,
+          "lon": 80.26175025
+        },
+        {
+          "stop_id": "MS_4",
+          "name": "A4",
+          "lat": 13.07801126,
+          "lon": 80.26247073
+        },
+        {
+          "stop_id": "MS_5",
+          "name": "B1",
+          "lat": 13.07874026,
+          "lon": 80.26083345
+        },
+        {
+          "stop_id": "MS_6",
+          "name": "B2",
+          "lat": 13.07891806,
+          "lon": 80.26223874
+        },
+        {
+          "stop_id": "MS_7",
+          "name": "B3",
+          "lat": 13.07916396,
+          "lon": 80.26310469
+        },
+        {
+          "stop_id": "MS_8",
+          "name": "BL1",
+          "lat": 13.07912261,
+          "lon": 80.26235928
+        }
+      ],
+      "child_stop_ids": [
+        "MS_1",
+        "MS_2",
+        "MS_3",
+        "MS_4",
+        "MS_5",
+        "MS_6",
+        "MS_7",
+        "MS_8",
+        "MS_P_1",
+        "MS_P_10",
+        "MS_P_2",
+        "MS_P_3",
+        "MS_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TRL",
+      "stop_id": "TRL",
+      "code": "TRL",
+      "name": "Tiruvallur",
+      "raw_name": "TIRUVALLUR",
+      "lat": 13.117196,
+      "lon": 79.91586,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TRL_P_3",
+          "platform_code": "3",
+          "lat": 13.117196,
+          "lon": 79.91586
+        },
+        {
+          "stop_id": "TRL_P_4",
+          "platform_code": "4",
+          "lat": 13.117196,
+          "lon": 79.91586
+        },
+        {
+          "stop_id": "TRL_P_1",
+          "platform_code": "1",
+          "lat": 13.117196,
+          "lon": 79.91586
+        },
+        {
+          "stop_id": "TRL_P_2",
+          "platform_code": "2",
+          "lat": 13.117196,
+          "lon": 79.91586
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TRL_1",
+          "name": "A1",
+          "lat": 13.11605493,
+          "lon": 79.91181623
+        }
+      ],
+      "child_stop_ids": [
+        "TRL_1",
+        "TRL_P_3",
+        "TRL_P_4",
+        "TRL_P_1",
+        "TRL_P_2"
+      ]
+    },
+    {
+      "id": "SRR_VLCY",
+      "stop_id": "VLCY",
+      "code": "VLCY",
+      "name": "Velachery",
+      "raw_name": "VELACHERY",
+      "lat": 12.967256,
+      "lon": 80.22054,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "VLCY_P_1",
+          "platform_code": "1",
+          "lat": 12.967256,
+          "lon": 80.22054
+        },
+        {
+          "stop_id": "VLCY_P_2",
+          "platform_code": "2",
+          "lat": 12.967256,
+          "lon": 80.22054
+        },
+        {
+          "stop_id": "VLCY_P_3",
+          "platform_code": "3",
+          "lat": 12.967256,
+          "lon": 80.22054
+        },
+        {
+          "stop_id": "VLCY_P_4",
+          "platform_code": "4",
+          "lat": 12.967256,
+          "lon": 80.22054
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "VLCY_1",
+          "name": "A1",
+          "lat": 12.96781097,
+          "lon": 80.2183957
+        },
+        {
+          "stop_id": "VLCY_2",
+          "name": "A2",
+          "lat": 12.96714067,
+          "lon": 80.21822584
+        }
+      ],
+      "child_stop_ids": [
+        "VLCY_P_1",
+        "VLCY_P_2",
+        "VLCY_P_3",
+        "VLCY_P_4",
+        "VLCY_1",
+        "VLCY_2"
+      ]
+    },
+    {
+      "id": "SRR_GDY",
+      "stop_id": "GDY",
+      "code": "GDY",
+      "name": "Guindy",
+      "raw_name": "GUINDY",
+      "lat": 13.00828343,
+      "lon": 80.21249612,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "GDY_P_1",
+          "platform_code": "1",
+          "lat": 13.00828343,
+          "lon": 80.21249612
+        },
+        {
+          "stop_id": "GDY_P_2",
+          "platform_code": "2",
+          "lat": 13.00828343,
+          "lon": 80.21249612
+        },
+        {
+          "stop_id": "GDY_P_3",
+          "platform_code": "3",
+          "lat": 13.00828343,
+          "lon": 80.21249612
+        },
+        {
+          "stop_id": "GDY_P_4",
+          "platform_code": "4",
+          "lat": 13.00828343,
+          "lon": 80.21249612
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "GDY_1",
+          "name": "A1",
+          "lat": 13.00828742,
+          "lon": 80.21314363
+        },
+        {
+          "stop_id": "GDY_2",
+          "name": "B1",
+          "lat": 13.00872563,
+          "lon": 80.21248617
+        }
+      ],
+      "child_stop_ids": [
+        "GDY_1",
+        "GDY_2",
+        "GDY_P_1",
+        "GDY_P_2",
+        "GDY_P_3",
+        "GDY_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MKK",
+      "stop_id": "MKK",
+      "code": "MKK",
+      "name": "Kodambakkam",
+      "raw_name": "KODAMBAKKAM",
+      "lat": 13.05278802,
+      "lon": 80.2308973,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MKK_P_1",
+          "platform_code": "1",
+          "lat": 13.05278802,
+          "lon": 80.2308973
+        },
+        {
+          "stop_id": "MKK_P_2",
+          "platform_code": "2",
+          "lat": 13.05278802,
+          "lon": 80.2308973
+        },
+        {
+          "stop_id": "MKK_P_3",
+          "platform_code": "3",
+          "lat": 13.05278802,
+          "lon": 80.2308973
+        },
+        {
+          "stop_id": "MKK_P_4",
+          "platform_code": "4",
+          "lat": 13.05278802,
+          "lon": 80.2308973
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MKK_1",
+          "name": "A1",
+          "lat": 13.05109233,
+          "lon": 80.23088886
+        },
+        {
+          "stop_id": "MKK_2",
+          "name": "B1",
+          "lat": 13.05119027,
+          "lon": 80.23048064
+        },
+        {
+          "stop_id": "MKK_3",
+          "name": "B2",
+          "lat": 13.05186986,
+          "lon": 80.2305687
+        }
+      ],
+      "child_stop_ids": [
+        "MKK_1",
+        "MKK_2",
+        "MKK_3",
+        "MKK_P_1",
+        "MKK_P_2",
+        "MKK_P_3",
+        "MKK_P_4"
+      ]
+    },
+    {
+      "id": "SRR_CGL",
+      "stop_id": "CGL",
+      "code": "CGL",
+      "name": "Chengalpattu",
+      "raw_name": "CHENGALPATTU JN.",
+      "lat": 12.69411,
+      "lon": 79.98084,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "CGL_P_1",
+          "platform_code": "1",
+          "lat": 12.69411,
+          "lon": 79.98084
+        },
+        {
+          "stop_id": "CGL_P_2",
+          "platform_code": "2",
+          "lat": 12.69411,
+          "lon": 79.98084
+        },
+        {
+          "stop_id": "CGL_P_3",
+          "platform_code": "3",
+          "lat": 12.69411,
+          "lon": 79.98084
+        },
+        {
+          "stop_id": "CGL_P_4",
+          "platform_code": "4",
+          "lat": 12.69411,
+          "lon": 79.98084
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "CGL_1",
+          "name": "B1",
+          "lat": 12.69357649,
+          "lon": 79.98048766
+        }
+      ],
+      "child_stop_ids": [
+        "CGL_1",
+        "CGL_P_1",
+        "CGL_P_2",
+        "CGL_P_3",
+        "CGL_P_4"
+      ]
+    },
+    {
+      "id": "SRR_AVD",
+      "stop_id": "AVD",
+      "code": "AVD",
+      "name": "Avadi",
+      "raw_name": "AVADI",
+      "lat": 13.118147,
+      "lon": 80.101785,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "AVD_P_1",
+          "platform_code": "1",
+          "lat": 13.118147,
+          "lon": 80.101785
+        },
+        {
+          "stop_id": "AVD_P_2",
+          "platform_code": "2",
+          "lat": 13.118147,
+          "lon": 80.101785
+        },
+        {
+          "stop_id": "AVD_P_3",
+          "platform_code": "3",
+          "lat": 13.118147,
+          "lon": 80.101785
+        },
+        {
+          "stop_id": "AVD_P_4",
+          "platform_code": "4",
+          "lat": 13.118147,
+          "lon": 80.101785
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "AVD_1",
+          "name": "A1",
+          "lat": 13.11865001,
+          "lon": 80.10238259
+        },
+        {
+          "stop_id": "AVD_2",
+          "name": "B1",
+          "lat": 13.11792782,
+          "lon": 80.10234259
+        }
+      ],
+      "child_stop_ids": [
+        "AVD_1",
+        "AVD_2",
+        "AVD_P_1",
+        "AVD_P_2",
+        "AVD_P_3",
+        "AVD_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PZA",
+      "stop_id": "PZA",
+      "code": "PZA",
+      "name": "Palavantangal",
+      "raw_name": "PALAVANTANGAL",
+      "lat": 12.99104415,
+      "lon": 80.1891505,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PZA_P_1",
+          "platform_code": "1",
+          "lat": 12.99104415,
+          "lon": 80.1891505
+        },
+        {
+          "stop_id": "PZA_P_2",
+          "platform_code": "2",
+          "lat": 12.99104415,
+          "lon": 80.1891505
+        },
+        {
+          "stop_id": "PZA_P_3",
+          "platform_code": "3",
+          "lat": 12.99104415,
+          "lon": 80.1891505
+        },
+        {
+          "stop_id": "PZA_P_4",
+          "platform_code": "4",
+          "lat": 12.99104415,
+          "lon": 80.1891505
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PZA_1",
+          "name": "A1",
+          "lat": 12.98959496,
+          "lon": 80.18604768
+        },
+        {
+          "stop_id": "PZA_2",
+          "name": "B1",
+          "lat": 12.98989426,
+          "lon": 80.18590206
+        },
+        {
+          "stop_id": "PZA_3",
+          "name": "S1",
+          "lat": 12.98919296,
+          "lon": 80.18530837
+        },
+        {
+          "stop_id": "PZA_4",
+          "name": "S2",
+          "lat": 12.98958863,
+          "lon": 80.1852524
+        },
+        {
+          "stop_id": "PZA_5",
+          "name": "A2",
+          "lat": 12.9905149,
+          "lon": 80.18827519
+        }
+      ],
+      "child_stop_ids": [
+        "PZA_1",
+        "PZA_2",
+        "PZA_3",
+        "PZA_4",
+        "PZA_5",
+        "PZA_P_1",
+        "PZA_P_2",
+        "PZA_P_3",
+        "PZA_P_4"
+      ]
+    },
+    {
+      "id": "SRR_AJJ",
+      "stop_id": "AJJ",
+      "code": "AJJ",
+      "name": "Arakkonam",
+      "raw_name": "ARAKKONAM JN.",
+      "lat": 13.081652,
+      "lon": 79.669611,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "AJJ_P_1",
+          "platform_code": "1",
+          "lat": 13.081652,
+          "lon": 79.669611
+        },
+        {
+          "stop_id": "AJJ_P_2",
+          "platform_code": "2",
+          "lat": 13.081652,
+          "lon": 79.669611
+        },
+        {
+          "stop_id": "AJJ_P_3",
+          "platform_code": "3",
+          "lat": 13.081652,
+          "lon": 79.669611
+        },
+        {
+          "stop_id": "AJJ_P_4",
+          "platform_code": "4",
+          "lat": 13.081652,
+          "lon": 79.669611
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "AJJ_1",
+          "name": "A1",
+          "lat": 13.08243552,
+          "lon": 79.66857848
+        },
+        {
+          "stop_id": "AJJ_2",
+          "name": "B1",
+          "lat": 13.08088604,
+          "lon": 79.6686031
+        },
+        {
+          "stop_id": "AJJ_3",
+          "name": "A2",
+          "lat": 13.08221524,
+          "lon": 79.66410927
+        },
+        {
+          "stop_id": "AJJ_4",
+          "name": "AL1",
+          "lat": 13.08234111,
+          "lon": 79.66436773
+        }
+      ],
+      "child_stop_ids": [
+        "AJJ_1",
+        "AJJ_2",
+        "AJJ_3",
+        "AJJ_4",
+        "AJJ_P_1",
+        "AJJ_P_2",
+        "AJJ_P_3",
+        "AJJ_P_4"
+      ]
+    },
+    {
+      "id": "SRR_POTI",
+      "stop_id": "POTI",
+      "code": "POTI",
+      "name": "Potheri",
+      "raw_name": "POTHERI",
+      "lat": 12.820981,
+      "lon": 80.036813,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "POTI_P_1",
+          "platform_code": "1",
+          "lat": 12.820981,
+          "lon": 80.036813
+        },
+        {
+          "stop_id": "POTI_P_3",
+          "platform_code": "3",
+          "lat": 12.820981,
+          "lon": 80.036813
+        },
+        {
+          "stop_id": "POTI_P_4",
+          "platform_code": "4",
+          "lat": 12.820981,
+          "lon": 80.036813
+        },
+        {
+          "stop_id": "POTI_P_2",
+          "platform_code": "2",
+          "lat": 12.820981,
+          "lon": 80.036813
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "POTI_1",
+          "name": "A1",
+          "lat": 12.82076463,
+          "lon": 80.03698596
+        },
+        {
+          "stop_id": "POTI_2",
+          "name": "R1",
+          "lat": 12.82062962,
+          "lon": 80.0375298
+        }
+      ],
+      "child_stop_ids": [
+        "POTI_1",
+        "POTI_2",
+        "POTI_P_1",
+        "POTI_P_3",
+        "POTI_P_4",
+        "POTI_P_2"
+      ]
+    },
+    {
+      "id": "SRR_PER",
+      "stop_id": "PER",
+      "code": "PER",
+      "name": "Perambur",
+      "raw_name": "PERAMBUR",
+      "lat": 13.107617,
+      "lon": 80.246783,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PER_P_1",
+          "platform_code": "1",
+          "lat": 13.107617,
+          "lon": 80.246783
+        },
+        {
+          "stop_id": "PER_P_2",
+          "platform_code": "2",
+          "lat": 13.107617,
+          "lon": 80.246783
+        },
+        {
+          "stop_id": "PER_P_3",
+          "platform_code": "3",
+          "lat": 13.107617,
+          "lon": 80.246783
+        },
+        {
+          "stop_id": "PER_P_4",
+          "platform_code": "4",
+          "lat": 13.107617,
+          "lon": 80.246783
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PER_1",
+          "name": "A1",
+          "lat": 13.10794288,
+          "lon": 80.24446063
+        },
+        {
+          "stop_id": "PER_2",
+          "name": "B1",
+          "lat": 13.10734952,
+          "lon": 80.2448514
+        }
+      ],
+      "child_stop_ids": [
+        "PER_1",
+        "PER_2",
+        "PER_P_1",
+        "PER_P_2",
+        "PER_P_3",
+        "PER_P_4"
+      ]
+    },
+    {
+      "id": "SRR_VLK",
+      "stop_id": "VLK",
+      "code": "VLK",
+      "name": "Villivakkam",
+      "raw_name": "VILLIVAKKAM",
+      "lat": 13.110224,
+      "lon": 80.209119,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "VLK_P_1",
+          "platform_code": "1",
+          "lat": 13.110224,
+          "lon": 80.209119
+        },
+        {
+          "stop_id": "VLK_P_2",
+          "platform_code": "2",
+          "lat": 13.110224,
+          "lon": 80.209119
+        },
+        {
+          "stop_id": "VLK_P_3",
+          "platform_code": "3",
+          "lat": 13.110224,
+          "lon": 80.209119
+        },
+        {
+          "stop_id": "VLK_P_4",
+          "platform_code": "4",
+          "lat": 13.110224,
+          "lon": 80.209119
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "VLK_1",
+          "name": "A1",
+          "lat": 13.11052456,
+          "lon": 80.20934151
+        },
+        {
+          "stop_id": "VLK_2",
+          "name": "B1",
+          "lat": 13.11002561,
+          "lon": 80.20886305
+        }
+      ],
+      "child_stop_ids": [
+        "VLK_1",
+        "VLK_2",
+        "VLK_P_1",
+        "VLK_P_2",
+        "VLK_P_3",
+        "VLK_P_4"
+      ]
+    },
+    {
+      "id": "SRR_CMP",
+      "stop_id": "CMP",
+      "code": "CMP",
+      "name": "Chromepet",
+      "raw_name": "CHROMEPET",
+      "lat": 12.95127604,
+      "lon": 80.14084709,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "CMP_P_1",
+          "platform_code": "1",
+          "lat": 12.95127604,
+          "lon": 80.14084709
+        },
+        {
+          "stop_id": "CMP_P_2",
+          "platform_code": "2",
+          "lat": 12.95127604,
+          "lon": 80.14084709
+        },
+        {
+          "stop_id": "CMP_P_3",
+          "platform_code": "3",
+          "lat": 12.95127604,
+          "lon": 80.14084709
+        },
+        {
+          "stop_id": "CMP_P_4",
+          "platform_code": "4",
+          "lat": 12.95127604,
+          "lon": 80.14084709
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "CMP_1",
+          "name": "A1",
+          "lat": 12.95150793,
+          "lon": 80.14115373
+        },
+        {
+          "stop_id": "CMP_2",
+          "name": "B1",
+          "lat": 12.95149368,
+          "lon": 80.14062603
+        },
+        {
+          "stop_id": "CMP_3",
+          "name": "R1",
+          "lat": 12.95240077,
+          "lon": 80.14077834
+        }
+      ],
+      "child_stop_ids": [
+        "CMP_1",
+        "CMP_2",
+        "CMP_3",
+        "CMP_P_1",
+        "CMP_P_2",
+        "CMP_P_3",
+        "CMP_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TI",
+      "stop_id": "TI",
+      "code": "TI",
+      "name": "Tiruninravur",
+      "raw_name": "TIRUNINRAVUR",
+      "lat": 13.124014,
+      "lon": 80.026914,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TI_P_1",
+          "platform_code": "1",
+          "lat": 13.124014,
+          "lon": 80.026914
+        },
+        {
+          "stop_id": "TI_P_2",
+          "platform_code": "2",
+          "lat": 13.124014,
+          "lon": 80.026914
+        },
+        {
+          "stop_id": "TI_P_3",
+          "platform_code": "3",
+          "lat": 13.124014,
+          "lon": 80.026914
+        },
+        {
+          "stop_id": "TI_P_4",
+          "platform_code": "4",
+          "lat": 13.124014,
+          "lon": 80.026914
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TI_1",
+          "name": "B1",
+          "lat": 13.12346702,
+          "lon": 80.02947896
+        },
+        {
+          "stop_id": "TI_2",
+          "name": "BL1",
+          "lat": 13.12341832,
+          "lon": 80.0297205
+        }
+      ],
+      "child_stop_ids": [
+        "TI_1",
+        "TI_2",
+        "TI_P_1",
+        "TI_P_2",
+        "TI_P_3",
+        "TI_P_4"
+      ]
+    },
+    {
+      "id": "SRR_ABU",
+      "stop_id": "ABU",
+      "code": "ABU",
+      "name": "Ambattur",
+      "raw_name": "AMBATTUR",
+      "lat": 13.114245,
+      "lon": 80.153109,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "ABU_P_1",
+          "platform_code": "1",
+          "lat": 13.114245,
+          "lon": 80.153109
+        },
+        {
+          "stop_id": "ABU_P_2",
+          "platform_code": "2",
+          "lat": 13.114245,
+          "lon": 80.153109
+        },
+        {
+          "stop_id": "ABU_P_3",
+          "platform_code": "3",
+          "lat": 13.114245,
+          "lon": 80.153109
+        },
+        {
+          "stop_id": "ABU_P_4",
+          "platform_code": "4",
+          "lat": 13.114245,
+          "lon": 80.153109
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "ABU_1",
+          "name": "B1",
+          "lat": 13.11396776,
+          "lon": 80.15233783
+        }
+      ],
+      "child_stop_ids": [
+        "ABU_1",
+        "ABU_P_1",
+        "ABU_P_2",
+        "ABU_P_3",
+        "ABU_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MBM",
+      "stop_id": "MBM",
+      "code": "MBM",
+      "name": "Mambalam",
+      "raw_name": "MAMBALAM",
+      "lat": 13.04150247,
+      "lon": 80.22877073,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MBM_P_1",
+          "platform_code": "1",
+          "lat": 13.04150247,
+          "lon": 80.22877073
+        },
+        {
+          "stop_id": "MBM_P_2",
+          "platform_code": "2",
+          "lat": 13.04150247,
+          "lon": 80.22877073
+        },
+        {
+          "stop_id": "MBM_P_3",
+          "platform_code": "3",
+          "lat": 13.04150247,
+          "lon": 80.22877073
+        },
+        {
+          "stop_id": "MBM_P_4",
+          "platform_code": "4",
+          "lat": 13.04150247,
+          "lon": 80.22877073
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MBM_1",
+          "name": "A1",
+          "lat": 13.03705459,
+          "lon": 80.22772673
+        },
+        {
+          "stop_id": "MBM_2",
+          "name": "A2",
+          "lat": 13.03756813,
+          "lon": 80.22789057
+        },
+        {
+          "stop_id": "MBM_3",
+          "name": "A3",
+          "lat": 13.04246307,
+          "lon": 80.22922964
+        },
+        {
+          "stop_id": "MBM_4",
+          "name": "B1",
+          "lat": 13.03725228,
+          "lon": 80.22737795
+        },
+        {
+          "stop_id": "MBM_5",
+          "name": "B2",
+          "lat": 13.03816004,
+          "lon": 80.22760202
+        }
+      ],
+      "child_stop_ids": [
+        "MBM_1",
+        "MBM_2",
+        "MBM_3",
+        "MBM_4",
+        "MBM_5",
+        "MBM_P_1",
+        "MBM_P_2",
+        "MBM_P_3",
+        "MBM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PV",
+      "stop_id": "PV",
+      "code": "PV",
+      "name": "Pallavaram",
+      "raw_name": "PALLAVARAM",
+      "lat": 12.96818726,
+      "lon": 80.15260422,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PV_P_1",
+          "platform_code": "1",
+          "lat": 12.96818726,
+          "lon": 80.15260422
+        },
+        {
+          "stop_id": "PV_P_2",
+          "platform_code": "2",
+          "lat": 12.96818726,
+          "lon": 80.15260422
+        },
+        {
+          "stop_id": "PV_P_3",
+          "platform_code": "3",
+          "lat": 12.96818726,
+          "lon": 80.15260422
+        },
+        {
+          "stop_id": "PV_P_4",
+          "platform_code": "4",
+          "lat": 12.96818726,
+          "lon": 80.15260422
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PV_1",
+          "name": "A1",
+          "lat": 12.96703843,
+          "lon": 80.15212185
+        },
+        {
+          "stop_id": "PV_2",
+          "name": "A2",
+          "lat": 12.96730648,
+          "lon": 80.15230666
+        },
+        {
+          "stop_id": "PV_3",
+          "name": "B1",
+          "lat": 12.96759687,
+          "lon": 80.15193131
+        },
+        {
+          "stop_id": "PV_4",
+          "name": "AL1",
+          "lat": 12.96713895,
+          "lon": 80.15227944
+        },
+        {
+          "stop_id": "PV_5",
+          "name": "BL1",
+          "lat": 12.96752009,
+          "lon": 80.15177229
+        }
+      ],
+      "child_stop_ids": [
+        "PV_1",
+        "PV_2",
+        "PV_3",
+        "PV_4",
+        "PV_5",
+        "PV_P_1",
+        "PV_P_2",
+        "PV_P_3",
+        "PV_P_4"
+      ]
+    },
+    {
+      "id": "SRR_SP",
+      "stop_id": "SP",
+      "code": "SP",
+      "name": "Saidapet",
+      "raw_name": "SAIDAPET",
+      "lat": 13.02381606,
+      "lon": 80.22398619,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "SP_P_1",
+          "platform_code": "1",
+          "lat": 13.02381606,
+          "lon": 80.22398619
+        },
+        {
+          "stop_id": "SP_P_2",
+          "platform_code": "2",
+          "lat": 13.02381606,
+          "lon": 80.22398619
+        },
+        {
+          "stop_id": "SP_P_3",
+          "platform_code": "3",
+          "lat": 13.02381606,
+          "lon": 80.22398619
+        },
+        {
+          "stop_id": "SP_P_4",
+          "platform_code": "4",
+          "lat": 13.02381606,
+          "lon": 80.22398619
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "SP_1",
+          "name": "A1",
+          "lat": 13.02336205,
+          "lon": 80.22414704
+        },
+        {
+          "stop_id": "SP_2",
+          "name": "B1",
+          "lat": 13.02342875,
+          "lon": 80.22362906
+        }
+      ],
+      "child_stop_ids": [
+        "SP_1",
+        "SP_2",
+        "SP_P_1",
+        "SP_P_2",
+        "SP_P_3",
+        "SP_P_4"
+      ]
+    },
+    {
+      "id": "SRR_GI",
+      "stop_id": "GI",
+      "code": "GI",
+      "name": "Guduvancheri",
+      "raw_name": "GUDUVANCHERI",
+      "lat": 12.844676,
+      "lon": 80.0568,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "GI_P_1",
+          "platform_code": "1",
+          "lat": 12.844676,
+          "lon": 80.0568
+        },
+        {
+          "stop_id": "GI_P_3",
+          "platform_code": "3",
+          "lat": 12.844676,
+          "lon": 80.0568
+        },
+        {
+          "stop_id": "GI_P_4",
+          "platform_code": "4",
+          "lat": 12.844676,
+          "lon": 80.0568
+        },
+        {
+          "stop_id": "GI_P_2",
+          "platform_code": "2",
+          "lat": 12.844676,
+          "lon": 80.0568
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "GI_1",
+          "name": "A1",
+          "lat": 12.8450636,
+          "lon": 80.0575782
+        }
+      ],
+      "child_stop_ids": [
+        "GI_1",
+        "GI_P_1",
+        "GI_P_3",
+        "GI_P_4",
+        "GI_P_2"
+      ]
+    },
+    {
+      "id": "SRR_STM",
+      "stop_id": "STM",
+      "code": "STM",
+      "name": "St. Thomas Mount",
+      "raw_name": "ST. THOMAS MOUNT",
+      "lat": 12.99484802,
+      "lon": 80.19882424,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "STM_P_1",
+          "platform_code": "1",
+          "lat": 12.99484802,
+          "lon": 80.19882424
+        },
+        {
+          "stop_id": "STM_P_2",
+          "platform_code": "2",
+          "lat": 12.99484802,
+          "lon": 80.19882424
+        },
+        {
+          "stop_id": "STM_P_3",
+          "platform_code": "3",
+          "lat": 12.99484802,
+          "lon": 80.19882424
+        },
+        {
+          "stop_id": "STM_P_4",
+          "platform_code": "4",
+          "lat": 12.99484802,
+          "lon": 80.19882424
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "STM_1",
+          "name": "A1",
+          "lat": 12.99443668,
+          "lon": 80.19893425
+        },
+        {
+          "stop_id": "STM_2",
+          "name": "A2",
+          "lat": 12.99479994,
+          "lon": 80.19984909
+        },
+        {
+          "stop_id": "STM_3",
+          "name": "S1",
+          "lat": 12.99557176,
+          "lon": 80.20073246
+        }
+      ],
+      "child_stop_ids": [
+        "STM_1",
+        "STM_2",
+        "STM_3",
+        "STM_P_1",
+        "STM_P_2",
+        "STM_P_3",
+        "STM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_NBK",
+      "stop_id": "NBK",
+      "code": "NBK",
+      "name": "Nungambakkam",
+      "raw_name": "NUNGAMBAKKAM",
+      "lat": 13.06527764,
+      "lon": 80.23285281,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "NBK_P_1",
+          "platform_code": "1",
+          "lat": 13.06527764,
+          "lon": 80.23285281
+        },
+        {
+          "stop_id": "NBK_P_2",
+          "platform_code": "2",
+          "lat": 13.06527764,
+          "lon": 80.23285281
+        },
+        {
+          "stop_id": "NBK_P_3",
+          "platform_code": "3",
+          "lat": 13.06527764,
+          "lon": 80.23285281
+        },
+        {
+          "stop_id": "NBK_P_4",
+          "platform_code": "4",
+          "lat": 13.06527764,
+          "lon": 80.23285281
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "NBK_1",
+          "name": "A1",
+          "lat": 13.06579194,
+          "lon": 80.23311039
+        },
+        {
+          "stop_id": "NBK_2",
+          "name": "B1",
+          "lat": 13.06568367,
+          "lon": 80.23263042
+        },
+        {
+          "stop_id": "NBK_3",
+          "name": "BL1",
+          "lat": 13.06590832,
+          "lon": 80.23262234
+        }
+      ],
+      "child_stop_ids": [
+        "NBK_1",
+        "NBK_2",
+        "NBK_3",
+        "NBK_P_1",
+        "NBK_P_2",
+        "NBK_P_3",
+        "NBK_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TLM",
+      "stop_id": "TLM",
+      "code": "TLM",
+      "name": "Tirusulam",
+      "raw_name": "TIRUSULAM",
+      "lat": 12.98009969,
+      "lon": 80.16540747,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TLM_P_1",
+          "platform_code": "1",
+          "lat": 12.98009969,
+          "lon": 80.16540747
+        },
+        {
+          "stop_id": "TLM_P_2",
+          "platform_code": "2",
+          "lat": 12.98009969,
+          "lon": 80.16540747
+        },
+        {
+          "stop_id": "TLM_P_3",
+          "platform_code": "3",
+          "lat": 12.98009969,
+          "lon": 80.16540747
+        },
+        {
+          "stop_id": "TLM_P_4",
+          "platform_code": "4",
+          "lat": 12.98009969,
+          "lon": 80.16540747
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TLM_1",
+          "name": "S1",
+          "lat": 12.98046503,
+          "lon": 80.16577204
+        },
+        {
+          "stop_id": "TLM_2",
+          "name": "S2",
+          "lat": 12.98094339,
+          "lon": 80.16523808
+        }
+      ],
+      "child_stop_ids": [
+        "TLM_1",
+        "TLM_2",
+        "TLM_P_1",
+        "TLM_P_2",
+        "TLM_P_3",
+        "TLM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MPK",
+      "stop_id": "MPK",
+      "code": "MPK",
+      "name": "Chennai Park",
+      "raw_name": "CHENNAI PARK",
+      "lat": 13.080734135583,
+      "lon": 80.272890301421,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MPK_P_1",
+          "platform_code": "1",
+          "lat": 13.080734135583,
+          "lon": 80.272890301421
+        },
+        {
+          "stop_id": "MPK_P_2",
+          "platform_code": "2",
+          "lat": 13.080734135583,
+          "lon": 80.272890301421
+        },
+        {
+          "stop_id": "MPK_P_3",
+          "platform_code": "3",
+          "lat": 13.080734135583,
+          "lon": 80.272890301421
+        },
+        {
+          "stop_id": "MPK_P_4",
+          "platform_code": "4",
+          "lat": 13.080734135583,
+          "lon": 80.272890301421
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MPK_1",
+          "name": "B1",
+          "lat": 13.08074106,
+          "lon": 80.2734968
+        },
+        {
+          "stop_id": "MPK_2",
+          "name": "B2",
+          "lat": 13.08088192,
+          "lon": 80.27315218
+        }
+      ],
+      "child_stop_ids": [
+        "MPK_1",
+        "MPK_2",
+        "MPK_P_1",
+        "MPK_P_2",
+        "MPK_P_3",
+        "MPK_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MSC",
+      "stop_id": "MSC",
+      "code": "MSC",
+      "name": "Chennai Chetpat",
+      "raw_name": "CHENNAI CHETPAT",
+      "lat": 13.07441652,
+      "lon": 80.2436481,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MSC_P_1",
+          "platform_code": "1",
+          "lat": 13.07441652,
+          "lon": 80.2436481
+        },
+        {
+          "stop_id": "MSC_P_2",
+          "platform_code": "2",
+          "lat": 13.07441652,
+          "lon": 80.2436481
+        },
+        {
+          "stop_id": "MSC_P_3",
+          "platform_code": "3",
+          "lat": 13.07441652,
+          "lon": 80.2436481
+        },
+        {
+          "stop_id": "MSC_P_4",
+          "platform_code": "4",
+          "lat": 13.07441652,
+          "lon": 80.2436481
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MSC_1",
+          "name": "A1",
+          "lat": 13.07370943,
+          "lon": 80.24191588
+        },
+        {
+          "stop_id": "MSC_2",
+          "name": "B1",
+          "lat": 13.07400496,
+          "lon": 80.24139921
+        }
+      ],
+      "child_stop_ids": [
+        "MSC_1",
+        "MSC_2",
+        "MSC_P_1",
+        "MSC_P_2",
+        "MSC_P_3",
+        "MSC_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PON",
+      "stop_id": "PON",
+      "code": "PON",
+      "name": "Ponneri",
+      "raw_name": "PONNERI",
+      "lat": 13.332605,
+      "lon": 80.19901,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PON_P_2",
+          "platform_code": "2",
+          "lat": 13.332605,
+          "lon": 80.19901
+        },
+        {
+          "stop_id": "PON_P_1",
+          "platform_code": "1",
+          "lat": 13.332605,
+          "lon": 80.19901
+        },
+        {
+          "stop_id": "PON_P_3",
+          "platform_code": "3",
+          "lat": 13.332605,
+          "lon": 80.19901
+        },
+        {
+          "stop_id": "PON_P_4",
+          "platform_code": "4",
+          "lat": 13.332605,
+          "lon": 80.19901
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PON_1",
+          "name": "B1",
+          "lat": 13.3319568,
+          "lon": 80.19898538
+        }
+      ],
+      "child_stop_ids": [
+        "PON_1",
+        "PON_P_2",
+        "PON_P_1",
+        "PON_P_3",
+        "PON_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PRGL",
+      "stop_id": "PRGL",
+      "code": "PRGL",
+      "name": "Perungalattur",
+      "raw_name": "PERUNGALATTUR",
+      "lat": 12.904692,
+      "lon": 80.09451,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PRGL_P_1",
+          "platform_code": "1",
+          "lat": 12.904692,
+          "lon": 80.09451
+        },
+        {
+          "stop_id": "PRGL_P_2",
+          "platform_code": "2",
+          "lat": 12.904692,
+          "lon": 80.09451
+        },
+        {
+          "stop_id": "PRGL_P_3",
+          "platform_code": "3",
+          "lat": 12.904692,
+          "lon": 80.09451
+        },
+        {
+          "stop_id": "PRGL_P_4",
+          "platform_code": "4",
+          "lat": 12.904692,
+          "lon": 80.09451
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PRGL_1",
+          "name": "A1",
+          "lat": 12.90441287,
+          "lon": 80.09441809
+        },
+        {
+          "stop_id": "PRGL_2",
+          "name": "B1",
+          "lat": 12.90449385,
+          "lon": 80.09430579
+        }
+      ],
+      "child_stop_ids": [
+        "PRGL_1",
+        "PRGL_2",
+        "PRGL_P_1",
+        "PRGL_P_2",
+        "PRGL_P_3",
+        "PRGL_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PAB",
+      "stop_id": "PAB",
+      "code": "PAB",
+      "name": "Pattabiram",
+      "raw_name": "PATTABIRAM",
+      "lat": 13.118774,
+      "lon": 80.065237,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PAB_P_1",
+          "platform_code": "1",
+          "lat": 13.118774,
+          "lon": 80.065237
+        },
+        {
+          "stop_id": "PAB_P_2",
+          "platform_code": "2",
+          "lat": 13.118774,
+          "lon": 80.065237
+        },
+        {
+          "stop_id": "PAB_P_3",
+          "platform_code": "3",
+          "lat": 13.118774,
+          "lon": 80.065237
+        },
+        {
+          "stop_id": "PAB_P_4",
+          "platform_code": "4",
+          "lat": 13.118774,
+          "lon": 80.065237
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PAB_1",
+          "name": "B1",
+          "lat": 13.1186178,
+          "lon": 80.06490885
+        }
+      ],
+      "child_stop_ids": [
+        "PAB_1",
+        "PAB_P_1",
+        "PAB_P_2",
+        "PAB_P_3",
+        "PAB_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MJR",
+      "stop_id": "MJR",
+      "code": "MJR",
+      "name": "Minjur",
+      "raw_name": "MINJUR",
+      "lat": 13.282025,
+      "lon": 80.259837,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MJR_P_1",
+          "platform_code": "1",
+          "lat": 13.282025,
+          "lon": 80.259837
+        },
+        {
+          "stop_id": "MJR_P_2",
+          "platform_code": "2",
+          "lat": 13.282025,
+          "lon": 80.259837
+        },
+        {
+          "stop_id": "MJR_P_3",
+          "platform_code": "3",
+          "lat": 13.282025,
+          "lon": 80.259837
+        },
+        {
+          "stop_id": "MJR_P_4",
+          "platform_code": "4",
+          "lat": 13.282025,
+          "lon": 80.259837
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MJR_1",
+          "name": "B1",
+          "lat": 13.28103336,
+          "lon": 80.26055751
+        },
+        {
+          "stop_id": "MJR_2",
+          "name": "A1",
+          "lat": 13.28147806,
+          "lon": 80.26080828
+        }
+      ],
+      "child_stop_ids": [
+        "MJR_1",
+        "MJR_2",
+        "MJR_P_1",
+        "MJR_P_2",
+        "MJR_P_3",
+        "MJR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MSF",
+      "stop_id": "MSF",
+      "code": "MSF",
+      "name": "Chennai Fort",
+      "raw_name": "CHENNAI FORT",
+      "lat": 13.082692231983,
+      "lon": 80.282178372145,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "MSF_P_1",
+          "platform_code": "1",
+          "lat": 13.082692231983,
+          "lon": 80.282178372145
+        },
+        {
+          "stop_id": "MSF_P_2",
+          "platform_code": "2",
+          "lat": 13.082692231983,
+          "lon": 80.282178372145
+        },
+        {
+          "stop_id": "MSF_P_3",
+          "platform_code": "3",
+          "lat": 13.082692231983,
+          "lon": 80.282178372145
+        },
+        {
+          "stop_id": "MSF_P_4",
+          "platform_code": "4",
+          "lat": 13.082692231983,
+          "lon": 80.282178372145
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MSF_1",
+          "name": "A1",
+          "lat": 13.08221861,
+          "lon": 80.28243985
+        },
+        {
+          "stop_id": "MSF_2",
+          "name": "B1",
+          "lat": 13.08271462,
+          "lon": 80.28185831
+        },
+        {
+          "stop_id": "MSF_3",
+          "name": "B2",
+          "lat": 13.08481255,
+          "lon": 80.28324138
+        }
+      ],
+      "child_stop_ids": [
+        "MSF_1",
+        "MSF_2",
+        "MSF_3",
+        "MSF_P_1",
+        "MSF_P_2",
+        "MSF_P_3",
+        "MSF_P_4"
+      ]
+    },
+    {
+      "id": "SRR_VEU",
+      "stop_id": "VEU",
+      "code": "VEU",
+      "name": "Veppampattu",
+      "raw_name": "VEPPAMPATTU",
+      "lat": 13.123821,
+      "lon": 79.998751,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "VEU_P_1",
+          "platform_code": "1",
+          "lat": 13.123821,
+          "lon": 79.998751
+        },
+        {
+          "stop_id": "VEU_P_2",
+          "platform_code": "2",
+          "lat": 13.123821,
+          "lon": 79.998751
+        },
+        {
+          "stop_id": "VEU_P_3",
+          "platform_code": "3",
+          "lat": 13.123821,
+          "lon": 79.998751
+        },
+        {
+          "stop_id": "VEU_P_4",
+          "platform_code": "4",
+          "lat": 13.123821,
+          "lon": 79.998751
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "VEU_1",
+          "name": "B1",
+          "lat": 13.12360186,
+          "lon": 79.99721136
+        },
+        {
+          "stop_id": "VEU_2",
+          "name": "A1",
+          "lat": 13.12394647,
+          "lon": 79.99724828
+        }
+      ],
+      "child_stop_ids": [
+        "VEU_1",
+        "VEU_2",
+        "VEU_P_1",
+        "VEU_P_2",
+        "VEU_P_3",
+        "VEU_P_4"
+      ]
+    },
+    {
+      "id": "SRR_GPD",
+      "stop_id": "GPD",
+      "code": "GPD",
+      "name": "Gummidipundi",
+      "raw_name": "GUMMIDIPUNDI",
+      "lat": 13.409115,
+      "lon": 80.123624,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "GPD_P_1",
+          "platform_code": "1",
+          "lat": 13.409115,
+          "lon": 80.123624
+        },
+        {
+          "stop_id": "GPD_P_2",
+          "platform_code": "2",
+          "lat": 13.409115,
+          "lon": 80.123624
+        },
+        {
+          "stop_id": "GPD_P_3",
+          "platform_code": "3",
+          "lat": 13.409115,
+          "lon": 80.123624
+        },
+        {
+          "stop_id": "GPD_P_4",
+          "platform_code": "4",
+          "lat": 13.409115,
+          "lon": 80.123624
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "GPD_1",
+          "name": "B1",
+          "lat": 13.40978131,
+          "lon": 80.12304022
+        },
+        {
+          "stop_id": "GPD_2",
+          "name": "A1",
+          "lat": 13.41008361,
+          "lon": 80.1236033
+        }
+      ],
+      "child_stop_ids": [
+        "GPD_1",
+        "GPD_2",
+        "GPD_P_1",
+        "GPD_P_2",
+        "GPD_P_3",
+        "GPD_P_4"
+      ]
+    },
+    {
+      "id": "SRR_VDR",
+      "stop_id": "VDR",
+      "code": "VDR",
+      "name": "Vandalur",
+      "raw_name": "VANDALUR",
+      "lat": 12.890356,
+      "lon": 80.083928,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "VDR_P_1",
+          "platform_code": "1",
+          "lat": 12.890356,
+          "lon": 80.083928
+        },
+        {
+          "stop_id": "VDR_P_2",
+          "platform_code": "2",
+          "lat": 12.890356,
+          "lon": 80.083928
+        },
+        {
+          "stop_id": "VDR_P_3",
+          "platform_code": "3",
+          "lat": 12.890356,
+          "lon": 80.083928
+        },
+        {
+          "stop_id": "VDR_P_4",
+          "platform_code": "4",
+          "lat": 12.890356,
+          "lon": 80.083928
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "VDR_1",
+          "name": "A1",
+          "lat": 12.8908906,
+          "lon": 80.08465966
+        },
+        {
+          "stop_id": "VDR_2",
+          "name": "B1",
+          "lat": 12.89176042,
+          "lon": 80.08447658
+        }
+      ],
+      "child_stop_ids": [
+        "VDR_1",
+        "VDR_2",
+        "VDR_P_1",
+        "VDR_P_2",
+        "VDR_P_3",
+        "VDR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TBMS",
+      "stop_id": "TBMS",
+      "code": "TBMS",
+      "name": "Tambaram Sanatorium",
+      "raw_name": "TAMBARAM SANATORIUM",
+      "lat": 12.93794896,
+      "lon": 80.13151066,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TBMS_P_1",
+          "platform_code": "1",
+          "lat": 12.93794896,
+          "lon": 80.13151066
+        },
+        {
+          "stop_id": "TBMS_P_2",
+          "platform_code": "2",
+          "lat": 12.93794896,
+          "lon": 80.13151066
+        },
+        {
+          "stop_id": "TBMS_P_3",
+          "platform_code": "3",
+          "lat": 12.93794896,
+          "lon": 80.13151066
+        },
+        {
+          "stop_id": "TBMS_P_4",
+          "platform_code": "4",
+          "lat": 12.93794896,
+          "lon": 80.13151066
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TBMS_1",
+          "name": "A1",
+          "lat": 12.93666798,
+          "lon": 80.13090453
+        },
+        {
+          "stop_id": "TBMS_2",
+          "name": "B1",
+          "lat": 12.93692587,
+          "lon": 80.13052299
+        }
+      ],
+      "child_stop_ids": [
+        "TBMS_1",
+        "TBMS_2",
+        "TBMS_P_1",
+        "TBMS_P_2",
+        "TBMS_P_3",
+        "TBMS_P_4"
+      ]
+    },
+    {
+      "id": "SRR_BBQ",
+      "stop_id": "BBQ",
+      "code": "BBQ",
+      "name": "Basin Bridge",
+      "raw_name": "BASIN BRIDGE JN.",
+      "lat": 13.102079,
+      "lon": 80.271368,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "BBQ_P_1",
+          "platform_code": "1",
+          "lat": 13.102079,
+          "lon": 80.271368
+        },
+        {
+          "stop_id": "BBQ_P_2",
+          "platform_code": "2",
+          "lat": 13.102079,
+          "lon": 80.271368
+        },
+        {
+          "stop_id": "BBQ_P_3",
+          "platform_code": "3",
+          "lat": 13.102079,
+          "lon": 80.271368
+        },
+        {
+          "stop_id": "BBQ_P_4",
+          "platform_code": "4",
+          "lat": 13.102079,
+          "lon": 80.271368
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "BBQ_1",
+          "name": "B1",
+          "lat": 13.10305514,
+          "lon": 80.27099594
+        },
+        {
+          "stop_id": "BBQ_2",
+          "name": "BL1",
+          "lat": 13.10333984,
+          "lon": 80.27095902
+        }
+      ],
+      "child_stop_ids": [
+        "BBQ_1",
+        "BBQ_2",
+        "BBQ_P_1",
+        "BBQ_P_2",
+        "BBQ_P_3",
+        "BBQ_P_4"
+      ]
+    },
+    {
+      "id": "SRR_ANNR",
+      "stop_id": "ANNR",
+      "code": "ANNR",
+      "name": "Annanur",
+      "raw_name": "ANNANUR",
+      "lat": 13.116517,
+      "lon": 80.127255,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "ANNR_P_1",
+          "platform_code": "1",
+          "lat": 13.116517,
+          "lon": 80.127255
+        },
+        {
+          "stop_id": "ANNR_P_2",
+          "platform_code": "2",
+          "lat": 13.116517,
+          "lon": 80.127255
+        },
+        {
+          "stop_id": "ANNR_P_3",
+          "platform_code": "3",
+          "lat": 13.116517,
+          "lon": 80.127255
+        },
+        {
+          "stop_id": "ANNR_P_4",
+          "platform_code": "4",
+          "lat": 13.116517,
+          "lon": 80.127255
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "ANNR_1",
+          "name": "A1",
+          "lat": 13.11682506,
+          "lon": 80.12622867
+        }
+      ],
+      "child_stop_ids": [
+        "ANNR_1",
+        "ANNR_P_1",
+        "ANNR_P_2",
+        "ANNR_P_3",
+        "ANNR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TYMR",
+      "stop_id": "TYMR",
+      "code": "TYMR",
+      "name": "Tiruvanmiyur",
+      "raw_name": "TIRUVANMIYUR",
+      "lat": 12.990599,
+      "lon": 80.251031,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "TYMR_P_1",
+          "platform_code": "1",
+          "lat": 12.990599,
+          "lon": 80.251031
+        },
+        {
+          "stop_id": "TYMR_P_2",
+          "platform_code": "2",
+          "lat": 12.990599,
+          "lon": 80.251031
+        },
+        {
+          "stop_id": "TYMR_P_3",
+          "platform_code": "3",
+          "lat": 12.990599,
+          "lon": 80.251031
+        },
+        {
+          "stop_id": "TYMR_P_4",
+          "platform_code": "4",
+          "lat": 12.990599,
+          "lon": 80.251031
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TYMR_1",
+          "name": "A1",
+          "lat": 12.98948673,
+          "lon": 80.25122126
+        }
+      ],
+      "child_stop_ids": [
+        "TYMR_P_1",
+        "TYMR_P_2",
+        "TYMR_P_3",
+        "TYMR_P_4",
+        "TYMR_1"
+      ]
+    },
+    {
+      "id": "SRR_PVM",
+      "stop_id": "PVM",
+      "code": "PVM",
+      "name": "Pattaravakkam",
+      "raw_name": "PATTARAVAKKAM",
+      "lat": 13.114582,
+      "lon": 80.166268,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PVM_P_1",
+          "platform_code": "1",
+          "lat": 13.114582,
+          "lon": 80.166268
+        },
+        {
+          "stop_id": "PVM_P_2",
+          "platform_code": "2",
+          "lat": 13.114582,
+          "lon": 80.166268
+        },
+        {
+          "stop_id": "PVM_P_3",
+          "platform_code": "3",
+          "lat": 13.114582,
+          "lon": 80.166268
+        },
+        {
+          "stop_id": "PVM_P_4",
+          "platform_code": "4",
+          "lat": 13.114582,
+          "lon": 80.166268
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PVM_1",
+          "name": "A1",
+          "lat": 13.11487575,
+          "lon": 80.16642625
+        }
+      ],
+      "child_stop_ids": [
+        "PVM_1",
+        "PVM_P_1",
+        "PVM_P_2",
+        "PVM_P_3",
+        "PVM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_HC",
+      "stop_id": "HC",
+      "code": "HC",
+      "name": "Hindu College",
+      "raw_name": "HINDU COLLEGE",
+      "lat": 13.118654,
+      "lon": 80.074979,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "HC_P_1",
+          "platform_code": "1",
+          "lat": 13.118654,
+          "lon": 80.074979
+        },
+        {
+          "stop_id": "HC_P_2",
+          "platform_code": "2",
+          "lat": 13.118654,
+          "lon": 80.074979
+        },
+        {
+          "stop_id": "HC_P_3",
+          "platform_code": "3",
+          "lat": 13.118654,
+          "lon": 80.074979
+        },
+        {
+          "stop_id": "HC_P_4",
+          "platform_code": "4",
+          "lat": 13.118654,
+          "lon": 80.074979
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "HC_1",
+          "name": "A1",
+          "lat": 13.11885378,
+          "lon": 80.07431652
+        },
+        {
+          "stop_id": "HC_2",
+          "name": "B1",
+          "lat": 13.11843051,
+          "lon": 80.0740719
+        },
+        {
+          "stop_id": "HC_3",
+          "name": "AL1",
+          "lat": 13.11879085,
+          "lon": 80.0740596
+        },
+        {
+          "stop_id": "HC_4",
+          "name": "BL1",
+          "lat": 13.11840204,
+          "lon": 80.07409498
+        }
+      ],
+      "child_stop_ids": [
+        "HC_1",
+        "HC_2",
+        "HC_3",
+        "HC_4",
+        "HC_P_1",
+        "HC_P_2",
+        "HC_P_3",
+        "HC_P_4"
+      ]
+    },
+    {
+      "id": "SRR_WST",
+      "stop_id": "WST",
+      "code": "WST",
+      "name": "Washermanpet",
+      "raw_name": "WASHERMANPET",
+      "lat": 13.108552,
+      "lon": 80.283183,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "WST_P_1",
+          "platform_code": "1",
+          "lat": 13.108552,
+          "lon": 80.283183
+        },
+        {
+          "stop_id": "WST_P_2",
+          "platform_code": "2",
+          "lat": 13.108552,
+          "lon": 80.283183
+        },
+        {
+          "stop_id": "WST_P_3",
+          "platform_code": "3",
+          "lat": 13.108552,
+          "lon": 80.283183
+        },
+        {
+          "stop_id": "WST_P_4",
+          "platform_code": "4",
+          "lat": 13.108552,
+          "lon": 80.283183
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "WST_1",
+          "name": "B1",
+          "lat": 13.10885763,
+          "lon": 80.28107129
+        }
+      ],
+      "child_stop_ids": [
+        "WST_1",
+        "WST_P_1",
+        "WST_P_2",
+        "WST_P_3",
+        "WST_P_4"
+      ]
+    },
+    {
+      "id": "SRR_VJM",
+      "stop_id": "VJM",
+      "code": "VJM",
+      "name": "Vyasarpadi Jeeva",
+      "raw_name": "VYASARPADI JEEVA",
+      "lat": 13.108968,
+      "lon": 80.258128,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "VJM_P_1",
+          "platform_code": "1",
+          "lat": 13.108968,
+          "lon": 80.258128
+        },
+        {
+          "stop_id": "VJM_P_2",
+          "platform_code": "2",
+          "lat": 13.108968,
+          "lon": 80.258128
+        },
+        {
+          "stop_id": "VJM_P_3",
+          "platform_code": "3",
+          "lat": 13.108968,
+          "lon": 80.258128
+        },
+        {
+          "stop_id": "VJM_P_4",
+          "platform_code": "4",
+          "lat": 13.108968,
+          "lon": 80.258128
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "VJM_1",
+          "name": "A1",
+          "lat": 13.10924046,
+          "lon": 80.2571806
+        },
+        {
+          "stop_id": "VJM_2",
+          "name": "B1",
+          "lat": 13.10880294,
+          "lon": 80.2573129
+        }
+      ],
+      "child_stop_ids": [
+        "VJM_1",
+        "VJM_2",
+        "VJM_P_1",
+        "VJM_P_2",
+        "VJM_P_3",
+        "VJM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MCPK",
+      "stop_id": "MCPK",
+      "code": "MCPK",
+      "name": "Chepauk",
+      "raw_name": "CHEPAUK",
+      "lat": 13.062746,
+      "lon": 80.280611,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "MCPK_P_1",
+          "platform_code": "1",
+          "lat": 13.062746,
+          "lon": 80.280611
+        },
+        {
+          "stop_id": "MCPK_P_2",
+          "platform_code": "2",
+          "lat": 13.062746,
+          "lon": 80.280611
+        },
+        {
+          "stop_id": "MCPK_P_3",
+          "platform_code": "3",
+          "lat": 13.062746,
+          "lon": 80.280611
+        },
+        {
+          "stop_id": "MCPK_P_4",
+          "platform_code": "4",
+          "lat": 13.062746,
+          "lon": 80.280611
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MCPK_1",
+          "name": "A1",
+          "lat": 13.06184968,
+          "lon": 80.28046583
+        },
+        {
+          "stop_id": "MCPK_2",
+          "name": "A2",
+          "lat": 13.0618196,
+          "lon": 80.28070307
+        }
+      ],
+      "child_stop_ids": [
+        "MCPK_P_1",
+        "MCPK_P_2",
+        "MCPK_P_3",
+        "MCPK_P_4",
+        "MCPK_1",
+        "MCPK_2"
+      ]
+    },
+    {
+      "id": "SRR_TRMN",
+      "stop_id": "TRMN",
+      "code": "TRMN",
+      "name": "Taramani",
+      "raw_name": "TARAMANI",
+      "lat": 12.978686,
+      "lon": 80.24167,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "TRMN_P_1",
+          "platform_code": "1",
+          "lat": 12.978686,
+          "lon": 80.24167
+        },
+        {
+          "stop_id": "TRMN_P_2",
+          "platform_code": "2",
+          "lat": 12.978686,
+          "lon": 80.24167
+        },
+        {
+          "stop_id": "TRMN_P_3",
+          "platform_code": "3",
+          "lat": 12.978686,
+          "lon": 80.24167
+        },
+        {
+          "stop_id": "TRMN_P_4",
+          "platform_code": "4",
+          "lat": 12.978686,
+          "lon": 80.24167
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TRMN_1",
+          "name": "A1",
+          "lat": 12.97830028,
+          "lon": 80.24096819
+        }
+      ],
+      "child_stop_ids": [
+        "TRMN_P_1",
+        "TRMN_P_2",
+        "TRMN_P_3",
+        "TRMN_P_4",
+        "TRMN_1"
+      ]
+    },
+    {
+      "id": "SRR_SKL",
+      "stop_id": "SKL",
+      "code": "SKL",
+      "name": "Singaperumalkoil",
+      "raw_name": "SINGAPERUMALKOIL",
+      "lat": 12.761822,
+      "lon": 80.000699,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "SKL_P_1",
+          "platform_code": "1",
+          "lat": 12.761822,
+          "lon": 80.000699
+        },
+        {
+          "stop_id": "SKL_P_2",
+          "platform_code": "2",
+          "lat": 12.761822,
+          "lon": 80.000699
+        },
+        {
+          "stop_id": "SKL_P_3",
+          "platform_code": "3",
+          "lat": 12.761822,
+          "lon": 80.000699
+        },
+        {
+          "stop_id": "SKL_P_4",
+          "platform_code": "4",
+          "lat": 12.761822,
+          "lon": 80.000699
+        },
+        {
+          "stop_id": "SKL_P_5",
+          "platform_code": "5",
+          "lat": 12.761822,
+          "lon": 80.000699
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "SKL_1",
+          "name": "A1",
+          "lat": 12.76213534,
+          "lon": 80.00121529
+        }
+      ],
+      "child_stop_ids": [
+        "SKL_1",
+        "SKL_P_1",
+        "SKL_P_2",
+        "SKL_P_3",
+        "SKL_P_4",
+        "SKL_P_5"
+      ]
+    },
+    {
+      "id": "SRR_ENR",
+      "stop_id": "ENR",
+      "code": "ENR",
+      "name": "Ennore",
+      "raw_name": "ENNORE",
+      "lat": 13.217914,
+      "lon": 80.321748,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "ENR_P_1",
+          "platform_code": "1",
+          "lat": 13.217914,
+          "lon": 80.321748
+        },
+        {
+          "stop_id": "ENR_P_2",
+          "platform_code": "2",
+          "lat": 13.217914,
+          "lon": 80.321748
+        },
+        {
+          "stop_id": "ENR_P_3",
+          "platform_code": "3",
+          "lat": 13.217914,
+          "lon": 80.321748
+        },
+        {
+          "stop_id": "ENR_P_4",
+          "platform_code": "4",
+          "lat": 13.217914,
+          "lon": 80.321748
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "ENR_1",
+          "name": "B1",
+          "lat": 13.21761397,
+          "lon": 80.32148348
+        }
+      ],
+      "child_stop_ids": [
+        "ENR_1",
+        "ENR_P_1",
+        "ENR_P_2",
+        "ENR_P_3",
+        "ENR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MMNK",
+      "stop_id": "MMNK",
+      "code": "MMNK",
+      "name": "Maraimalai Nagar Kamarajar",
+      "raw_name": "MARAIMALAI NAGAR KAMARAJAR",
+      "lat": 12.79676,
+      "lon": 80.020001,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MMNK_P_1",
+          "platform_code": "1",
+          "lat": 12.79676,
+          "lon": 80.020001
+        },
+        {
+          "stop_id": "MMNK_P_3",
+          "platform_code": "3",
+          "lat": 12.79676,
+          "lon": 80.020001
+        },
+        {
+          "stop_id": "MMNK_P_4",
+          "platform_code": "4",
+          "lat": 12.79676,
+          "lon": 80.020001
+        },
+        {
+          "stop_id": "MMNK_P_2",
+          "platform_code": "2",
+          "lat": 12.79676,
+          "lon": 80.020001
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MMNK_1",
+          "name": "A1",
+          "lat": 12.7963988,
+          "lon": 80.02023677
+        },
+        {
+          "stop_id": "MMNK_2",
+          "name": "R1",
+          "lat": 12.79607925,
+          "lon": 80.02114293
+        }
+      ],
+      "child_stop_ids": [
+        "MMNK_1",
+        "MMNK_2",
+        "MMNK_P_1",
+        "MMNK_P_3",
+        "MMNK_P_4",
+        "MMNK_P_2"
+      ]
+    },
+    {
+      "id": "SRR_CJ",
+      "stop_id": "CJ",
+      "code": "CJ",
+      "name": "Kanchipuram",
+      "raw_name": "KANCHIPURAM",
+      "lat": 12.84828692,
+      "lon": 79.70498241,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "CJ_P_1",
+          "platform_code": "1",
+          "lat": 12.84828692,
+          "lon": 79.70498241
+        },
+        {
+          "stop_id": "CJ_P_2",
+          "platform_code": "2",
+          "lat": 12.84828692,
+          "lon": 79.70498241
+        },
+        {
+          "stop_id": "CJ_P_3",
+          "platform_code": "3",
+          "lat": 12.84828692,
+          "lon": 79.70498241
+        },
+        {
+          "stop_id": "CJ_P_4",
+          "platform_code": "4",
+          "lat": 12.84828692,
+          "lon": 79.70498241
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "CJ_1",
+          "name": "B1",
+          "lat": 12.84817712,
+          "lon": 79.70508299
+        }
+      ],
+      "child_stop_ids": [
+        "CJ_1",
+        "CJ_P_1",
+        "CJ_P_2",
+        "CJ_P_3",
+        "CJ_P_4"
+      ]
+    },
+    {
+      "id": "SRR_KOK",
+      "stop_id": "KOK",
+      "code": "KOK",
+      "name": "Korukkupet",
+      "raw_name": "KORUKKUPET",
+      "lat": 13.120671,
+      "lon": 80.278682,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "KOK_P_3",
+          "platform_code": "3",
+          "lat": 13.120671,
+          "lon": 80.278682
+        },
+        {
+          "stop_id": "KOK_P_4",
+          "platform_code": "4",
+          "lat": 13.120671,
+          "lon": 80.278682
+        },
+        {
+          "stop_id": "KOK_P_1",
+          "platform_code": "1",
+          "lat": 13.120671,
+          "lon": 80.278682
+        },
+        {
+          "stop_id": "KOK_P_2",
+          "platform_code": "2",
+          "lat": 13.120671,
+          "lon": 80.278682
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "KOK_1",
+          "name": "A1",
+          "lat": 13.11882213,
+          "lon": 80.278149
+        }
+      ],
+      "child_stop_ids": [
+        "KOK_1",
+        "KOK_P_3",
+        "KOK_P_4",
+        "KOK_P_1",
+        "KOK_P_2"
+      ]
+    },
+    {
+      "id": "SRR_KBT",
+      "stop_id": "KBT",
+      "code": "KBT",
+      "name": "Kadambattur",
+      "raw_name": "KADAMBATTUR",
+      "lat": 13.100054,
+      "lon": 79.863106,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "KBT_P_1",
+          "platform_code": "1",
+          "lat": 13.100054,
+          "lon": 79.863106
+        },
+        {
+          "stop_id": "KBT_P_2",
+          "platform_code": "2",
+          "lat": 13.100054,
+          "lon": 79.863106
+        },
+        {
+          "stop_id": "KBT_P_3",
+          "platform_code": "3",
+          "lat": 13.100054,
+          "lon": 79.863106
+        },
+        {
+          "stop_id": "KBT_P_4",
+          "platform_code": "4",
+          "lat": 13.100054,
+          "lon": 79.863106
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "KBT_1",
+          "name": "B1",
+          "lat": 13.09976987,
+          "lon": 79.86285637
+        }
+      ],
+      "child_stop_ids": [
+        "KBT_1",
+        "KBT_P_1",
+        "KBT_P_2",
+        "KBT_P_3",
+        "KBT_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TVT",
+      "stop_id": "TVT",
+      "code": "TVT",
+      "name": "Tiruvottiyur",
+      "raw_name": "TIRUVOTTIYUR",
+      "lat": 13.159532,
+      "lon": 80.296353,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TVT_P_2",
+          "platform_code": "2",
+          "lat": 13.159532,
+          "lon": 80.296353
+        },
+        {
+          "stop_id": "TVT_P_1",
+          "platform_code": "1",
+          "lat": 13.159532,
+          "lon": 80.296353
+        },
+        {
+          "stop_id": "TVT_P_3",
+          "platform_code": "3",
+          "lat": 13.159532,
+          "lon": 80.296353
+        },
+        {
+          "stop_id": "TVT_P_4",
+          "platform_code": "4",
+          "lat": 13.159532,
+          "lon": 80.296353
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TVT_1",
+          "name": "A1",
+          "lat": 13.15776899,
+          "lon": 80.29592356
+        },
+        {
+          "stop_id": "TVT_2",
+          "name": "B1",
+          "lat": 13.1579907,
+          "lon": 80.29544664
+        }
+      ],
+      "child_stop_ids": [
+        "TVT_1",
+        "TVT_2",
+        "TVT_P_2",
+        "TVT_P_1",
+        "TVT_P_3",
+        "TVT_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MTMY",
+      "stop_id": "MTMY",
+      "code": "MTMY",
+      "name": "Thirumayilai",
+      "raw_name": "THIRUMAYILAI",
+      "lat": 13.03541,
+      "lon": 80.267473,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MTMY_P_1",
+          "platform_code": "1",
+          "lat": 13.03541,
+          "lon": 80.267473
+        },
+        {
+          "stop_id": "MTMY_P_2",
+          "platform_code": "2",
+          "lat": 13.03541,
+          "lon": 80.267473
+        },
+        {
+          "stop_id": "MTMY_P_3",
+          "platform_code": "3",
+          "lat": 13.03541,
+          "lon": 80.267473
+        },
+        {
+          "stop_id": "MTMY_P_4",
+          "platform_code": "4",
+          "lat": 13.03541,
+          "lon": 80.267473
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MTMY_1",
+          "name": "A1",
+          "lat": 13.03551374,
+          "lon": 80.26766563
+        }
+      ],
+      "child_stop_ids": [
+        "MTMY_P_1",
+        "MTMY_P_2",
+        "MTMY_P_3",
+        "MTMY_P_4",
+        "MTMY_1"
+      ]
+    },
+    {
+      "id": "SRR_KOTR",
+      "stop_id": "KOTR",
+      "code": "KOTR",
+      "name": "Korattur",
+      "raw_name": "KORATTUR",
+      "lat": 13.11326,
+      "lon": 80.184464,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "KOTR_P_1",
+          "platform_code": "1",
+          "lat": 13.11326,
+          "lon": 80.184464
+        },
+        {
+          "stop_id": "KOTR_P_2",
+          "platform_code": "2",
+          "lat": 13.11326,
+          "lon": 80.184464
+        },
+        {
+          "stop_id": "KOTR_P_3",
+          "platform_code": "3",
+          "lat": 13.11326,
+          "lon": 80.184464
+        },
+        {
+          "stop_id": "KOTR_P_4",
+          "platform_code": "4",
+          "lat": 13.11326,
+          "lon": 80.184464
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "KOTR_1",
+          "name": "A1",
+          "lat": 13.11361115,
+          "lon": 80.18397081
+        },
+        {
+          "stop_id": "KOTR_2",
+          "name": "B1",
+          "lat": 13.11310322,
+          "lon": 80.18420312
+        }
+      ],
+      "child_stop_ids": [
+        "KOTR_1",
+        "KOTR_2",
+        "KOTR_P_1",
+        "KOTR_P_2",
+        "KOTR_P_3",
+        "KOTR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PTLR",
+      "stop_id": "PTLR",
+      "code": "PTLR",
+      "name": "Putlur Halt",
+      "raw_name": "PUTLUR HALT",
+      "lat": 13.123063,
+      "lon": 79.936792,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PTLR_P_1",
+          "platform_code": "1",
+          "lat": 13.123063,
+          "lon": 79.936792
+        },
+        {
+          "stop_id": "PTLR_P_2",
+          "platform_code": "2",
+          "lat": 13.123063,
+          "lon": 79.936792
+        },
+        {
+          "stop_id": "PTLR_P_3",
+          "platform_code": "3",
+          "lat": 13.123063,
+          "lon": 79.936792
+        },
+        {
+          "stop_id": "PTLR_P_4",
+          "platform_code": "4",
+          "lat": 13.123063,
+          "lon": 79.936792
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PTLR_1",
+          "name": "A1",
+          "lat": 13.12367528,
+          "lon": 79.93814846
+        }
+      ],
+      "child_stop_ids": [
+        "PTLR_1",
+        "PTLR_P_1",
+        "PTLR_P_2",
+        "PTLR_P_3",
+        "PTLR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MN",
+      "stop_id": "MN",
+      "code": "MN",
+      "name": "Minambakkam",
+      "raw_name": "MINAMBAKKAM",
+      "lat": 12.98469755,
+      "lon": 80.17524851,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MN_P_1",
+          "platform_code": "1",
+          "lat": 12.98469755,
+          "lon": 80.17524851
+        },
+        {
+          "stop_id": "MN_P_2",
+          "platform_code": "2",
+          "lat": 12.98469755,
+          "lon": 80.17524851
+        },
+        {
+          "stop_id": "MN_P_3",
+          "platform_code": "3",
+          "lat": 12.98469755,
+          "lon": 80.17524851
+        },
+        {
+          "stop_id": "MN_P_4",
+          "platform_code": "4",
+          "lat": 12.98469755,
+          "lon": 80.17524851
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MN_1",
+          "name": "S1",
+          "lat": 12.98536036,
+          "lon": 80.17659656
+        },
+        {
+          "stop_id": "MN_2",
+          "name": "B1",
+          "lat": 12.98511518,
+          "lon": 80.17569774
+        }
+      ],
+      "child_stop_ids": [
+        "MN_1",
+        "MN_2",
+        "MN_P_1",
+        "MN_P_2",
+        "MN_P_3",
+        "MN_P_4"
+      ]
+    },
+    {
+      "id": "SRR_WCN",
+      "stop_id": "WCN",
+      "code": "WCN",
+      "name": "Wimco Nagar",
+      "raw_name": "WIMCO NAGAR",
+      "lat": 13.181026,
+      "lon": 80.306223,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "WCN_P_1",
+          "platform_code": "1",
+          "lat": 13.181026,
+          "lon": 80.306223
+        },
+        {
+          "stop_id": "WCN_P_2",
+          "platform_code": "2",
+          "lat": 13.181026,
+          "lon": 80.306223
+        },
+        {
+          "stop_id": "WCN_P_3",
+          "platform_code": "3",
+          "lat": 13.181026,
+          "lon": 80.306223
+        },
+        {
+          "stop_id": "WCN_P_4",
+          "platform_code": "4",
+          "lat": 13.181026,
+          "lon": 80.306223
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "WCN_1",
+          "name": "A1",
+          "lat": 13.17959037,
+          "lon": 80.30582814
+        },
+        {
+          "stop_id": "WCN_2",
+          "name": "B1",
+          "lat": 13.1796428,
+          "lon": 80.30548815
+        }
+      ],
+      "child_stop_ids": [
+        "WCN_1",
+        "WCN_2",
+        "WCN_P_1",
+        "WCN_P_2",
+        "WCN_P_3",
+        "WCN_P_4"
+      ]
+    },
+    {
+      "id": "SRR_KVP",
+      "stop_id": "KVP",
+      "code": "KVP",
+      "name": "Kavaraippettai",
+      "raw_name": "KAVARAIPPETTAI",
+      "lat": 13.36353,
+      "lon": 80.147383,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "KVP_P_1",
+          "platform_code": "1",
+          "lat": 13.36353,
+          "lon": 80.147383
+        },
+        {
+          "stop_id": "KVP_P_3",
+          "platform_code": "3",
+          "lat": 13.36353,
+          "lon": 80.147383
+        },
+        {
+          "stop_id": "KVP_P_2",
+          "platform_code": "2",
+          "lat": 13.36353,
+          "lon": 80.147383
+        },
+        {
+          "stop_id": "KVP_P_4",
+          "platform_code": "4",
+          "lat": 13.36353,
+          "lon": 80.147383
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "KVP_1",
+          "name": "B1",
+          "lat": 13.36314246,
+          "lon": 80.14776938
+        }
+      ],
+      "child_stop_ids": [
+        "KVP_1",
+        "KVP_P_1",
+        "KVP_P_3",
+        "KVP_P_2",
+        "KVP_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PEW",
+      "stop_id": "PEW",
+      "code": "PEW",
+      "name": "Perambur Loco Works",
+      "raw_name": "PERAMBUR LOCO WORKS",
+      "lat": 13.108325,
+      "lon": 80.225518,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PEW_P_1",
+          "platform_code": "1",
+          "lat": 13.108325,
+          "lon": 80.225518
+        },
+        {
+          "stop_id": "PEW_P_2",
+          "platform_code": "2",
+          "lat": 13.108325,
+          "lon": 80.225518
+        },
+        {
+          "stop_id": "PEW_P_3",
+          "platform_code": "3",
+          "lat": 13.108325,
+          "lon": 80.225518
+        },
+        {
+          "stop_id": "PEW_P_4",
+          "platform_code": "4",
+          "lat": 13.108325,
+          "lon": 80.225518
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PEW_1",
+          "name": "A1",
+          "lat": 13.10855796,
+          "lon": 80.22433146
+        },
+        {
+          "stop_id": "PEW_2",
+          "name": "B1",
+          "lat": 13.10835268,
+          "lon": 80.22430531
+        }
+      ],
+      "child_stop_ids": [
+        "PEW_1",
+        "PEW_2",
+        "PEW_P_1",
+        "PEW_P_2",
+        "PEW_P_3",
+        "PEW_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TO",
+      "stop_id": "TO",
+      "code": "TO",
+      "name": "Tiruvalangadu",
+      "raw_name": "TIRUVALANGADU",
+      "lat": 13.090378,
+      "lon": 79.763489,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TO_P_1",
+          "platform_code": "1",
+          "lat": 13.090378,
+          "lon": 79.763489
+        },
+        {
+          "stop_id": "TO_P_2",
+          "platform_code": "2",
+          "lat": 13.090378,
+          "lon": 79.763489
+        },
+        {
+          "stop_id": "TO_P_3",
+          "platform_code": "3",
+          "lat": 13.090378,
+          "lon": 79.763489
+        },
+        {
+          "stop_id": "TO_P_4",
+          "platform_code": "4",
+          "lat": 13.090378,
+          "lon": 79.763489
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TO_1",
+          "name": "A1",
+          "lat": 13.09073422,
+          "lon": 79.76378128
+        },
+        {
+          "stop_id": "TO_2",
+          "name": "B1",
+          "lat": 13.09019627,
+          "lon": 79.76381051
+        }
+      ],
+      "child_stop_ids": [
+        "TO_1",
+        "TO_2",
+        "TO_P_1",
+        "TO_P_2",
+        "TO_P_3",
+        "TO_P_4"
+      ]
+    },
+    {
+      "id": "SRR_SVR",
+      "stop_id": "SVR",
+      "code": "SVR",
+      "name": "Sevvapet Road",
+      "raw_name": "SEVVAPET ROAD",
+      "lat": 13.125012,
+      "lon": 79.966714,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "SVR_P_1",
+          "platform_code": "1",
+          "lat": 13.125012,
+          "lon": 79.966714
+        },
+        {
+          "stop_id": "SVR_P_2",
+          "platform_code": "2",
+          "lat": 13.125012,
+          "lon": 79.966714
+        },
+        {
+          "stop_id": "SVR_P_3",
+          "platform_code": "3",
+          "lat": 13.125012,
+          "lon": 79.966714
+        },
+        {
+          "stop_id": "SVR_P_4",
+          "platform_code": "4",
+          "lat": 13.125012,
+          "lon": 79.966714
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "SVR_1",
+          "name": "A1",
+          "lat": 13.12538181,
+          "lon": 79.96607761
+        }
+      ],
+      "child_stop_ids": [
+        "SVR_1",
+        "SVR_P_1",
+        "SVR_P_2",
+        "SVR_P_3",
+        "SVR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MLHS",
+      "stop_id": "MLHS",
+      "code": "MLHS",
+      "name": "Light House",
+      "raw_name": "LIGHT HOUSE",
+      "lat": 13.045875,
+      "lon": 80.276974,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "MLHS_P_1",
+          "platform_code": "1",
+          "lat": 13.045875,
+          "lon": 80.276974
+        },
+        {
+          "stop_id": "MLHS_P_2",
+          "platform_code": "2",
+          "lat": 13.045875,
+          "lon": 80.276974
+        },
+        {
+          "stop_id": "MLHS_P_3",
+          "platform_code": "3",
+          "lat": 13.045875,
+          "lon": 80.276974
+        },
+        {
+          "stop_id": "MLHS_P_4",
+          "platform_code": "4",
+          "lat": 13.045875,
+          "lon": 80.276974
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MLHS_1",
+          "name": "A1",
+          "lat": 13.04515368,
+          "lon": 80.27699222
+        }
+      ],
+      "child_stop_ids": [
+        "MLHS_P_1",
+        "MLHS_P_2",
+        "MLHS_P_3",
+        "MLHS_P_4",
+        "MLHS_1"
+      ]
+    },
+    {
+      "id": "SRR_MNDY",
+      "stop_id": "MNDY",
+      "code": "MNDY",
+      "name": "Mandaveli",
+      "raw_name": "MANDAVELI",
+      "lat": 13.028885,
+      "lon": 80.260853,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "MNDY_P_1",
+          "platform_code": "1",
+          "lat": 13.028885,
+          "lon": 80.260853
+        },
+        {
+          "stop_id": "MNDY_P_2",
+          "platform_code": "2",
+          "lat": 13.028885,
+          "lon": 80.260853
+        },
+        {
+          "stop_id": "MNDY_P_3",
+          "platform_code": "3",
+          "lat": 13.028885,
+          "lon": 80.260853
+        },
+        {
+          "stop_id": "MNDY_P_4",
+          "platform_code": "4",
+          "lat": 13.028885,
+          "lon": 80.260853
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MNDY_1",
+          "name": "A1",
+          "lat": 13.02795976,
+          "lon": 80.26080194
+        }
+      ],
+      "child_stop_ids": [
+        "MNDY_P_1",
+        "MNDY_P_2",
+        "MNDY_P_3",
+        "MNDY_P_4",
+        "MNDY_1"
+      ]
+    },
+    {
+      "id": "SRR_AIP",
+      "stop_id": "AIP",
+      "code": "AIP",
+      "name": "Attippattu",
+      "raw_name": "ATTIPPATTU",
+      "lat": 13.261438,
+      "lon": 80.289153,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "AIP_P_1",
+          "platform_code": "1",
+          "lat": 13.261438,
+          "lon": 80.289153
+        },
+        {
+          "stop_id": "AIP_P_2",
+          "platform_code": "2",
+          "lat": 13.261438,
+          "lon": 80.289153
+        },
+        {
+          "stop_id": "AIP_P_3",
+          "platform_code": "3",
+          "lat": 13.261438,
+          "lon": 80.289153
+        },
+        {
+          "stop_id": "AIP_P_4",
+          "platform_code": "4",
+          "lat": 13.261438,
+          "lon": 80.289153
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "AIP_1",
+          "name": "A1",
+          "lat": 13.26116174,
+          "lon": 80.28902512
+        }
+      ],
+      "child_stop_ids": [
+        "AIP_P_1",
+        "AIP_P_2",
+        "AIP_P_3",
+        "AIP_P_4",
+        "AIP_1"
+      ]
+    },
+    {
+      "id": "SRR_UPM",
+      "stop_id": "UPM",
+      "code": "UPM",
+      "name": "Urappakkam",
+      "raw_name": "URAPPAKKAM",
+      "lat": 12.867348,
+      "lon": 80.071818,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "UPM_P_1",
+          "platform_code": "1",
+          "lat": 12.867348,
+          "lon": 80.071818
+        },
+        {
+          "stop_id": "UPM_P_2",
+          "platform_code": "2",
+          "lat": 12.867348,
+          "lon": 80.071818
+        },
+        {
+          "stop_id": "UPM_P_3",
+          "platform_code": "3",
+          "lat": 12.867348,
+          "lon": 80.071818
+        },
+        {
+          "stop_id": "UPM_P_4",
+          "platform_code": "4",
+          "lat": 12.867348,
+          "lon": 80.071818
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "UPM_1",
+          "name": "A1",
+          "lat": 12.86695752,
+          "lon": 80.07218277
+        },
+        {
+          "stop_id": "UPM_2",
+          "name": "B1",
+          "lat": 12.86739547,
+          "lon": 80.07168124
+        }
+      ],
+      "child_stop_ids": [
+        "UPM_1",
+        "UPM_2",
+        "UPM_P_1",
+        "UPM_P_2",
+        "UPM_P_3",
+        "UPM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_APB",
+      "stop_id": "APB",
+      "code": "APB",
+      "name": "Anuppambattu",
+      "raw_name": "ANUPPAMBATTU",
+      "lat": 13.304406,
+      "lon": 80.230971,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "APB_P_1",
+          "platform_code": "1",
+          "lat": 13.304406,
+          "lon": 80.230971
+        },
+        {
+          "stop_id": "APB_P_2",
+          "platform_code": "2",
+          "lat": 13.304406,
+          "lon": 80.230971
+        },
+        {
+          "stop_id": "APB_P_3",
+          "platform_code": "3",
+          "lat": 13.304406,
+          "lon": 80.230971
+        },
+        {
+          "stop_id": "APB_P_4",
+          "platform_code": "4",
+          "lat": 13.304406,
+          "lon": 80.230971
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "APB_1",
+          "name": "B1",
+          "lat": 13.30419566,
+          "lon": 80.2309699
+        }
+      ],
+      "child_stop_ids": [
+        "APB_1",
+        "APB_P_1",
+        "APB_P_2",
+        "APB_P_3",
+        "APB_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MTCN",
+      "stop_id": "MTCN",
+      "code": "MTCN",
+      "name": "Tiruvallikeni",
+      "raw_name": "TIRUVALLIKENI",
+      "lat": 13.055982,
+      "lon": 80.28049,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "MTCN_P_1",
+          "platform_code": "1",
+          "lat": 13.055982,
+          "lon": 80.28049
+        },
+        {
+          "stop_id": "MTCN_P_2",
+          "platform_code": "2",
+          "lat": 13.055982,
+          "lon": 80.28049
+        },
+        {
+          "stop_id": "MTCN_P_3",
+          "platform_code": "3",
+          "lat": 13.055982,
+          "lon": 80.28049
+        },
+        {
+          "stop_id": "MTCN_P_4",
+          "platform_code": "4",
+          "lat": 13.055982,
+          "lon": 80.28049
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MTCN_1",
+          "name": "A1",
+          "lat": 13.05519699,
+          "lon": 80.28079431
+        },
+        {
+          "stop_id": "MTCN_2",
+          "name": "A2",
+          "lat": 13.05531425,
+          "lon": 80.28048899
+        }
+      ],
+      "child_stop_ids": [
+        "MTCN_P_1",
+        "MTCN_P_2",
+        "MTCN_P_3",
+        "MTCN_P_4",
+        "MTCN_1",
+        "MTCN_2"
+      ]
+    },
+    {
+      "id": "SRR_TNP",
+      "stop_id": "TNP",
+      "code": "TNP",
+      "name": "Tondiarpet",
+      "raw_name": "TONDIARPET",
+      "lat": 13.126956,
+      "lon": 80.281541,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TNP_P_2",
+          "platform_code": "2",
+          "lat": 13.126956,
+          "lon": 80.281541
+        },
+        {
+          "stop_id": "TNP_P_1",
+          "platform_code": "1",
+          "lat": 13.126956,
+          "lon": 80.281541
+        },
+        {
+          "stop_id": "TNP_P_3",
+          "platform_code": "3",
+          "lat": 13.126956,
+          "lon": 80.281541
+        },
+        {
+          "stop_id": "TNP_P_4",
+          "platform_code": "4",
+          "lat": 13.126956,
+          "lon": 80.281541
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TNP_1",
+          "name": "B1",
+          "lat": 13.12808972,
+          "lon": 80.28171129
+        }
+      ],
+      "child_stop_ids": [
+        "TNP_1",
+        "TNP_P_2",
+        "TNP_P_1",
+        "TNP_P_3",
+        "TNP_P_4"
+      ]
+    },
+    {
+      "id": "SRR_CTM",
+      "stop_id": "CTM",
+      "code": "CTM",
+      "name": "Kattangulatur",
+      "raw_name": "KATTANGULATUR",
+      "lat": 12.80593,
+      "lon": 80.026348,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "CTM_P_1",
+          "platform_code": "1",
+          "lat": 12.80593,
+          "lon": 80.026348
+        },
+        {
+          "stop_id": "CTM_P_3",
+          "platform_code": "3",
+          "lat": 12.80593,
+          "lon": 80.026348
+        },
+        {
+          "stop_id": "CTM_P_4",
+          "platform_code": "4",
+          "lat": 12.80593,
+          "lon": 80.026348
+        },
+        {
+          "stop_id": "CTM_P_2",
+          "platform_code": "2",
+          "lat": 12.80593,
+          "lon": 80.026348
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "CTM_1",
+          "name": "A1",
+          "lat": 12.80565815,
+          "lon": 80.02680752
+        }
+      ],
+      "child_stop_ids": [
+        "CTM_1",
+        "CTM_P_1",
+        "CTM_P_3",
+        "CTM_P_4",
+        "CTM_P_2"
+      ]
+    },
+    {
+      "id": "SRR_VOC",
+      "stop_id": "VOC",
+      "code": "VOC",
+      "name": "Voc Nagar",
+      "raw_name": "VOC NAGAR",
+      "lat": 13.140246,
+      "lon": 80.287614,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "VOC_P_1",
+          "platform_code": "1",
+          "lat": 13.140246,
+          "lon": 80.287614
+        },
+        {
+          "stop_id": "VOC_P_3",
+          "platform_code": "3",
+          "lat": 13.140246,
+          "lon": 80.287614
+        },
+        {
+          "stop_id": "VOC_P_2",
+          "platform_code": "2",
+          "lat": 13.140246,
+          "lon": 80.287614
+        },
+        {
+          "stop_id": "VOC_P_4",
+          "platform_code": "4",
+          "lat": 13.140246,
+          "lon": 80.287614
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "VOC_1",
+          "name": "A1",
+          "lat": 13.14145599,
+          "lon": 80.28840973
+        }
+      ],
+      "child_stop_ids": [
+        "VOC_1",
+        "VOC_P_1",
+        "VOC_P_3",
+        "VOC_P_2",
+        "VOC_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MCPT",
+      "stop_id": "MCPT",
+      "code": "MCPT",
+      "name": "Chintadaripet",
+      "raw_name": "CHINTADARIPET",
+      "lat": 13.074676,
+      "lon": 80.273723,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MCPT_P_1",
+          "platform_code": "1",
+          "lat": 13.074676,
+          "lon": 80.273723
+        },
+        {
+          "stop_id": "MCPT_P_2",
+          "platform_code": "2",
+          "lat": 13.074676,
+          "lon": 80.273723
+        },
+        {
+          "stop_id": "MCPT_P_3",
+          "platform_code": "3",
+          "lat": 13.074676,
+          "lon": 80.273723
+        },
+        {
+          "stop_id": "MCPT_P_4",
+          "platform_code": "4",
+          "lat": 13.074676,
+          "lon": 80.273723
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MCPT_1",
+          "name": "A1",
+          "lat": 13.07373246,
+          "lon": 80.27374883
+        }
+      ],
+      "child_stop_ids": [
+        "MCPT_P_1",
+        "MCPT_P_2",
+        "MCPT_P_3",
+        "MCPT_P_4",
+        "MCPT_1"
+      ]
+    },
+    {
+      "id": "SRR_MAF",
+      "stop_id": "MAF",
+      "code": "MAF",
+      "name": "Manavur",
+      "raw_name": "MANAVUR",
+      "lat": 13.096637,
+      "lon": 79.801608,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MAF_P_1",
+          "platform_code": "1",
+          "lat": 13.096637,
+          "lon": 79.801608
+        },
+        {
+          "stop_id": "MAF_P_2",
+          "platform_code": "2",
+          "lat": 13.096637,
+          "lon": 79.801608
+        },
+        {
+          "stop_id": "MAF_P_3",
+          "platform_code": "3",
+          "lat": 13.096637,
+          "lon": 79.801608
+        },
+        {
+          "stop_id": "MAF_P_4",
+          "platform_code": "4",
+          "lat": 13.096637,
+          "lon": 79.801608
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MAF_1",
+          "name": "A1",
+          "lat": 13.09690937,
+          "lon": 79.80132117
+        }
+      ],
+      "child_stop_ids": [
+        "MAF_1",
+        "MAF_P_1",
+        "MAF_P_2",
+        "MAF_P_3",
+        "MAF_P_4"
+      ]
+    },
+    {
+      "id": "SRR_KTPM",
+      "stop_id": "KTPM",
+      "code": "KTPM",
+      "name": "Kotturpuram",
+      "raw_name": "KOTTURPURAM",
+      "lat": 13.014867,
+      "lon": 80.248379,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "KTPM_P_1",
+          "platform_code": "1",
+          "lat": 13.014867,
+          "lon": 80.248379
+        },
+        {
+          "stop_id": "KTPM_P_2",
+          "platform_code": "2",
+          "lat": 13.014867,
+          "lon": 80.248379
+        },
+        {
+          "stop_id": "KTPM_P_3",
+          "platform_code": "3",
+          "lat": 13.014867,
+          "lon": 80.248379
+        },
+        {
+          "stop_id": "KTPM_P_4",
+          "platform_code": "4",
+          "lat": 13.014867,
+          "lon": 80.248379
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "KTPM_1",
+          "name": "A1",
+          "lat": 13.01483975,
+          "lon": 80.24829863
+        }
+      ],
+      "child_stop_ids": [
+        "KTPM_P_1",
+        "KTPM_P_2",
+        "KTPM_P_3",
+        "KTPM_P_4",
+        "KTPM_1"
+      ]
+    },
+    {
+      "id": "SRR_PRGD",
+      "stop_id": "PRGD",
+      "code": "PRGD",
+      "name": "Perungudi",
+      "raw_name": "PERUNGUDI",
+      "lat": 12.976039,
+      "lon": 80.232135,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "PRGD_P_1",
+          "platform_code": "1",
+          "lat": 12.976039,
+          "lon": 80.232135
+        },
+        {
+          "stop_id": "PRGD_P_2",
+          "platform_code": "2",
+          "lat": 12.976039,
+          "lon": 80.232135
+        },
+        {
+          "stop_id": "PRGD_P_3",
+          "platform_code": "3",
+          "lat": 12.976039,
+          "lon": 80.232135
+        },
+        {
+          "stop_id": "PRGD_P_4",
+          "platform_code": "4",
+          "lat": 12.976039,
+          "lon": 80.232135
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PRGD_1",
+          "name": "A1",
+          "lat": 12.97630426,
+          "lon": 80.23196066
+        },
+        {
+          "stop_id": "PRGD_2",
+          "name": "A2",
+          "lat": 12.97426314,
+          "lon": 80.23096026
+        }
+      ],
+      "child_stop_ids": [
+        "PRGD_P_1",
+        "PRGD_P_2",
+        "PRGD_P_3",
+        "PRGD_P_4",
+        "PRGD_1",
+        "PRGD_2"
+      ]
+    },
+    {
+      "id": "SRR_KTBR",
+      "stop_id": "KTBR",
+      "code": "KTBR",
+      "name": "Kasturba Nagar",
+      "raw_name": "KASTURBA NAGAR",
+      "lat": 13.006361,
+      "lon": 80.247697,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "KTBR_P_1",
+          "platform_code": "1",
+          "lat": 13.006361,
+          "lon": 80.247697
+        },
+        {
+          "stop_id": "KTBR_P_2",
+          "platform_code": "2",
+          "lat": 13.006361,
+          "lon": 80.247697
+        },
+        {
+          "stop_id": "KTBR_P_3",
+          "platform_code": "3",
+          "lat": 13.006361,
+          "lon": 80.247697
+        },
+        {
+          "stop_id": "KTBR_P_4",
+          "platform_code": "4",
+          "lat": 13.006361,
+          "lon": 80.247697
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "KTBR_1",
+          "name": "A1",
+          "lat": 13.00529574,
+          "lon": 80.24758552
+        }
+      ],
+      "child_stop_ids": [
+        "KTBR_P_1",
+        "KTBR_P_2",
+        "KTBR_P_3",
+        "KTBR_P_4",
+        "KTBR_1"
+      ]
+    },
+    {
+      "id": "SRR_GWYR",
+      "stop_id": "GWYR",
+      "code": "GWYR",
+      "name": "Greenways Road",
+      "raw_name": "GREENWAYS ROAD",
+      "lat": 13.021594,
+      "lon": 80.252547,
+      "type": "MRTS",
+      "platforms": [
+        {
+          "stop_id": "GWYR_P_1",
+          "platform_code": "1",
+          "lat": 13.021594,
+          "lon": 80.252547
+        },
+        {
+          "stop_id": "GWYR_P_2",
+          "platform_code": "2",
+          "lat": 13.021594,
+          "lon": 80.252547
+        },
+        {
+          "stop_id": "GWYR_P_3",
+          "platform_code": "3",
+          "lat": 13.021594,
+          "lon": 80.252547
+        },
+        {
+          "stop_id": "GWYR_P_4",
+          "platform_code": "4",
+          "lat": 13.021594,
+          "lon": 80.252547
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "GWYR_1",
+          "name": "A1",
+          "lat": 13.02167542,
+          "lon": 80.25277382
+        }
+      ],
+      "child_stop_ids": [
+        "GWYR_P_1",
+        "GWYR_P_2",
+        "GWYR_P_3",
+        "GWYR_P_4",
+        "GWYR_1"
+      ]
+    },
+    {
+      "id": "SRR_PCW",
+      "stop_id": "PCW",
+      "code": "PCW",
+      "name": "Perambur Carriage Works",
+      "raw_name": "PERAMBUR CARRIAGE WORKS",
+      "lat": 13.107366,
+      "lon": 80.239047,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PCW_P_1",
+          "platform_code": "1",
+          "lat": 13.107366,
+          "lon": 80.239047
+        },
+        {
+          "stop_id": "PCW_P_2",
+          "platform_code": "2",
+          "lat": 13.107366,
+          "lon": 80.239047
+        },
+        {
+          "stop_id": "PCW_P_3",
+          "platform_code": "3",
+          "lat": 13.107366,
+          "lon": 80.239047
+        },
+        {
+          "stop_id": "PCW_P_4",
+          "platform_code": "4",
+          "lat": 13.107366,
+          "lon": 80.239047
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PCW_1",
+          "name": "B1",
+          "lat": 13.10669848,
+          "lon": 80.2387545
+        }
+      ],
+      "child_stop_ids": [
+        "PCW_1",
+        "PCW_P_1",
+        "PCW_P_2",
+        "PCW_P_3",
+        "PCW_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PWU",
+      "stop_id": "PWU",
+      "code": "PWU",
+      "name": "Paranur",
+      "raw_name": "PARANUR",
+      "lat": 12.729959,
+      "lon": 79.983702,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PWU_P_1",
+          "platform_code": "1",
+          "lat": 12.729959,
+          "lon": 79.983702
+        },
+        {
+          "stop_id": "PWU_P_3",
+          "platform_code": "3",
+          "lat": 12.729959,
+          "lon": 79.983702
+        },
+        {
+          "stop_id": "PWU_P_4",
+          "platform_code": "4",
+          "lat": 12.729959,
+          "lon": 79.983702
+        },
+        {
+          "stop_id": "PWU_P_2",
+          "platform_code": "2",
+          "lat": 12.729959,
+          "lon": 79.983702
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PWU_1",
+          "name": "A1",
+          "lat": 12.73003717,
+          "lon": 79.98398611
+        },
+        {
+          "stop_id": "PWU_2",
+          "name": "A1",
+          "lat": 12.73002667,
+          "lon": 79.98358457
+        }
+      ],
+      "child_stop_ids": [
+        "PWU_1",
+        "PWU_2",
+        "PWU_P_1",
+        "PWU_P_3",
+        "PWU_P_4",
+        "PWU_P_2"
+      ]
+    },
+    {
+      "id": "SRR_WJ",
+      "stop_id": "WJ",
+      "code": "WJ",
+      "name": "Walajabad",
+      "raw_name": "WALAJABAD",
+      "lat": 12.79706326,
+      "lon": 79.81808625,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "WJ_P_1",
+          "platform_code": "1",
+          "lat": 12.79706326,
+          "lon": 79.81808625
+        },
+        {
+          "stop_id": "WJ_P_2",
+          "platform_code": "2",
+          "lat": 12.79706326,
+          "lon": 79.81808625
+        },
+        {
+          "stop_id": "WJ_P_3",
+          "platform_code": "3",
+          "lat": 12.79706326,
+          "lon": 79.81808625
+        },
+        {
+          "stop_id": "WJ_P_4",
+          "platform_code": "4",
+          "lat": 12.79706326,
+          "lon": 79.81808625
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "WJ_1",
+          "name": "B1",
+          "lat": 12.79664746,
+          "lon": 79.8187165
+        }
+      ],
+      "child_stop_ids": [
+        "WJ_1",
+        "WJ_P_1",
+        "WJ_P_2",
+        "WJ_P_3",
+        "WJ_P_4"
+      ]
+    },
+    {
+      "id": "SRR_KAVM",
+      "stop_id": "KAVM",
+      "code": "KAVM",
+      "name": "Kathivakkam",
+      "raw_name": "KATHIVAKKAM",
+      "lat": 13.204528,
+      "lon": 80.316968,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "KAVM_P_1",
+          "platform_code": "1",
+          "lat": 13.204528,
+          "lon": 80.316968
+        },
+        {
+          "stop_id": "KAVM_P_2",
+          "platform_code": "2",
+          "lat": 13.204528,
+          "lon": 80.316968
+        },
+        {
+          "stop_id": "KAVM_P_3",
+          "platform_code": "3",
+          "lat": 13.204528,
+          "lon": 80.316968
+        },
+        {
+          "stop_id": "KAVM_P_4",
+          "platform_code": "4",
+          "lat": 13.204528,
+          "lon": 80.316968
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "KAVM_1",
+          "name": "B1",
+          "lat": 13.20377332,
+          "lon": 80.31644657
+        }
+      ],
+      "child_stop_ids": [
+        "KAVM_1",
+        "KAVM_P_1",
+        "KAVM_P_2",
+        "KAVM_P_3",
+        "KAVM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MKAK",
+      "stop_id": "MKAK",
+      "code": "MKAK",
+      "name": "Mundakakanni Amman Koil",
+      "raw_name": "MUNDAKAKANNI AMMAN KOIL",
+      "lat": 13.041182,
+      "lon": 80.270386,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MKAK_P_1",
+          "platform_code": "1",
+          "lat": 13.041182,
+          "lon": 80.270386
+        },
+        {
+          "stop_id": "MKAK_P_2",
+          "platform_code": "2",
+          "lat": 13.041182,
+          "lon": 80.270386
+        },
+        {
+          "stop_id": "MKAK_P_3",
+          "platform_code": "3",
+          "lat": 13.041182,
+          "lon": 80.270386
+        },
+        {
+          "stop_id": "MKAK_P_4",
+          "platform_code": "4",
+          "lat": 13.041182,
+          "lon": 80.270386
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MKAK_1",
+          "name": "A1",
+          "lat": 13.04096078,
+          "lon": 80.27010817
+        }
+      ],
+      "child_stop_ids": [
+        "MKAK_P_1",
+        "MKAK_P_2",
+        "MKAK_P_3",
+        "MKAK_P_4",
+        "MKAK_1"
+      ]
+    },
+    {
+      "id": "SRR_AIPP",
+      "stop_id": "AIPP",
+      "code": "AIPP",
+      "name": "Attipattu Pudu Nagar",
+      "raw_name": "ATTIPATTU PUDU NAGAR",
+      "lat": 13.2492,
+      "lon": 80.300049,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "AIPP_P_4",
+          "platform_code": "4",
+          "lat": 13.2492,
+          "lon": 80.300049
+        },
+        {
+          "stop_id": "AIPP_P_3",
+          "platform_code": "3",
+          "lat": 13.2492,
+          "lon": 80.300049
+        },
+        {
+          "stop_id": "AIPP_P_1",
+          "platform_code": "1",
+          "lat": 13.2492,
+          "lon": 80.300049
+        },
+        {
+          "stop_id": "AIPP_P_2",
+          "platform_code": "2",
+          "lat": 13.2492,
+          "lon": 80.300049
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "AIPP_1",
+          "name": "A1",
+          "lat": 13.24935119,
+          "lon": 80.30027739
+        }
+      ],
+      "child_stop_ids": [
+        "AIPP_1",
+        "AIPP_P_4",
+        "AIPP_P_3",
+        "AIPP_P_1",
+        "AIPP_P_2"
+      ]
+    },
+    {
+      "id": "SRR_RPM",
+      "stop_id": "RPM",
+      "code": "RPM",
+      "name": "Royapuram",
+      "raw_name": "ROYAPURAM",
+      "lat": 13.104138,
+      "lon": 80.293418,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "RPM_P_1",
+          "platform_code": "1",
+          "lat": 13.104138,
+          "lon": 80.293418
+        },
+        {
+          "stop_id": "RPM_P_2",
+          "platform_code": "2",
+          "lat": 13.104138,
+          "lon": 80.293418
+        },
+        {
+          "stop_id": "RPM_P_3",
+          "platform_code": "3",
+          "lat": 13.104138,
+          "lon": 80.293418
+        },
+        {
+          "stop_id": "RPM_P_4",
+          "platform_code": "4",
+          "lat": 13.104138,
+          "lon": 80.293418
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "RPM_1",
+          "name": "A1",
+          "lat": 13.10531472,
+          "lon": 80.2934328
+        },
+        {
+          "stop_id": "RPM_2",
+          "name": "AL1",
+          "lat": 13.10524804,
+          "lon": 80.29337895
+        }
+      ],
+      "child_stop_ids": [
+        "RPM_1",
+        "RPM_2",
+        "RPM_P_1",
+        "RPM_P_2",
+        "RPM_P_3",
+        "RPM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_NPKM",
+      "stop_id": "NPKM",
+      "code": "NPKM",
+      "name": "Nandiyampakkam",
+      "raw_name": "NANDIYAMPAKKAM",
+      "lat": 13.2687,
+      "lon": 80.276032,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "NPKM_P_1",
+          "platform_code": "1",
+          "lat": 13.2687,
+          "lon": 80.276032
+        },
+        {
+          "stop_id": "NPKM_P_2",
+          "platform_code": "2",
+          "lat": 13.2687,
+          "lon": 80.276032
+        },
+        {
+          "stop_id": "NPKM_P_3",
+          "platform_code": "3",
+          "lat": 13.2687,
+          "lon": 80.276032
+        },
+        {
+          "stop_id": "NPKM_P_4",
+          "platform_code": "4",
+          "lat": 13.2687,
+          "lon": 80.276032
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "NPKM_1",
+          "name": "B1",
+          "lat": 13.26802288,
+          "lon": 80.27688669
+        }
+      ],
+      "child_stop_ids": [
+        "NPKM_1",
+        "NPKM_P_1",
+        "NPKM_P_2",
+        "NPKM_P_3",
+        "NPKM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TMLP",
+      "stop_id": "TMLP",
+      "code": "TMLP",
+      "name": "Tirumalpur",
+      "raw_name": "TIRUMALPUR",
+      "lat": 12.95624396,
+      "lon": 79.67377498,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TMLP_P_1",
+          "platform_code": "1",
+          "lat": 12.95624396,
+          "lon": 79.67377498
+        },
+        {
+          "stop_id": "TMLP_P_2",
+          "platform_code": "2",
+          "lat": 12.95624396,
+          "lon": 79.67377498
+        },
+        {
+          "stop_id": "TMLP_P_3",
+          "platform_code": "3",
+          "lat": 12.95624396,
+          "lon": 79.67377498
+        },
+        {
+          "stop_id": "TMLP_P_4",
+          "platform_code": "4",
+          "lat": 12.95624396,
+          "lon": 79.67377498
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TMLP_1",
+          "name": "A1",
+          "lat": 12.95683307,
+          "lon": 79.67400154
+        }
+      ],
+      "child_stop_ids": [
+        "TMLP_1",
+        "TMLP_P_1",
+        "TMLP_P_2",
+        "TMLP_P_3",
+        "TMLP_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MSU",
+      "stop_id": "MSU",
+      "code": "MSU",
+      "name": "Mosur",
+      "raw_name": "MOSUR",
+      "lat": 13.085278,
+      "lon": 79.712473,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MSU_P_1",
+          "platform_code": "1",
+          "lat": 13.085278,
+          "lon": 79.712473
+        },
+        {
+          "stop_id": "MSU_P_2",
+          "platform_code": "2",
+          "lat": 13.085278,
+          "lon": 79.712473
+        },
+        {
+          "stop_id": "MSU_P_3",
+          "platform_code": "3",
+          "lat": 13.085278,
+          "lon": 79.712473
+        },
+        {
+          "stop_id": "MSU_P_4",
+          "platform_code": "4",
+          "lat": 13.085278,
+          "lon": 79.712473
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MSU_1",
+          "name": "B1",
+          "lat": 13.08509389,
+          "lon": 79.7137522
+        }
+      ],
+      "child_stop_ids": [
+        "MSU_1",
+        "MSU_P_1",
+        "MSU_P_2",
+        "MSU_P_3",
+        "MSU_P_4"
+      ]
+    },
+    {
+      "id": "SRR_SPAM",
+      "stop_id": "SPAM",
+      "code": "SPAM",
+      "name": "Senji Panambakkam",
+      "raw_name": "SENJI PANAMBAKKAM",
+      "lat": 13.094652,
+      "lon": 79.834986,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "SPAM_P_1",
+          "platform_code": "1",
+          "lat": 13.094652,
+          "lon": 79.834986
+        },
+        {
+          "stop_id": "SPAM_P_2",
+          "platform_code": "2",
+          "lat": 13.094652,
+          "lon": 79.834986
+        },
+        {
+          "stop_id": "SPAM_P_3",
+          "platform_code": "3",
+          "lat": 13.094652,
+          "lon": 79.834986
+        },
+        {
+          "stop_id": "SPAM_P_4",
+          "platform_code": "4",
+          "lat": 13.094652,
+          "lon": 79.834986
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "SPAM_1",
+          "name": "B1",
+          "lat": 13.0945643,
+          "lon": 79.83607184
+        }
+      ],
+      "child_stop_ids": [
+        "SPAM_1",
+        "SPAM_P_1",
+        "SPAM_P_2",
+        "SPAM_P_3",
+        "SPAM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PALR",
+      "stop_id": "PALR",
+      "code": "PALR",
+      "name": "Palur",
+      "raw_name": "PALUR",
+      "lat": 12.76637993,
+      "lon": 79.9066831,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PALR_P_1",
+          "platform_code": "1",
+          "lat": 12.76637993,
+          "lon": 79.9066831
+        },
+        {
+          "stop_id": "PALR_P_2",
+          "platform_code": "2",
+          "lat": 12.76637993,
+          "lon": 79.9066831
+        },
+        {
+          "stop_id": "PALR_P_3",
+          "platform_code": "3",
+          "lat": 12.76637993,
+          "lon": 79.9066831
+        },
+        {
+          "stop_id": "PALR_P_4",
+          "platform_code": "4",
+          "lat": 12.76637993,
+          "lon": 79.9066831
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PALR_1",
+          "name": "B1",
+          "lat": 12.76622741,
+          "lon": 79.9069224
+        }
+      ],
+      "child_stop_ids": [
+        "PALR_1",
+        "PALR_P_1",
+        "PALR_P_2",
+        "PALR_P_3",
+        "PALR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_CJE",
+      "stop_id": "CJE",
+      "code": "CJE",
+      "name": "Kanchipuram East",
+      "raw_name": "KANCHIPURAM EAST",
+      "lat": 12.8405755,
+      "lon": 79.71222807,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "CJE_P_1",
+          "platform_code": "1",
+          "lat": 12.8405755,
+          "lon": 79.71222807
+        },
+        {
+          "stop_id": "CJE_P_2",
+          "platform_code": "2",
+          "lat": 12.8405755,
+          "lon": 79.71222807
+        },
+        {
+          "stop_id": "CJE_P_3",
+          "platform_code": "3",
+          "lat": 12.8405755,
+          "lon": 79.71222807
+        },
+        {
+          "stop_id": "CJE_P_4",
+          "platform_code": "4",
+          "lat": 12.8405755,
+          "lon": 79.71222807
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "CJE_1",
+          "name": "B1",
+          "lat": 12.84083182,
+          "lon": 79.7121322
+        }
+      ],
+      "child_stop_ids": [
+        "CJE_1",
+        "CJE_P_1",
+        "CJE_P_2",
+        "CJE_P_3",
+        "CJE_P_4"
+      ]
+    },
+    {
+      "id": "SRR_EGT",
+      "stop_id": "EGT",
+      "code": "EGT",
+      "name": "Egattur",
+      "raw_name": "EGATTUR",
+      "lat": 13.107082,
+      "lon": 79.884682,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "EGT_P_1",
+          "platform_code": "1",
+          "lat": 13.107082,
+          "lon": 79.884682
+        },
+        {
+          "stop_id": "EGT_P_2",
+          "platform_code": "2",
+          "lat": 13.107082,
+          "lon": 79.884682
+        },
+        {
+          "stop_id": "EGT_P_3",
+          "platform_code": "3",
+          "lat": 13.107082,
+          "lon": 79.884682
+        },
+        {
+          "stop_id": "EGT_P_4",
+          "platform_code": "4",
+          "lat": 13.107082,
+          "lon": 79.884682
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "EGT_1",
+          "name": "A1",
+          "lat": 13.10716447,
+          "lon": 79.88431631
+        }
+      ],
+      "child_stop_ids": [
+        "EGT_1",
+        "EGT_P_1",
+        "EGT_P_2",
+        "EGT_P_3",
+        "EGT_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PLMG",
+      "stop_id": "PLMG",
+      "code": "PLMG",
+      "name": "Puliyamangalam",
+      "raw_name": "PULIYAMANGALAM",
+      "lat": 13.083282,
+      "lon": 79.685887,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PLMG_P_1",
+          "platform_code": "1",
+          "lat": 13.083282,
+          "lon": 79.685887
+        },
+        {
+          "stop_id": "PLMG_P_2",
+          "platform_code": "2",
+          "lat": 13.083282,
+          "lon": 79.685887
+        },
+        {
+          "stop_id": "PLMG_P_3",
+          "platform_code": "3",
+          "lat": 13.083282,
+          "lon": 79.685887
+        },
+        {
+          "stop_id": "PLMG_P_4",
+          "platform_code": "4",
+          "lat": 13.083282,
+          "lon": 79.685887
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PLMG_1",
+          "name": "A1",
+          "lat": 13.08331366,
+          "lon": 79.68499074
+        }
+      ],
+      "child_stop_ids": [
+        "PLMG_1",
+        "PLMG_P_1",
+        "PLMG_P_2",
+        "PLMG_P_3",
+        "PLMG_P_4"
+      ]
+    },
+    {
+      "id": "SRR_TKO",
+      "stop_id": "TKO",
+      "code": "TKO",
+      "name": "Takkolam",
+      "raw_name": "TAKKOLAM",
+      "lat": 13.02428143,
+      "lon": 79.6773306,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TKO_P_1",
+          "platform_code": "1",
+          "lat": 13.02428143,
+          "lon": 79.6773306
+        },
+        {
+          "stop_id": "TKO_P_2",
+          "platform_code": "2",
+          "lat": 13.02428143,
+          "lon": 79.6773306
+        },
+        {
+          "stop_id": "TKO_P_3",
+          "platform_code": "3",
+          "lat": 13.02428143,
+          "lon": 79.6773306
+        },
+        {
+          "stop_id": "TKO_P_4",
+          "platform_code": "4",
+          "lat": 13.02428143,
+          "lon": 79.6773306
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TKO_1",
+          "name": "B1",
+          "lat": 13.02455113,
+          "lon": 79.67738923
+        }
+      ],
+      "child_stop_ids": [
+        "TKO_1",
+        "TKO_P_1",
+        "TKO_P_2",
+        "TKO_P_3",
+        "TKO_P_4"
+      ]
+    },
+    {
+      "id": "SRR_VB",
+      "stop_id": "VB",
+      "code": "VB",
+      "name": "Villiyambakkam",
+      "raw_name": "VILLIYAMBAKKAM",
+      "lat": 12.75212289,
+      "lon": 79.93368707,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "VB_P_1",
+          "platform_code": "1",
+          "lat": 12.75212289,
+          "lon": 79.93368707
+        },
+        {
+          "stop_id": "VB_P_2",
+          "platform_code": "2",
+          "lat": 12.75212289,
+          "lon": 79.93368707
+        },
+        {
+          "stop_id": "VB_P_3",
+          "platform_code": "3",
+          "lat": 12.75212289,
+          "lon": 79.93368707
+        },
+        {
+          "stop_id": "VB_P_4",
+          "platform_code": "4",
+          "lat": 12.75212289,
+          "lon": 79.93368707
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "VB_1",
+          "name": "B1",
+          "lat": 12.75170737,
+          "lon": 79.9344777
+        }
+      ],
+      "child_stop_ids": [
+        "VB_1",
+        "VB_P_1",
+        "VB_P_2",
+        "VB_P_3",
+        "VB_P_4"
+      ]
+    },
+    {
+      "id": "SRR_RDY",
+      "stop_id": "RDY",
+      "code": "RDY",
+      "name": "Reddipalayam",
+      "raw_name": "REDDIPALAYAM",
+      "lat": 12.72850163,
+      "lon": 79.95307135,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "RDY_P_1",
+          "platform_code": "1",
+          "lat": 12.72850163,
+          "lon": 79.95307135
+        },
+        {
+          "stop_id": "RDY_P_2",
+          "platform_code": "2",
+          "lat": 12.72850163,
+          "lon": 79.95307135
+        },
+        {
+          "stop_id": "RDY_P_3",
+          "platform_code": "3",
+          "lat": 12.72850163,
+          "lon": 79.95307135
+        },
+        {
+          "stop_id": "RDY_P_4",
+          "platform_code": "4",
+          "lat": 12.72850163,
+          "lon": 79.95307135
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "RDY_1",
+          "name": "B1",
+          "lat": 12.72948362,
+          "lon": 79.95263918
+        }
+      ],
+      "child_stop_ids": [
+        "RDY_1",
+        "RDY_P_1",
+        "RDY_P_2",
+        "RDY_P_3",
+        "RDY_P_4"
+      ]
+    },
+    {
+      "id": "SRR_NTT",
+      "stop_id": "NTT",
+      "code": "NTT",
+      "name": "Nathapettai",
+      "raw_name": "NATHAPETTAI",
+      "lat": 12.82364716,
+      "lon": 79.75601226,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "NTT_P_1",
+          "platform_code": "1",
+          "lat": 12.82364716,
+          "lon": 79.75601226
+        },
+        {
+          "stop_id": "NTT_P_2",
+          "platform_code": "2",
+          "lat": 12.82364716,
+          "lon": 79.75601226
+        },
+        {
+          "stop_id": "NTT_P_3",
+          "platform_code": "3",
+          "lat": 12.82364716,
+          "lon": 79.75601226
+        },
+        {
+          "stop_id": "NTT_P_4",
+          "platform_code": "4",
+          "lat": 12.82364716,
+          "lon": 79.75601226
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "NTT_1",
+          "name": "B1",
+          "lat": 12.82365343,
+          "lon": 79.75584438
+        }
+      ],
+      "child_stop_ids": [
+        "NTT_1",
+        "NTT_P_1",
+        "NTT_P_2",
+        "NTT_P_3",
+        "NTT_P_4"
+      ]
+    },
+    {
+      "id": "SRR_PYV",
+      "stop_id": "PYV",
+      "code": "PYV",
+      "name": "Palayasivaram",
+      "raw_name": "PALAYASIVARAM",
+      "lat": 12.77648995,
+      "lon": 79.87761073,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PYV_P_1",
+          "platform_code": "1",
+          "lat": 12.77648995,
+          "lon": 79.87761073
+        },
+        {
+          "stop_id": "PYV_P_2",
+          "platform_code": "2",
+          "lat": 12.77648995,
+          "lon": 79.87761073
+        },
+        {
+          "stop_id": "PYV_P_3",
+          "platform_code": "3",
+          "lat": 12.77648995,
+          "lon": 79.87761073
+        },
+        {
+          "stop_id": "PYV_P_4",
+          "platform_code": "4",
+          "lat": 12.77648995,
+          "lon": 79.87761073
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PYV_1",
+          "name": "A1",
+          "lat": 12.77674068,
+          "lon": 79.87778864
+        }
+      ],
+      "child_stop_ids": [
+        "PYV_1",
+        "PYV_P_1",
+        "PYV_P_2",
+        "PYV_P_3",
+        "PYV_P_4"
+      ]
+    },
+    {
+      "id": "SRR_ELR",
+      "stop_id": "ELR",
+      "code": "ELR",
+      "name": "Elavur",
+      "raw_name": "ELAVUR",
+      "lat": 13.45820298,
+      "lon": 80.11565755,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "ELR_P_1",
+          "platform_code": "1",
+          "lat": 13.45820298,
+          "lon": 80.11565755
+        },
+        {
+          "stop_id": "ELR_P_2",
+          "platform_code": "2",
+          "lat": 13.45820298,
+          "lon": 80.11565755
+        },
+        {
+          "stop_id": "ELR_P_3",
+          "platform_code": "3",
+          "lat": 13.45820298,
+          "lon": 80.11565755
+        },
+        {
+          "stop_id": "ELR_P_4",
+          "platform_code": "4",
+          "lat": 13.45820298,
+          "lon": 80.11565755
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "ELR_1",
+          "name": "B1",
+          "lat": 13.45945143,
+          "lon": 80.11533409
+        },
+        {
+          "stop_id": "ELR_2",
+          "name": "A1",
+          "lat": 13.45959506,
+          "lon": 80.11592486
+        }
+      ],
+      "child_stop_ids": [
+        "ELR_1",
+        "ELR_2",
+        "ELR_P_1",
+        "ELR_P_2",
+        "ELR_P_3",
+        "ELR_P_4"
+      ]
+    },
+    {
+      "id": "SRR_AKM",
+      "stop_id": "AKM",
+      "code": "AKM",
+      "name": "Arambakam",
+      "raw_name": "ARAMBAKAM",
+      "lat": 13.5331367,
+      "lon": 80.07458426,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "AKM_P_1",
+          "platform_code": "1",
+          "lat": 13.5331367,
+          "lon": 80.07458426
+        },
+        {
+          "stop_id": "AKM_P_2",
+          "platform_code": "2",
+          "lat": 13.5331367,
+          "lon": 80.07458426
+        },
+        {
+          "stop_id": "AKM_P_3",
+          "platform_code": "3",
+          "lat": 13.5331367,
+          "lon": 80.07458426
+        },
+        {
+          "stop_id": "AKM_P_4",
+          "platform_code": "4",
+          "lat": 13.5331367,
+          "lon": 80.07458426
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "AKM_1",
+          "name": "B1",
+          "lat": 13.53316845,
+          "lon": 80.0746619
+        }
+      ],
+      "child_stop_ids": [
+        "AKM_1",
+        "AKM_P_1",
+        "AKM_P_2",
+        "AKM_P_3",
+        "AKM_P_4"
+      ]
+    },
+    {
+      "id": "SRR_MAS",
+      "stop_id": "MAS",
+      "code": "MAS",
+      "name": "Chennai Central Suburban",
+      "raw_name": "CHENNAI CENTRAL SUBURBAN",
+      "lat": 13.083037,
+      "lon": 80.27479,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MAS_P_14",
+          "platform_code": "14",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_15",
+          "platform_code": "15",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_16",
+          "platform_code": "16",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_12",
+          "platform_code": "12",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_13",
+          "platform_code": "13",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_1",
+          "platform_code": "1",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_2",
+          "platform_code": "2",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_3",
+          "platform_code": "3",
+          "lat": 13.083037,
+          "lon": 80.27479
+        },
+        {
+          "stop_id": "MAS_P_4",
+          "platform_code": "4",
+          "lat": 13.083037,
+          "lon": 80.27479
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MAS_1",
+          "name": "A1",
+          "lat": 13.08299803,
+          "lon": 80.27413516
+        }
+      ],
+      "child_stop_ids": [
+        "MAS_P_14",
+        "MAS_P_15",
+        "MAS_P_16",
+        "MAS_P_12",
+        "MAS_P_13",
+        "MAS_P_1",
+        "MAS_P_2",
+        "MAS_P_3",
+        "MAS_P_4",
+        "MAS_1"
+      ]
+    },
+    {
+      "id": "SRR_MPKT",
+      "stop_id": "MPKT",
+      "code": "MPKT",
+      "name": "Chennai Park Town",
+      "raw_name": "CHENNAI PARK TOWN",
+      "lat": 13.079588,
+      "lon": 80.277502,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "MPKT_P_1",
+          "platform_code": "1",
+          "lat": 13.079588,
+          "lon": 80.277502
+        },
+        {
+          "stop_id": "MPKT_P_2",
+          "platform_code": "2",
+          "lat": 13.079588,
+          "lon": 80.277502
+        },
+        {
+          "stop_id": "MPKT_P_3",
+          "platform_code": "3",
+          "lat": 13.079588,
+          "lon": 80.277502
+        },
+        {
+          "stop_id": "MPKT_P_4",
+          "platform_code": "4",
+          "lat": 13.079588,
+          "lon": 80.277502
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "MPKT_1",
+          "name": "A1",
+          "lat": 13.07981892,
+          "lon": 80.2761619
+        }
+      ],
+      "child_stop_ids": [
+        "MPKT_P_1",
+        "MPKT_P_2",
+        "MPKT_P_3",
+        "MPKT_P_4",
+        "MPKT_1"
+      ]
+    },
+    {
+      "id": "SRR_TMVL",
+      "stop_id": "TMVL",
+      "code": "TMVL",
+      "name": "Tirumullaivayil",
+      "raw_name": "TIRUMULLAIVAYIL",
+      "lat": 13.115509,
+      "lon": 80.136654,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "TMVL_P_1",
+          "platform_code": "1",
+          "lat": 13.115509,
+          "lon": 80.136654
+        },
+        {
+          "stop_id": "TMVL_P_2",
+          "platform_code": "2",
+          "lat": 13.115509,
+          "lon": 80.136654
+        },
+        {
+          "stop_id": "TMVL_P_3",
+          "platform_code": "3",
+          "lat": 13.115509,
+          "lon": 80.136654
+        },
+        {
+          "stop_id": "TMVL_P_4",
+          "platform_code": "4",
+          "lat": 13.115509,
+          "lon": 80.136654
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "TMVL_1",
+          "name": "A1",
+          "lat": 13.11560165,
+          "lon": 80.1372665
+        },
+        {
+          "stop_id": "TMVL_2",
+          "name": "A2",
+          "lat": 13.11521895,
+          "lon": 80.13723163
+        }
+      ],
+      "child_stop_ids": [
+        "TMVL_P_1",
+        "TMVL_P_2",
+        "TMVL_P_3",
+        "TMVL_P_4",
+        "TMVL_1",
+        "TMVL_2"
+      ]
+    },
+    {
+      "id": "SRR_PTMS",
+      "stop_id": "PTMS",
+      "code": "PTMS",
+      "name": "Pattabiram M Siding",
+      "raw_name": "PATTABIRAM M SIDING",
+      "lat": 13.136719,
+      "lon": 80.059878,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PTMS_P_1",
+          "platform_code": "1",
+          "lat": 13.136719,
+          "lon": 80.059878
+        },
+        {
+          "stop_id": "PTMS_P_2",
+          "platform_code": "2",
+          "lat": 13.136719,
+          "lon": 80.059878
+        },
+        {
+          "stop_id": "PTMS_P_3",
+          "platform_code": "3",
+          "lat": 13.136719,
+          "lon": 80.059878
+        },
+        {
+          "stop_id": "PTMS_P_4",
+          "platform_code": "4",
+          "lat": 13.136719,
+          "lon": 80.059878
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PTMS_1",
+          "name": "A1",
+          "lat": 13.13649167,
+          "lon": 80.06001488
+        }
+      ],
+      "child_stop_ids": [
+        "PTMS_P_1",
+        "PTMS_P_2",
+        "PTMS_P_3",
+        "PTMS_P_4",
+        "PTMS_1"
+      ]
+    },
+    {
+      "id": "SRR_PRES",
+      "stop_id": "PRES",
+      "code": "PRES",
+      "name": "Pattabiram 'E' Depot",
+      "raw_name": "PATTABIRAM 'E' DEPOT",
+      "lat": 13.145744,
+      "lon": 80.067324,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "PRES_P_1",
+          "platform_code": "1",
+          "lat": 13.145744,
+          "lon": 80.067324
+        },
+        {
+          "stop_id": "PRES_P_2",
+          "platform_code": "2",
+          "lat": 13.145744,
+          "lon": 80.067324
+        },
+        {
+          "stop_id": "PRES_P_3",
+          "platform_code": "3",
+          "lat": 13.145744,
+          "lon": 80.067324
+        },
+        {
+          "stop_id": "PRES_P_4",
+          "platform_code": "4",
+          "lat": 13.145744,
+          "lon": 80.067324
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "PRES_1",
+          "name": "A1",
+          "lat": 13.14639377,
+          "lon": 80.06931239
+        }
+      ],
+      "child_stop_ids": [
+        "PRES_P_1",
+        "PRES_P_2",
+        "PRES_P_3",
+        "PRES_P_4",
+        "PRES_1"
+      ]
+    },
+    {
+      "id": "SRR_INDR",
+      "stop_id": "INDR",
+      "code": "INDR",
+      "name": "Indra Nagar",
+      "raw_name": "INDRA NAGAR",
+      "lat": 12.997514,
+      "lon": 80.249234,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "INDR_P_1",
+          "platform_code": "1",
+          "lat": 12.997514,
+          "lon": 80.249234
+        },
+        {
+          "stop_id": "INDR_P_2",
+          "platform_code": "2",
+          "lat": 12.997514,
+          "lon": 80.249234
+        },
+        {
+          "stop_id": "INDR_P_3",
+          "platform_code": "3",
+          "lat": 12.997514,
+          "lon": 80.249234
+        },
+        {
+          "stop_id": "INDR_P_4",
+          "platform_code": "4",
+          "lat": 12.997514,
+          "lon": 80.249234
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "INDR_1",
+          "name": "A1",
+          "lat": 12.99636688,
+          "lon": 80.24946094
+        }
+      ],
+      "child_stop_ids": [
+        "INDR_P_1",
+        "INDR_P_2",
+        "INDR_P_3",
+        "INDR_P_4",
+        "INDR_1"
+      ]
+    },
+    {
+      "id": "SRR_NEC",
+      "stop_id": "NEC",
+      "code": "NEC",
+      "name": "Nemilicherry Halt",
+      "raw_name": "NEMILICHERRY HALT",
+      "lat": 13.12147,
+      "lon": 80.045185,
+      "type": "Suburban",
+      "platforms": [
+        {
+          "stop_id": "NEC_P_1",
+          "platform_code": "1",
+          "lat": 13.12147,
+          "lon": 80.045185
+        },
+        {
+          "stop_id": "NEC_P_2",
+          "platform_code": "2",
+          "lat": 13.12147,
+          "lon": 80.045185
+        },
+        {
+          "stop_id": "NEC_P_3",
+          "platform_code": "3",
+          "lat": 13.12147,
+          "lon": 80.045185
+        },
+        {
+          "stop_id": "NEC_P_4",
+          "platform_code": "4",
+          "lat": 13.12147,
+          "lon": 80.045185
+        }
+      ],
+      "entrances": [
+        {
+          "stop_id": "NEC_1",
+          "name": "A1",
+          "lat": 13.12155766,
+          "lon": 80.04349624
+        },
+        {
+          "stop_id": "NEC_2",
+          "name": "A2",
+          "lat": 13.12204554,
+          "lon": 80.04362392
+        }
+      ],
+      "child_stop_ids": [
+        "NEC_P_1",
+        "NEC_P_2",
+        "NEC_P_3",
+        "NEC_P_4",
+        "NEC_1",
+        "NEC_2"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "40001",
+      "short_name": "40001",
+      "long_name": "MSB-TBM",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM"
+        ]
+      ]
+    },
+    {
+      "id": "40002",
+      "short_name": "40002",
+      "long_name": "TBM-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40201",
+      "short_name": "40201",
+      "long_name": "MSB-GI",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI"
+        ]
+      ]
+    },
+    {
+      "id": "40202",
+      "short_name": "40202",
+      "long_name": "GI-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40252",
+      "short_name": "40252",
+      "long_name": "GI-TBM",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM"
+        ]
+      ]
+    },
+    {
+      "id": "40501",
+      "short_name": "40501",
+      "long_name": "MSB-CGL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL"
+        ]
+      ]
+    },
+    {
+      "id": "40502",
+      "short_name": "40502",
+      "long_name": "CGL-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_SKL",
+          "SRR_MMNK",
+          "SRR_CTM",
+          "SRR_POTI",
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40518",
+      "short_name": "40518",
+      "long_name": "CGL-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_SKL",
+          "SRR_MMNK",
+          "SRR_CTM",
+          "SRR_POTI",
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_CMP",
+          "SRR_GDY",
+          "SRR_MBM",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40581",
+      "short_name": "40581",
+      "long_name": "TBM-CGL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL"
+        ]
+      ]
+    },
+    {
+      "id": "40582",
+      "short_name": "40582",
+      "long_name": "CGL-TBM",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_SKL",
+          "SRR_MMNK",
+          "SRR_CTM",
+          "SRR_POTI",
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM"
+        ]
+      ]
+    },
+    {
+      "id": "40701",
+      "short_name": "40701",
+      "long_name": "MSB-CJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL",
+          "SRR_PALR",
+          "SRR_WJ",
+          "SRR_CJE",
+          "SRR_CJ"
+        ]
+      ]
+    },
+    {
+      "id": "40702",
+      "short_name": "40702",
+      "long_name": "CJ-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_CJ",
+          "SRR_CJE",
+          "SRR_NTT",
+          "SRR_WJ",
+          "SRR_PYV",
+          "SRR_PALR",
+          "SRR_VB",
+          "SRR_RDY",
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_SKL",
+          "SRR_MMNK",
+          "SRR_CTM",
+          "SRR_POTI",
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40703",
+      "short_name": "40703",
+      "long_name": "MSB-CJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL",
+          "SRR_RDY",
+          "SRR_VB",
+          "SRR_PALR",
+          "SRR_PYV",
+          "SRR_WJ",
+          "SRR_NTT",
+          "SRR_CJE",
+          "SRR_CJ"
+        ]
+      ]
+    },
+    {
+      "id": "40801",
+      "short_name": "40801",
+      "long_name": "MSB-TMLP",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL",
+          "SRR_RDY",
+          "SRR_VB",
+          "SRR_PALR",
+          "SRR_PYV",
+          "SRR_WJ",
+          "SRR_NTT",
+          "SRR_CJE",
+          "SRR_CJ",
+          "SRR_TMLP"
+        ]
+      ]
+    },
+    {
+      "id": "40802",
+      "short_name": "40802",
+      "long_name": "TMLP-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TMLP",
+          "SRR_CJ",
+          "SRR_CJE",
+          "SRR_WJ",
+          "SRR_PALR",
+          "SRR_CGL",
+          "SRR_TBM",
+          "SRR_GDY",
+          "SRR_MBM",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40804",
+      "short_name": "40804",
+      "long_name": "TMLP-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TMLP",
+          "SRR_CJ",
+          "SRR_CJE",
+          "SRR_NTT",
+          "SRR_WJ",
+          "SRR_PYV",
+          "SRR_PALR",
+          "SRR_VB",
+          "SRR_RDY",
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_SKL",
+          "SRR_MMNK",
+          "SRR_CTM",
+          "SRR_POTI",
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40805",
+      "short_name": "40805",
+      "long_name": "MSB-TMLP",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL",
+          "SRR_PALR",
+          "SRR_WJ",
+          "SRR_CJE",
+          "SRR_CJ",
+          "SRR_TMLP"
+        ]
+      ]
+    },
+    {
+      "id": "40901",
+      "short_name": "40901",
+      "long_name": "MSB-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL",
+          "SRR_RDY",
+          "SRR_VB",
+          "SRR_PALR",
+          "SRR_PYV",
+          "SRR_WJ",
+          "SRR_NTT",
+          "SRR_CJE",
+          "SRR_CJ",
+          "SRR_TMLP",
+          "SRR_TKO",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "40902",
+      "short_name": "40902",
+      "long_name": "AJJ-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_TKO",
+          "SRR_TMLP",
+          "SRR_CJ",
+          "SRR_CJE",
+          "SRR_NTT",
+          "SRR_WJ",
+          "SRR_PYV",
+          "SRR_PALR",
+          "SRR_VB",
+          "SRR_RDY",
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_SKL",
+          "SRR_MMNK",
+          "SRR_CTM",
+          "SRR_POTI",
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "40903",
+      "short_name": "40903",
+      "long_name": "MSB-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MBM",
+          "SRR_GDY",
+          "SRR_TBM",
+          "SRR_CGL",
+          "SRR_PALR",
+          "SRR_WJ",
+          "SRR_CJE",
+          "SRR_CJ",
+          "SRR_TMLP",
+          "SRR_TKO",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "40904",
+      "short_name": "40904",
+      "long_name": "AJJ-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_TKO",
+          "SRR_TMLP",
+          "SRR_CJ",
+          "SRR_CJE",
+          "SRR_WJ",
+          "SRR_PALR",
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_CMP",
+          "SRR_GDY",
+          "SRR_MBM",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "41001",
+      "short_name": "41001",
+      "long_name": "MSB-VLCY",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPKT",
+          "SRR_MCPT",
+          "SRR_MCPK",
+          "SRR_MTCN",
+          "SRR_MLHS",
+          "SRR_MKAK",
+          "SRR_MTMY",
+          "SRR_MNDY",
+          "SRR_GWYR",
+          "SRR_KTPM",
+          "SRR_KTBR",
+          "SRR_INDR",
+          "SRR_TYMR",
+          "SRR_TRMN",
+          "SRR_PRGD",
+          "SRR_VLCY"
+        ]
+      ]
+    },
+    {
+      "id": "41002",
+      "short_name": "41002",
+      "long_name": "VLCY-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_VLCY",
+          "SRR_PRGD",
+          "SRR_TRMN",
+          "SRR_TYMR",
+          "SRR_INDR",
+          "SRR_KTBR",
+          "SRR_KTPM",
+          "SRR_GWYR",
+          "SRR_MNDY",
+          "SRR_MTMY",
+          "SRR_MKAK",
+          "SRR_MLHS",
+          "SRR_MTCN",
+          "SRR_MCPK",
+          "SRR_MCPT",
+          "SRR_MPKT",
+          "SRR_MSF",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "42001",
+      "short_name": "42001",
+      "long_name": "MAS-GPD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON",
+          "SRR_KVP",
+          "SRR_GPD"
+        ]
+      ]
+    },
+    {
+      "id": "42002",
+      "short_name": "42002",
+      "long_name": "GPD-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_GPD",
+          "SRR_KVP",
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "42301",
+      "short_name": "42301",
+      "long_name": "MAS-PON",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON"
+        ]
+      ]
+    },
+    {
+      "id": "42302",
+      "short_name": "42302",
+      "long_name": "PON-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "42401",
+      "short_name": "42401",
+      "long_name": "MAS-SPE",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON",
+          "SRR_KVP",
+          "SRR_GPD",
+          "SRR_ELR",
+          "SRR_AKM"
+        ]
+      ]
+    },
+    {
+      "id": "42402",
+      "short_name": "42402",
+      "long_name": "SPE-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AKM",
+          "SRR_ELR",
+          "SRR_GPD",
+          "SRR_KVP",
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "42404",
+      "short_name": "42404",
+      "long_name": "SPE-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AKM",
+          "SRR_ELR",
+          "SRR_GPD",
+          "SRR_KVP",
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "42501",
+      "short_name": "42501",
+      "long_name": "CGL-GPD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_CGL",
+          "SRR_PWU",
+          "SRR_SKL",
+          "SRR_MMNK",
+          "SRR_CTM",
+          "SRR_POTI",
+          "SRR_GI",
+          "SRR_UPM",
+          "SRR_VDR",
+          "SRR_PRGL",
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON",
+          "SRR_KVP",
+          "SRR_GPD"
+        ]
+      ]
+    },
+    {
+      "id": "42502",
+      "short_name": "42502",
+      "long_name": "GPD-CGL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_GPD",
+          "SRR_KVP",
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM",
+          "SRR_PRGL",
+          "SRR_VDR",
+          "SRR_UPM",
+          "SRR_GI",
+          "SRR_POTI",
+          "SRR_CTM",
+          "SRR_MMNK",
+          "SRR_SKL",
+          "SRR_PWU",
+          "SRR_CGL"
+        ]
+      ]
+    },
+    {
+      "id": "42521",
+      "short_name": "42521",
+      "long_name": "TBM-GPD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TBM",
+          "SRR_TBMS",
+          "SRR_CMP",
+          "SRR_PV",
+          "SRR_TLM",
+          "SRR_MN",
+          "SRR_PZA",
+          "SRR_STM",
+          "SRR_GDY",
+          "SRR_SP",
+          "SRR_MBM",
+          "SRR_MKK",
+          "SRR_NBK",
+          "SRR_MSC",
+          "SRR_MS",
+          "SRR_MPK",
+          "SRR_MSF",
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON",
+          "SRR_KVP",
+          "SRR_GPD"
+        ]
+      ]
+    },
+    {
+      "id": "42522",
+      "short_name": "42522",
+      "long_name": "GPD-TBM",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_GPD",
+          "SRR_KVP",
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB",
+          "SRR_MSF",
+          "SRR_MPK",
+          "SRR_MS",
+          "SRR_MSC",
+          "SRR_NBK",
+          "SRR_MKK",
+          "SRR_MBM",
+          "SRR_SP",
+          "SRR_GDY",
+          "SRR_STM",
+          "SRR_PZA",
+          "SRR_MN",
+          "SRR_TLM",
+          "SRR_PV",
+          "SRR_CMP",
+          "SRR_TBMS",
+          "SRR_TBM"
+        ]
+      ]
+    },
+    {
+      "id": "42601",
+      "short_name": "42601",
+      "long_name": "MSB-GPD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON",
+          "SRR_KVP",
+          "SRR_GPD"
+        ]
+      ]
+    },
+    {
+      "id": "42602",
+      "short_name": "42602",
+      "long_name": "GPD-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_GPD",
+          "SRR_KVP",
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "42701",
+      "short_name": "42701",
+      "long_name": "MSB-PON",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON"
+        ]
+      ]
+    },
+    {
+      "id": "42702",
+      "short_name": "42702",
+      "long_name": "PON-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "42802",
+      "short_name": "42802",
+      "long_name": "SPE-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AKM",
+          "SRR_ELR",
+          "SRR_GPD",
+          "SRR_KVP",
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "43001",
+      "short_name": "43001",
+      "long_name": "MAS-AVD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD"
+        ]
+      ]
+    },
+    {
+      "id": "43002",
+      "short_name": "43002",
+      "long_name": "AVD-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43101",
+      "short_name": "43101",
+      "long_name": "MAS-PTMS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_PTMS"
+        ]
+      ]
+    },
+    {
+      "id": "43102",
+      "short_name": "43102",
+      "long_name": "PTMS-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_PTMS",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43201",
+      "short_name": "43201",
+      "long_name": "MAS-TRL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL"
+        ]
+      ]
+    },
+    {
+      "id": "43202",
+      "short_name": "43202",
+      "long_name": "TRL-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43216",
+      "short_name": "43216",
+      "long_name": "TRL-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TRL",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43401",
+      "short_name": "43401",
+      "long_name": "MAS-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_PER",
+          "SRR_VLK",
+          "SRR_ABU",
+          "SRR_TI",
+          "SRR_TRL",
+          "SRR_KBT",
+          "SRR_TO",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "43402",
+      "short_name": "43402",
+      "long_name": "AJJ-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_PLMG",
+          "SRR_MSU",
+          "SRR_TO",
+          "SRR_MAF",
+          "SRR_SPAM",
+          "SRR_KBT",
+          "SRR_EGT",
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43403",
+      "short_name": "43403",
+      "long_name": "MAS-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL",
+          "SRR_EGT",
+          "SRR_KBT",
+          "SRR_SPAM",
+          "SRR_MAF",
+          "SRR_TO",
+          "SRR_MSU",
+          "SRR_PLMG",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "43408",
+      "short_name": "43408",
+      "long_name": "AJJ-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_PLMG",
+          "SRR_MSU",
+          "SRR_TO",
+          "SRR_MAF",
+          "SRR_SPAM",
+          "SRR_KBT",
+          "SRR_EGT",
+          "SRR_TRL",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43410",
+      "short_name": "43410",
+      "long_name": "AJJ-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_PLMG",
+          "SRR_MSU",
+          "SRR_TO",
+          "SRR_MAF",
+          "SRR_SPAM",
+          "SRR_KBT",
+          "SRR_EGT",
+          "SRR_TRL",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_AVD",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43425",
+      "short_name": "43425",
+      "long_name": "MAS-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_VLK",
+          "SRR_ABU",
+          "SRR_TI",
+          "SRR_TRL",
+          "SRR_KBT",
+          "SRR_TO",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "43601",
+      "short_name": "43601",
+      "long_name": "MSB-AVD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD"
+        ]
+      ]
+    },
+    {
+      "id": "43602",
+      "short_name": "43602",
+      "long_name": "AVD-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "43701",
+      "short_name": "43701",
+      "long_name": "MSB-TRL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL"
+        ]
+      ]
+    },
+    {
+      "id": "43702",
+      "short_name": "43702",
+      "long_name": "TRL-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "43713",
+      "short_name": "43713",
+      "long_name": "MSB-TRL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL"
+        ]
+      ]
+    },
+    {
+      "id": "43751",
+      "short_name": "43751",
+      "long_name": "MSB-PTMS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_PTMS"
+        ]
+      ]
+    },
+    {
+      "id": "43752",
+      "short_name": "43752",
+      "long_name": "PTMS-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_PTMS",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "43801",
+      "short_name": "43801",
+      "long_name": "MSB-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL",
+          "SRR_EGT",
+          "SRR_KBT",
+          "SRR_SPAM",
+          "SRR_MAF",
+          "SRR_TO",
+          "SRR_MSU",
+          "SRR_PLMG",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "43802",
+      "short_name": "43802",
+      "long_name": "AJJ-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_PLMG",
+          "SRR_MSU",
+          "SRR_TO",
+          "SRR_MAF",
+          "SRR_SPAM",
+          "SRR_KBT",
+          "SRR_EGT",
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "43806",
+      "short_name": "43806",
+      "long_name": "AJJ-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_TO",
+          "SRR_SPAM",
+          "SRR_KBT",
+          "SRR_TRL",
+          "SRR_TI",
+          "SRR_VLK",
+          "SRR_PER",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "43823",
+      "short_name": "43823",
+      "long_name": "MSB-TRT",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MSB",
+          "SRR_RPM",
+          "SRR_WST",
+          "SRR_PER",
+          "SRR_VLK",
+          "SRR_ABU",
+          "SRR_AVD",
+          "SRR_TI",
+          "SRR_PTLR",
+          "SRR_TRL",
+          "SRR_EGT",
+          "SRR_KBT",
+          "SRR_SPAM",
+          "SRR_MAF",
+          "SRR_TO",
+          "SRR_MSU",
+          "SRR_PLMG",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "43832",
+      "short_name": "43832",
+      "long_name": "TRL-AVD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD"
+        ]
+      ]
+    },
+    {
+      "id": "43841",
+      "short_name": "43841",
+      "long_name": "AVD-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL",
+          "SRR_EGT",
+          "SRR_KBT",
+          "SRR_SPAM",
+          "SRR_MAF",
+          "SRR_TO",
+          "SRR_MSU",
+          "SRR_PLMG",
+          "SRR_AJJ"
+        ]
+      ]
+    },
+    {
+      "id": "43851",
+      "short_name": "43851",
+      "long_name": "PON-TRL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_PON",
+          "SRR_APB",
+          "SRR_MJR",
+          "SRR_NPKM",
+          "SRR_AIP",
+          "SRR_AIPP",
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL"
+        ]
+      ]
+    },
+    {
+      "id": "43852",
+      "short_name": "43852",
+      "long_name": "TRL-PON",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR",
+          "SRR_AIPP",
+          "SRR_AIP",
+          "SRR_NPKM",
+          "SRR_MJR",
+          "SRR_APB",
+          "SRR_PON"
+        ]
+      ]
+    },
+    {
+      "id": "43861",
+      "short_name": "43861",
+      "long_name": "ENR-TRL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_ENR",
+          "SRR_KAVM",
+          "SRR_WCN",
+          "SRR_TVT",
+          "SRR_VOC",
+          "SRR_TNP",
+          "SRR_KOK",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL"
+        ]
+      ]
+    },
+    {
+      "id": "43862",
+      "short_name": "43862",
+      "long_name": "AVD-ENR",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_KOK",
+          "SRR_TNP",
+          "SRR_VOC",
+          "SRR_TVT",
+          "SRR_WCN",
+          "SRR_KAVM",
+          "SRR_ENR"
+        ]
+      ]
+    },
+    {
+      "id": "43871",
+      "short_name": "43871",
+      "long_name": "MAS-PAB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB"
+        ]
+      ]
+    },
+    {
+      "id": "43872",
+      "short_name": "43872",
+      "long_name": "PAB-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43882",
+      "short_name": "43882",
+      "long_name": "TI-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43892",
+      "short_name": "43892",
+      "long_name": "PTMS-AVD",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_PTMS",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD"
+        ]
+      ]
+    },
+    {
+      "id": "43901",
+      "short_name": "43901",
+      "long_name": "MAS-KBT",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_MAS",
+          "SRR_BBQ",
+          "SRR_VJM",
+          "SRR_PER",
+          "SRR_PCW",
+          "SRR_PEW",
+          "SRR_VLK",
+          "SRR_KOTR",
+          "SRR_PVM",
+          "SRR_ABU",
+          "SRR_TMVL",
+          "SRR_ANNR",
+          "SRR_AVD",
+          "SRR_HC",
+          "SRR_PAB",
+          "SRR_NEC",
+          "SRR_TI",
+          "SRR_VEU",
+          "SRR_SVR",
+          "SRR_PTLR",
+          "SRR_TRL",
+          "SRR_EGT",
+          "SRR_KBT"
+        ]
+      ]
+    },
+    {
+      "id": "43902",
+      "short_name": "43902",
+      "long_name": "KBT-MAS",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_KBT",
+          "SRR_EGT",
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_BBQ",
+          "SRR_MAS"
+        ]
+      ]
+    },
+    {
+      "id": "43912",
+      "short_name": "43912",
+      "long_name": "KBT-MSB",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_KBT",
+          "SRR_EGT",
+          "SRR_TRL",
+          "SRR_PTLR",
+          "SRR_SVR",
+          "SRR_VEU",
+          "SRR_TI",
+          "SRR_NEC",
+          "SRR_PAB",
+          "SRR_HC",
+          "SRR_AVD",
+          "SRR_ANNR",
+          "SRR_TMVL",
+          "SRR_ABU",
+          "SRR_PVM",
+          "SRR_KOTR",
+          "SRR_VLK",
+          "SRR_PEW",
+          "SRR_PCW",
+          "SRR_PER",
+          "SRR_VJM",
+          "SRR_WST",
+          "SRR_RPM",
+          "SRR_MSB"
+        ]
+      ]
+    },
+    {
+      "id": "43921",
+      "short_name": "43921",
+      "long_name": "TRL-KBT",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_TRL",
+          "SRR_EGT",
+          "SRR_KBT"
+        ]
+      ]
+    },
+    {
+      "id": "44001",
+      "short_name": "44001",
+      "long_name": "AJJ-CGL",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_AJJ",
+          "SRR_TKO",
+          "SRR_TMLP",
+          "SRR_CJ",
+          "SRR_CJE",
+          "SRR_NTT",
+          "SRR_WJ",
+          "SRR_PYV",
+          "SRR_PALR",
+          "SRR_VB",
+          "SRR_RDY",
+          "SRR_CGL"
+        ]
+      ]
+    },
+    {
+      "id": "44002",
+      "short_name": "44002",
+      "long_name": "CGL-AJJ",
+      "color": "#3B82F6",
+      "stop_sequences": [
+        [
+          "SRR_CGL",
+          "SRR_RDY",
+          "SRR_VB",
+          "SRR_PALR",
+          "SRR_PYV",
+          "SRR_WJ",
+          "SRR_NTT",
+          "SRR_CJE",
+          "SRR_CJ",
+          "SRR_TMLP",
+          "SRR_TKO",
+          "SRR_AJJ"
+        ]
+      ]
+    }
+  ],
+  "shapes": {}
+}

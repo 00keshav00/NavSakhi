@@ -1,0 +1,103 @@
+{
+  "model_type": "LGBMRegressor",
+  "test_rmse": 1.6344219622793328,
+  "test_mae": 1.0512595614602174,
+  "test_r2": 0.9880404457500481,
+  "target_mean": 12.880430221557617,
+  "target_std": 14.945406913757324,
+  "pred_mean": 12.887759696360082,
+  "pred_std": 14.853789853870023,
+  "pred_min": -0.1520555071321405,
+  "pred_max": 48.685325662222965,
+  "residual_mean": -0.007327676469943246,
+  "residual_std": 1.6344055359483387,
+  "train_rows": 834962,
+  "test_rows": 207689,
+  "split_strategy": "GroupShuffleSplit(groups=way_id, test_size=0.2, random_state=42)",
+  "benchmark_comparison": [
+    {
+      "Model": "DummyMean",
+      "Val_RMSE": 15.112769360031013,
+      "Val_MAE": 13.561531066894531,
+      "Val_R2": -0.0009722709655761719,
+      "Fit_Time_s": 0.0
+    },
+    {
+      "Model": "DummyMedian",
+      "Val_RMSE": 17.136619468455283,
+      "Val_MAE": 13.136713981628418,
+      "Val_R2": -0.2870168685913086,
+      "Fit_Time_s": 0.0
+    },
+    {
+      "Model": "RidgeLinear",
+      "Val_RMSE": 2.7086389367216146,
+      "Val_MAE": 2.015580225401672,
+      "Val_R2": 0.9678459143430044,
+      "Fit_Time_s": 0.05
+    },
+    {
+      "Model": "RandomForest",
+      "Val_RMSE": 1.732400289669396,
+      "Val_MAE": 1.1147786698344933,
+      "Val_R2": 0.986846830238002,
+      "Fit_Time_s": 1.87
+    },
+    {
+      "Model": "XGBoost",
+      "Val_RMSE": 1.6836637761185558,
+      "Val_MAE": 1.0961668491363525,
+      "Val_R2": 0.9875764846801758,
+      "Fit_Time_s": 2.67
+    },
+    {
+      "Model": "LightGBM",
+      "Val_RMSE": 1.6770281554047113,
+      "Val_MAE": 1.0955190423307388,
+      "Val_R2": 0.9876742135812745,
+      "Fit_Time_s": 0.34
+    }
+  ],
+  "top_shap_features": [
+    [
+      "emergency_accessibility",
+      7.407891996311503
+    ],
+    [
+      "police_dist_m",
+      2.128694089616942
+    ],
+    [
+      "urban_indicator",
+      1.6497991324546901
+    ],
+    [
+      "population_percentile",
+      1.4367997874456842
+    ],
+    [
+      "population_density",
+      1.3309556546551997
+    ],
+    [
+      "isolation_index",
+      0.7318045877416094
+    ],
+    [
+      "population_count_100m",
+      0.468131516228242
+    ],
+    [
+      "human_activity_score",
+      0.12304483748498364
+    ],
+    [
+      "essential_services_density",
+      0.1120935292580393
+    ],
+    [
+      "hospital_dist_m",
+      0.09585230667980411
+    ]
+  ]
+}
