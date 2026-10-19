@@ -1,39 +1,58 @@
+import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.config.settings import settings
 from app.config.logging_config import logger
-from app.db.connection import connect_to_mongo, close_mongo_connection
+from app.db.connection import connect_to_mongo, close_mongo_connection, get_database
 from app.db.init_db import initialize_database
+
+async def _async_startup_db_init():
+    """
+    Background asynchronous database initializer.
+    Performs ping, index creation, and local development user seeding
+    without delaying Uvicorn port binding on cloud runtimes (e.g., Render).
+    """
+    try:
+        await initialize_database()
+
+        # Ensure default local development test account exists strictly in non-production environments
+        if settings.environment.lower() in ["development", "dev", "local", "test"]:
+            try:
+                from app.repositories.user_repository import UserRepository
+                from app.services.user_service import UserService
+                from app.schemas.user_schemas import UserCreate
+                db = get_database()
+                if db is not None:
+                    user_repo = UserRepository(db)
+                    existing = await user_repo.get_by_email("testuser@example.com")
+                    if not existing:
+                        user_service = UserService(user_repo)
+                        await user_service.register_user(UserCreate(
+                            username="testuser",
+                            email="testuser@example.com",
+                            password="password123"
+                        ))
+                        logger.info("Seeded default local test account: testuser@example.com")
+            except Exception as e:
+                logger.warning(f"Could not seed local test user: {e}")
+    except Exception as e:
+        logger.error(f"Background database initialization encountered error: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.app_name}...")
     await connect_to_mongo()
-    await initialize_database()
-    
-    # Ensure default local development test account exists strictly in non-production environments
-    if settings.environment.lower() in ["development", "dev", "local", "test"]:
-        try:
-            from app.db.connection import get_database
-            from app.repositories.user_repository import UserRepository
-            from app.services.user_service import UserService
-            from app.schemas.user_schemas import UserCreate
-            user_repo = UserRepository(get_database())
-            existing = await user_repo.get_by_email("testuser@example.com")
-            if not existing:
-                user_service = UserService(user_repo)
-                await user_service.register_user(UserCreate(
-                    username="testuser",
-                    email="testuser@example.com",
-                    password="password123"
-                ))
-                logger.info("Seeded default local test account: testuser@example.com")
-        except Exception as e:
-            logger.warning(f"Could not seed local test user: {e}")
-    
+    db_init_task = asyncio.create_task(_async_startup_db_init())
+
     yield
     # Shutdown actions
     logger.info(f"Shutting down {settings.app_name}...")
+    if not db_init_task.done():
+        db_init_task.cancel()
+        try:
+            await db_init_task
+        except asyncio.CancelledError:
+            pass
     await close_mongo_connection()
 
 from app.api.v1.router import api_router
@@ -53,7 +72,7 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],    
+    allow_headers=["*"],
 )
 
 # Register exception handlers
