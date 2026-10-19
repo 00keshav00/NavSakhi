@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     llm_model_name: Optional[str] = None
     gemini_api_key: Optional[str] = None
     frontend_url: str = "*"
+    allowed_origins: Optional[str] = None
     secret_key: Optional[str] = None
     jwt_config: Optional[str] = None
     jwt_secret_key: str = "safeshe_jwt_secret_change_in_production"
@@ -30,6 +31,26 @@ class Settings(BaseSettings):
     @property
     def effective_jwt_secret(self) -> str:
         return self.secret_key or self.jwt_secret_key
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """
+        Builds the sanitized list of allowed CORS origins.
+        Preserves local development origins and appends configured production domains.
+        Filters out '*' to ensure credentialed requests remain secure.
+        """
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+        if self.allowed_origins:
+            for o in self.allowed_origins.split(","):
+                cleaned = o.strip()
+                if cleaned and cleaned != "*" and cleaned not in origins:
+                    origins.append(cleaned)
+        if self.frontend_url:
+            for o in self.frontend_url.split(","):
+                cleaned = o.strip()
+                if cleaned and cleaned != "*" and cleaned not in origins:
+                    origins.append(cleaned)
+        return origins
 
     # Provider Cache TTL (seconds)
     routing_cache_ttl: int = 3600
