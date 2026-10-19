@@ -49,6 +49,14 @@ TRANSIT_MODES: Set[str] = {
 }
 
 
+_shared_spatial_matcher: Optional[SpatialMatchingService] = None
+
+def get_shared_spatial_matcher() -> SpatialMatchingService:
+    global _shared_spatial_matcher
+    if _shared_spatial_matcher is None:
+        _shared_spatial_matcher = SpatialMatchingService(auto_build_index=False)
+    return _shared_spatial_matcher
+
 class MLRouteScoringService:
     """
     Integrates genuine frozen LightGBM inference into SafeShe route scoring.
@@ -65,7 +73,7 @@ class MLRouteScoringService:
         min_scoreable_coverage: float = 0.70,
         road_compatible_modes: Optional[Set[str]] = None,
     ):
-        self.spatial_matcher = spatial_matcher or SpatialMatchingService(auto_build_index=False)
+        self.spatial_matcher = spatial_matcher or get_shared_spatial_matcher()
         self.predictor = predictor or MLSafetyPredictor()
         self.min_scoreable_coverage = float(min_scoreable_coverage)
         self.road_compatible_modes = set(road_compatible_modes) if road_compatible_modes else ROAD_COMPATIBLE_MODES

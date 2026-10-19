@@ -1,21 +1,73 @@
-import httpx
+import os
+import re
 import json
+import time
+import asyncio
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional, List
+import httpx
+from app.config.settings import settings
 from app.tools.base import BaseTool, ToolMetadata
 
 logger = logging.getLogger(__name__)
 
-import os
-from app.config.settings import settings
+DEFAULT_PRIMARY_MODEL = "gemini-2.5-flash"
+DEFAULT_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"]
 
 def get_gemini_api_key() -> str:
-    return os.getenv("GEMINI_API_KEY", "") or getattr(settings, "gemini_api_key", "") or ""
+    return (os.getenv("GEMINI_API_KEY", "") or getattr(settings, "gemini_api_key", "") or "").strip()
 
 def get_gemini_model() -> str:
-    return getattr(settings, "llm_model_name", None) or os.getenv("LLM_MODEL_NAME", "") or "gemini-3.8-flash"
+    env_model = (getattr(settings, "llm_model_name", None) or os.getenv("LLM_MODEL_NAME", "")).strip()
+    return env_model or DEFAULT_PRIMARY_MODEL
+
+def get_gemini_models() -> List[str]:
+    primary = get_gemini_model()
+    env_fallbacks = os.getenv("LLM_FALLBACK_MODELS", "").strip()
+    if env_fallbacks:
+        fallbacks = [m.strip() for m in env_fallbacks.split(",") if m.strip()]
+    else:
+        fallbacks = [m for m in DEFAULT_FALLBACK_MODELS if m != primary]
+    models = [primary]
+    for m in fallbacks:
+        if m not in models:
+            models.append(m)
+    return models
+
+def sanitize_log_message(msg: str) -> str:
+    """
+    Redacts API keys and sensitive tokens from log messages and exception strings.
+    Ensures that no query string ?key= or raw API keys appear in application logs.
+    """
+    if not msg:
+        return msg
+    # Redact ?key=... or &key=...
+    msg = re.sub(r'([?&]key=)[^&\s"\']+', r'\1[REDACTED]', msg)
+    # Redact Google AI Studio API keys (AIzaSy...)
+    msg = re.sub(r'AIzaSy[A-Za-z0-9_-]{33}', '[REDACTED_API_KEY]', msg)
+    # Redact x-goog-api-key headers if stringified
+    msg = re.sub(r'(x-goog-api-key["\']?\s*[:=]\s*["\']?)[^"\'\s,]+', r'\1[REDACTED]', msg, flags=re.IGNORECASE)
+    # Redact Bearer tokens
+    msg = re.sub(r'(Bearer\s+)[A-Za-z0-9._-]+', r'\1[REDACTED]', msg, flags=re.IGNORECASE)
+    return msg
+
 
 class ReasoningTool(BaseTool):
+    """
+    Tool for calling LLM (Gemini) to perform strategic routing reasoning,
+    route-to-user explanations, and dynamic transit strategy synthesis.
+
+    Robustness:
+    - Passes API key strictly in x-goog-api-key header (never in URL query string)
+    - Full error classification (503, 429, 401/403, 400, timeouts)
+    - Bounded retries with exponential backoff on transient errors
+    - Multi-model fallback across supported Gemini models
+    - Complete log redaction to prevent secret exposure
+    - Safe non-LLM static fallbacks when external LLM is unavailable
+    """
+
+    _model_cooldown: Dict[str, float] = {}
+
     @property
     def name(self) -> str:
         return "ReasoningTool"
@@ -33,6 +85,110 @@ class ReasoningTool(BaseTool):
             ranking_score=10
         )
 
+    async def _call_gemini_content(self, prompt: str, timeout: float = 5.0) -> Optional[str]:
+        """
+        Executes prompt against Gemini API using header-based authentication,
+        bounded retries, error classification, and multi-model fallback.
+        """
+        api_key = get_gemini_api_key()
+        if not api_key:
+            return None
+
+        now = time.time()
+        if "_all_" in self._model_cooldown and now < self._model_cooldown["_all_"]:
+            logger.debug("Gemini global cooldown active; skipping external LLM call.")
+            return None
+
+        models = get_gemini_models()
+        for model in models:
+            if model in self._model_cooldown and now < self._model_cooldown[model]:
+                logger.debug(f"Gemini model '{model}' in cooldown; evaluating next candidate.")
+                continue
+
+            for attempt in range(2):
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+                headers = {
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": api_key,
+                }
+                payload = {"contents": [{"parts": [{"text": prompt}]}]}
+
+                try:
+                    async with httpx.AsyncClient(timeout=timeout) as client:
+                        resp = await client.post(url, json=payload, headers=headers)
+
+                    if resp.status_code == 200:
+                        res_data = resp.json()
+                        candidates = res_data.get("candidates", [])
+                        if candidates:
+                            finish_reason = candidates[0].get("finishReason", "")
+                            if finish_reason in ("SAFETY", "RECITATION"):
+                                logger.warning(f"Gemini response stopped by policy filter: {finish_reason}")
+                                return None
+                            parts = candidates[0].get("content", {}).get("parts", [])
+                            if parts and "text" in parts[0]:
+                                return parts[0]["text"].strip()
+                        return None
+
+                    status = resp.status_code
+                    if status in (500, 502, 503, 504, 408):
+                        retry_after = resp.headers.get("Retry-After")
+                        wait_sec = min(float(retry_after), 2.0) if retry_after and retry_after.isdigit() else (0.4 * (attempt + 1))
+                        logger.info(f"Gemini model '{model}' returned transient HTTP {status} (attempt {attempt+1}/2). Retrying in {wait_sec:.2f}s...")
+                        if attempt < 1:
+                            await asyncio.sleep(wait_sec)
+                            continue
+                        else:
+                            logger.warning(f"Gemini model '{model}' failed after retries (HTTP {status}). Transitioning to fallback model.")
+                            break
+
+                    elif status == 429:
+                        err_text = resp.text
+                        is_quota = "RESOURCE_EXHAUSTED" in err_text or "quota" in err_text.lower()
+                        if is_quota:
+                            logger.warning(f"Gemini model '{model}' quota exhausted (HTTP 429). Setting 60s cooldown and falling back.")
+                            self._model_cooldown[model] = time.time() + 60.0
+                            break
+                        else:
+                            retry_after = resp.headers.get("Retry-After")
+                            if retry_after and retry_after.isdigit() and float(retry_after) <= 2.0 and attempt == 0:
+                                await asyncio.sleep(float(retry_after))
+                                continue
+                            else:
+                                logger.warning(f"Gemini model '{model}' rate limited (HTTP 429). Trying fallback model.")
+                                self._model_cooldown[model] = time.time() + 30.0
+                                break
+
+                    elif status in (401, 403):
+                        logger.warning(f"Gemini API authentication failed (HTTP {status}). Key rejected; disabling LLM calls for 120s.")
+                        self._model_cooldown["_all_"] = time.time() + 120.0
+                        return None
+
+                    elif status == 400:
+                        logger.warning(f"Gemini request invalid (HTTP 400) for model '{model}'. Skipping model.")
+                        break
+
+                    else:
+                        logger.warning(f"Gemini unexpected status {status} for model '{model}'. Skipping model.")
+                        break
+
+                except (httpx.TimeoutException, httpx.NetworkError) as e:
+                    err_type = type(e).__name__
+                    logger.info(f"Gemini model '{model}' {err_type} on attempt {attempt+1}/2.")
+                    if attempt < 1:
+                        await asyncio.sleep(0.4)
+                        continue
+                    else:
+                        logger.warning(f"Gemini model '{model}' network failure after retries. Trying fallback model.")
+                        break
+                except Exception as e:
+                    clean_err = sanitize_log_message(str(e))
+                    logger.warning(f"Gemini call exception for model '{model}': {clean_err}")
+                    break
+
+        logger.info("All configured Gemini models failed or unavailable; using verified non-LLM reasoning fallback.")
+        return None
+
     async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Calls the Gemini API if possible, otherwise falls back to static reasoning.
@@ -44,45 +200,32 @@ class ReasoningTool(BaseTool):
             "Segment coverage validated according to scoring requirements.",
             "Evaluations bounded to synthetic environmental proxy indicators without unsupported claims."
         ]
-        
+
         api_key = get_gemini_api_key()
-        if not api_key or not api_key.strip():
+        if not api_key:
             logger.info("GEMINI_API_KEY not configured; using verified infrastructure reasoning fallback.")
             return {
                 "summary": fallback_summary,
                 "reasoning": fallback_reasoning
             }
 
-        try:
-            model_name = get_gemini_model()
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-            prompt = (
-                f"You are NavSakhi AI. Explain this route decision factually based on verified infrastructure: {decision}. "
-                "CRITICAL CONSTRAINTS: Do not claim specific lighting conditions, crowd densities, or community incident counts. "
-                "Do not state that any route guarantees safety. Keep explanations grounded strictly in objective route metrics."
-            )
-            payload = {"contents": [{"parts": [{"text": prompt}]}]}
-            headers = {
-                "Content-Type": "application/json",
-                "X-goog-api-key": api_key
-            }
+        prompt = (
+            f"You are NavSakhi AI. Explain this route decision factually based on verified infrastructure: {decision}. "
+            "CRITICAL CONSTRAINTS: Do not claim specific lighting conditions, crowd densities, or community incident counts. "
+            "Do not state that any route guarantees safety. Keep explanations grounded strictly in objective route metrics."
+        )
 
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                res_data = response.json()
-
-            text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        text = await self._call_gemini_content(prompt, timeout=5.0)
+        if text:
             return {
                 "summary": text,
                 "reasoning": fallback_reasoning
             }
-        except Exception as e:
-            logger.warning(f"Gemini execute error, using fallback: {e}")
-            return {
-                "summary": fallback_summary,
-                "reasoning": fallback_reasoning
-            }
+
+        return {
+            "summary": fallback_summary,
+            "reasoning": fallback_reasoning
+        }
 
     async def explain_journey_recommendations(
         self,
@@ -98,24 +241,31 @@ class ReasoningTool(BaseTool):
         Gemini NEVER invents stations, geometries, or scores.
         """
         api_key = get_gemini_api_key()
-        if not api_key or not api_key.strip() or not verified_routes:
+        if not api_key or not verified_routes:
             return None
 
-        try:
-            model_name = get_gemini_model()
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-            prefs_str = ", ".join(preferences) if preferences else "Fastest, Safest, Balanced"
-            weather_desc = f"{weather.get('condition', 'Clear')}, {weather.get('temperature', 25)}°C" if weather else "Unavailable"
-            
-            routes_summary = []
-            for r in verified_routes[:4]:
-                score_str = f"Safety Proxy: {r.get('safety_score'):.1f}/100" if r.get('safety_score') is not None else "Safety Score: N/A (Transit/Insufficient coverage)"
-                routes_summary.append(
-                    f"- {r.get('route_name')} ({r.get('travel_mode', 'Road')}): Distance {r.get('distance_km'):.1f} km, ETA {r.get('eta_min')} min, {score_str}"
-                )
-            routes_text = "\n".join(routes_summary)
+        top_route = verified_routes[0] if verified_routes else {}
+        top_name = top_route.get("route_name", "Primary Option")
+        static_fallback = {
+            "title": "Objective AI Recommendation",
+            "summary": f"Recommended {top_name} based on verified routing topology.",
+            "reasoning": "Route evaluated using verified network topology and model-ready road infrastructure data.",
+            "tradeoff_explanation": f"Evaluated {len(verified_routes)} verified routing alternatives.",
+            "tradeoffs": ["Direct road transit prioritizes door-to-door speed."]
+        }
 
-            prompt = f"""
+        prefs_str = ", ".join(preferences) if preferences else "Fastest, Safest, Balanced"
+        weather_desc = f"{weather.get('condition', 'Clear')}, {weather.get('temperature', 25)}°C" if weather else "Unavailable"
+
+        routes_summary = []
+        for r in verified_routes[:4]:
+            score_str = f"Safety Proxy: {r.get('safety_score'):.1f}/100" if r.get('safety_score') is not None else "Safety Score: N/A (Transit/Insufficient coverage)"
+            routes_summary.append(
+                f"- {r.get('route_name')} ({r.get('travel_mode', 'Road')}): Distance {r.get('distance_km'):.1f} km, ETA {r.get('eta_min')} min, {score_str}"
+            )
+        routes_text = "\n".join(routes_summary)
+
+        prompt = f"""
 You are NavSakhi AI, an objective safety navigation assistant for Chennai.
 Explain the routing options below to the user based STRICTLY on the verified facts provided:
 Source: {source}
@@ -140,34 +290,23 @@ Return JSON only in this exact format:
   "tradeoffs": ["Tradeoff 1", "Tradeoff 2"]
 }}
 """
-            payload = {"contents": [{"parts": [{"text": prompt}]}]}
-            headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
+        text = await self._call_gemini_content(prompt, timeout=5.0)
+        if not text:
+            return static_fallback
 
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                res_data = response.json()
-
-            text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-            if text.startswith("```"):
-                lines = text.splitlines()
+        try:
+            cleaned = text.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.splitlines()
                 if lines[0].startswith("```"): lines = lines[1:]
                 if lines and lines[-1].startswith("```"): lines = lines[:-1]
-                text = "\n".join(lines).strip()
-
-            parsed = json.loads(text)
-            return parsed if isinstance(parsed, dict) else None
+                cleaned = "\n".join(lines).strip()
+            parsed = json.loads(cleaned)
+            return parsed if isinstance(parsed, dict) else static_fallback
         except Exception as e:
-            logger.info(f"Gemini route explanation fallback: {e}")
-            top_route = verified_routes[0] if verified_routes else {}
-            top_name = top_route.get("route_name", "Primary Option")
-            return {
-                "title": "Objective AI Recommendation",
-                "summary": f"Recommended {top_name} based on verified routing topology.",
-                "reasoning": "Route evaluated using verified network topology and model-ready road infrastructure data.",
-                "tradeoff_explanation": f"Evaluated {len(verified_routes)} verified routing alternatives.",
-                "tradeoffs": ["Direct road transit prioritizes door-to-door speed."]
-            }
+            clean_err = sanitize_log_message(str(e))
+            logger.info(f"Gemini route explanation JSON parse fallback: {clean_err}")
+            return static_fallback
 
     async def generate_dynamic_plans(self, source: str, dest: str, dist_km: float, preferences: list = None) -> list:
         """
@@ -175,7 +314,7 @@ Return JSON only in this exact format:
         Must ONLY suggest public transit if realistic stations exist along the travel axis.
         """
         api_key = get_gemini_api_key()
-        if not api_key or not api_key.strip():
+        if not api_key:
             logger.info("GEMINI_API_KEY not configured; skipping dynamic planning.")
             return []
 
@@ -185,9 +324,9 @@ Return JSON only in this exact format:
             return []
 
         prefs_str = ", ".join(preferences) if preferences else "ANY"
-        
+
         prompt = f"""
-You are an intelligent mobility planner for Chennai. 
+You are an intelligent mobility planner for Chennai.
 Source: {source}
 Destination: {dest}
 Straight-line distance: {dist_km:.2f} km
@@ -216,27 +355,20 @@ Each strategy object:
   ]
 }}
 """
-        try:
-            model_name = get_gemini_model()
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-            payload = {"contents": [{"parts": [{"text": prompt}]}]}
-            headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
-
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.post(url, json=payload, headers=headers)
-                response.raise_for_status()
-                res_data = response.json()
-                
-            text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-            if text.startswith("```"):
-                lines = text.splitlines()
-                if lines[0].startswith("```"): lines = lines[1:]
-                if lines and lines[-1].startswith("```"): lines = lines[:-1]
-                text = "\n".join(lines).strip()
-            
-            parsed = json.loads(text)
-            return parsed if isinstance(parsed, list) else []
-        except Exception as e:
-            logger.warning(f"Gemini dynamic planning failed: {e}")
+        text = await self._call_gemini_content(prompt, timeout=5.0)
+        if not text:
             return []
 
+        try:
+            cleaned = text.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.splitlines()
+                if lines[0].startswith("```"): lines = lines[1:]
+                if lines and lines[-1].startswith("```"): lines = lines[:-1]
+                cleaned = "\n".join(lines).strip()
+            parsed = json.loads(cleaned)
+            return parsed if isinstance(parsed, list) else []
+        except Exception as e:
+            clean_err = sanitize_log_message(str(e))
+            logger.warning(f"Gemini dynamic planning JSON parse failed: {clean_err}")
+            return []

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     ollama_base_url: Optional[str] = None
     llm_model_name: Optional[str] = None
     gemini_api_key: Optional[str] = None
-    frontend_url: str = "*"
+    frontend_url: str = "https://nav-sakhi.vercel.app"
     allowed_origins: Optional[str] = None
     secret_key: Optional[str] = None
     jwt_config: Optional[str] = None
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
         Preserves local development origins and appends configured production domains.
         Filters out '*' to ensure credentialed requests remain secure.
         """
-        origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+        origins = ["http://localhost:3000", "http://127.0.0.1:3000", "https://nav-sakhi.vercel.app"]
         if self.allowed_origins:
             for o in self.allowed_origins.split(","):
                 cleaned = o.strip()
