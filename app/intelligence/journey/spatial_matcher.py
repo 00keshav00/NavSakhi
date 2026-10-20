@@ -97,6 +97,7 @@ class SpatialMatchingService:
         self.transformer = pyproj.Transformer.from_crs(self.geographic_crs, self.projected_crs, always_xy=True)
         self.inv_transformer = pyproj.Transformer.from_crs(self.projected_crs, self.geographic_crs, always_xy=True)
 
+        self._custom_road_segments: bool = road_segments_df is not None
         self._road_segments_df: Optional[pd.DataFrame] = road_segments_df
         self._feature_table_df: Optional[pd.DataFrame] = feature_table_df
 
@@ -105,6 +106,7 @@ class SpatialMatchingService:
         self._segment_records: List[Dict[str, Any]] = []
         self._feature_cache: Dict[str, Dict[str, Any]] = {}
         self._index_metadata: Dict[str, Any] = {}
+        self._indexed_bbox: Optional[tuple] = None
 
         if auto_build_index and (road_segments_df is not None or self.road_segments_path.exists()):
             self.build_index()
@@ -116,16 +118,23 @@ class SpatialMatchingService:
         Otherwise, lazily loads only the road segments within the bounding box from parquet,
         preventing multi-gigabyte memory spikes and process termination on Render's 512MB RAM tier.
         """
-        if self._road_segments_df is not None:
+        if self._custom_road_segments:
             if self._index is None:
                 self.build_index()
             return
 
         target_bbox = (min_lon - margin, min_lat - margin, max_lon + margin, max_lat + margin)
-        if self._index is not None and getattr(self, "_indexed_bbox", None) is not None:
+        if self._index is not None and self._indexed_bbox is not None:
             ib = self._indexed_bbox
             if ib[0] <= target_bbox[0] and ib[1] <= target_bbox[1] and ib[2] >= target_bbox[2] and ib[3] >= target_bbox[3]:
                 return
+            # Expand bounding box to enclose both previous coverage and new route
+            target_bbox = (
+                min(ib[0], target_bbox[0]),
+                min(ib[1], target_bbox[1]),
+                max(ib[2], target_bbox[2]),
+                max(ib[3], target_bbox[3]),
+            )
 
         if not self.road_segments_path.exists():
             return

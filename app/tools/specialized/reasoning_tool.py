@@ -11,8 +11,8 @@ from app.tools.base import BaseTool, ToolMetadata
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_PRIMARY_MODEL = "gemini-2.5-flash"
-DEFAULT_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"]
+DEFAULT_PRIMARY_MODEL = "gemini-3.8-flash"
+DEFAULT_FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
 def get_gemini_api_key() -> str:
     return (os.getenv("GEMINI_API_KEY", "") or getattr(settings, "gemini_api_key", "") or "").strip()
@@ -164,12 +164,32 @@ class ReasoningTool(BaseTool):
                         self._model_cooldown["_all_"] = time.time() + 120.0
                         return None
 
+                    elif status == 404 or (status == 400 and any(
+                        phrase in sanitize_log_message(resp.text).lower()
+                        for phrase in [
+                            "not found", "discontinued", "retired", "unsupported model",
+                            "model not supported", "unknown model", "does not exist", "is not supported"
+                        ]
+                    )):
+                        err_text = sanitize_log_message(resp.text)
+                        logger.warning(
+                            f"Gemini model '{model}' unavailable or retired (HTTP {status}): {err_text[:120]}. "
+                            f"Setting 1-hour cooldown and transitioning to fallback model."
+                        )
+                        self._model_cooldown[model] = time.time() + 3600.0
+                        break
+
                     elif status == 400:
-                        logger.warning(f"Gemini request invalid (HTTP 400) for model '{model}'. Skipping model.")
+                        err_text = sanitize_log_message(resp.text)
+                        logger.error(
+                            f"Gemini request payload invalid (HTTP 400) for model '{model}': {err_text[:120]}. "
+                            f"Treating as request error without model cooldown."
+                        )
                         break
 
                     else:
                         logger.warning(f"Gemini unexpected status {status} for model '{model}'. Skipping model.")
+                        self._model_cooldown[model] = time.time() + 60.0
                         break
 
                 except (httpx.TimeoutException, httpx.NetworkError) as e:
@@ -240,8 +260,7 @@ class ReasoningTool(BaseTool):
         actual ML scores, live weather, and explicit user preferences.
         Gemini NEVER invents stations, geometries, or scores.
         """
-        api_key = get_gemini_api_key()
-        if not api_key or not verified_routes:
+        if not verified_routes:
             return None
 
         top_route = verified_routes[0] if verified_routes else {}
@@ -253,6 +272,10 @@ class ReasoningTool(BaseTool):
             "tradeoff_explanation": f"Evaluated {len(verified_routes)} verified routing alternatives.",
             "tradeoffs": ["Direct road transit prioritizes door-to-door speed."]
         }
+
+        api_key = get_gemini_api_key()
+        if not api_key:
+            return static_fallback
 
         prefs_str = ", ".join(preferences) if preferences else "Fastest, Safest, Balanced"
         weather_desc = f"{weather.get('condition', 'Clear')}, {weather.get('temperature', 25)}°C" if weather else "Unavailable"
