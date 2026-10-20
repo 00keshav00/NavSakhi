@@ -107,16 +107,155 @@ class SpatialMatchingService:
         self._feature_cache: Dict[str, Dict[str, Any]] = {}
         self._index_metadata: Dict[str, Any] = {}
         self._indexed_bbox: Optional[tuple] = None
+        self._indexed_boxes: List[Tuple[float, float, float, float]] = []
+        self._indexed_bounds: Optional[Tuple[float, float, float, float]] = None
 
         if auto_build_index and (road_segments_df is not None or self.road_segments_path.exists()):
             self.build_index()
 
+    def invalidate_index(self) -> None:
+        """
+        Safely disposes spatial index structures and releases heap memory.
+        Prevents unbounded accumulation across geographically disjoint queries.
+        """
+        self._index = None
+        self._index_geoms = None
+        self._segment_records = _SegmentRecords([], [], [], [])
+        self._road_segments_df = None
+        self._indexed_bbox = None
+        self._indexed_boxes = []
+        self._indexed_bounds = None
+        self._feature_cache.clear()
+
+    def _compute_corridor_boxes(
+        self,
+        coords: List[Any],
+        margin: float = 0.0035,
+        max_step_pts: int = 30,
+    ) -> List[Tuple[float, float, float, float]]:
+        """
+        Partitions route polyline coordinates into a chain of tightly-bounded corridor bounding boxes.
+        Avoids loading hundreds of thousands of unrelated road segments from the diagonal rectangle.
+        """
+        if not coords:
+            return []
+        boxes = []
+        n = len(coords)
+        i = 0
+        while i < n:
+            chunk = coords[i : min(i + max_step_pts, n)]
+            valid = [c for c in chunk if isinstance(c, (list, tuple)) and len(c) >= 2]
+            if valid:
+                lons = [c[0] for c in valid]
+                lats = [c[1] for c in valid]
+                b = (min(lons) - margin, min(lats) - margin, max(lons) + margin, max(lats) + margin)
+                boxes.append(b)
+            if i + max_step_pts >= n:
+                break
+            i += max(1, max_step_pts - 4)
+        return boxes
+
+    def _ensure_index_for_corridor(self, coords: List[Any], margin: float = 0.0035) -> None:
+        """
+        Ensures the spatial index covers the exact route corridor using bounded spatial chunks.
+        Prevents loading 200,000+ segments from broad diagonal rectangles while maintaining
+        complete safety-scoring coverage.
+        """
+        if self._custom_road_segments:
+            if self._index is None:
+                self.build_index()
+            return
+
+        if not self.road_segments_path.exists():
+            return
+
+        corridor_boxes = self._compute_corridor_boxes(coords, margin=margin)
+        if not corridor_boxes:
+            return
+
+        # Check if corridor is already covered by active index
+        if self._index is not None and len(self._segment_records) > 0 and self._indexed_boxes:
+            all_covered = True
+            for b in corridor_boxes:
+                box_covered = False
+                for ib in self._indexed_boxes:
+                    if ib[0] <= b[0] and ib[1] <= b[1] and ib[2] >= b[2] and ib[3] >= b[3]:
+                        box_covered = True
+                        break
+                if not box_covered and self._indexed_bounds is not None:
+                    bnds = self._indexed_bounds
+                    if bnds[0] <= b[0] and bnds[1] <= b[1] and bnds[2] >= b[2] and bnds[3] >= b[3]:
+                        box_covered = True
+                if not box_covered:
+                    all_covered = False
+                    break
+            if all_covered:
+                logger.debug("Route corridor fully covered by active spatial index; reusing index.")
+                return
+
+        # Check for disjoint journey: if active index is far from new route, invalidate and reset
+        c_min_lon = min(b[0] for b in corridor_boxes)
+        c_min_lat = min(b[1] for b in corridor_boxes)
+        c_max_lon = max(b[2] for b in corridor_boxes)
+        c_max_lat = max(b[3] for b in corridor_boxes)
+        new_bounds = (c_min_lon, c_min_lat, c_max_lon, c_max_lat)
+
+        if self._index is not None and self._indexed_bounds is not None:
+            ib = self._indexed_bounds
+            c1 = ((ib[0] + ib[2]) / 2.0, (ib[1] + ib[3]) / 2.0)
+            c2 = ((new_bounds[0] + new_bounds[2]) / 2.0, (new_bounds[1] + new_bounds[3]) / 2.0)
+            dist_deg = max(abs(c1[0] - c2[0]), abs(c1[1] - c2[1]))
+            # If routes are more than ~15 km apart or index has accumulated > 50k segments, invalidate
+            if dist_deg > 0.15 or len(self._segment_records) > 50000:
+                logger.info("New route corridor is geographically disjoint or index is large; rebuilding bounded index.")
+                self.invalidate_index()
+                all_boxes_to_index = corridor_boxes
+            else:
+                # Close-by candidate route of same journey: expand
+                all_boxes_to_index = (getattr(self, "_indexed_boxes", None) or []) + corridor_boxes
+                new_bounds = (
+                    min(ib[0], new_bounds[0]),
+                    min(ib[1], new_bounds[1]),
+                    max(ib[2], new_bounds[2]),
+                    max(ib[3], new_bounds[3]),
+                )
+        else:
+            all_boxes_to_index = corridor_boxes
+
+        import pyarrow.dataset as ds
+        logger.info(f"Loading corridor road segments across {len(corridor_boxes)} corridor chunks (lon [{new_bounds[0]:.4f}, {new_bounds[2]:.4f}], lat [{new_bounds[1]:.4f}, {new_bounds[3]:.4f}])...")
+        road_dataset = ds.dataset(str(self.road_segments_path), format="parquet")
+
+        corridor_filter = None
+        for b in corridor_boxes:
+            b_cond = (
+                (ds.field("longitude") >= b[0]) & (ds.field("longitude") <= b[2]) &
+                (ds.field("latitude") >= b[1]) & (ds.field("latitude") <= b[3])
+            )
+            corridor_filter = b_cond if corridor_filter is None else (corridor_filter | b_cond)
+
+        cols = ["segment_id", "way_id", "latitude", "longitude", "length_m", "road_type"]
+        table = road_dataset.to_table(filter=corridor_filter, columns=cols)
+        new_df = table.to_pandas()
+
+        if len(new_df) > 0 and len(corridor_boxes) > 1:
+            new_df = new_df.drop_duplicates(subset=["segment_id"])
+
+        if self._index is not None and self._road_segments_df is not None:
+            combined_df = pd.concat([self._road_segments_df, new_df], ignore_index=True)
+            combined_df = combined_df.drop_duplicates(subset=["segment_id"])
+        else:
+            combined_df = new_df
+
+        self.build_index(road_segments_df=combined_df)
+        self._indexed_boxes = all_boxes_to_index
+        self._indexed_bounds = new_bounds
+        self._indexed_bbox = new_bounds
+
     def _ensure_index_for_bbox(self, min_lon: float, min_lat: float, max_lon: float, max_lat: float, margin: float = 0.03) -> None:
         """
         Ensures the spatial index covers the specified route bounding box.
-        If self._road_segments_df was supplied explicitly (e.g. in tests), builds index from it.
-        Otherwise, lazily loads only the road segments within the bounding box from parquet,
-        preventing multi-gigabyte memory spikes and process termination on Render's 512MB RAM tier.
+        Kept for backward compatibility and test assertions.
         """
         if self._custom_road_segments:
             if self._index is None:
@@ -151,6 +290,8 @@ class SpatialMatchingService:
         sub_df = table.to_pandas()
         self.build_index(road_segments_df=sub_df)
         self._indexed_bbox = target_bbox
+        self._indexed_bounds = target_bbox
+        self._indexed_boxes = [target_bbox]
 
     # --- Index Management ---
 
@@ -339,10 +480,9 @@ class SpatialMatchingService:
                 elif isinstance(route_input, (list, tuple)):
                     coords = route_input
                 if coords:
-                    lons = [c[0] for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    lats = [c[1] for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    if lons and lats:
-                        self._ensure_index_for_bbox(min(lons), min(lats), max(lons), max(lats))
+                    valid_coords = [c for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+                    if valid_coords:
+                        self._ensure_index_for_corridor(valid_coords)
             except Exception as e:
                 logger.debug(f"Route-bounded index check: {e}")
 
@@ -730,10 +870,9 @@ class SpatialMatchingService:
                     elif isinstance(leg_geom, (list, tuple)):
                         all_coords.extend(leg_geom)
                 if all_coords:
-                    lons = [c[0] for c in all_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    lats = [c[1] for c in all_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    if lons and lats:
-                        self._ensure_index_for_bbox(min(lons), min(lats), max(lons), max(lats))
+                    valid_coords = [c for c in all_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+                    if valid_coords:
+                        self._ensure_index_for_corridor(valid_coords)
             except Exception as e:
                 logger.debug(f"Multimodal route-bounded index check: {e}")
 

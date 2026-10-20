@@ -290,15 +290,33 @@ class MultimodalRouter:
                 if len(bus_geom_coords) < 2 or bus_dist_m < 400:
                     continue
 
-                # Access and Egress legs via OSRM
-                acc_routes = await route_provider.get_routes(
-                    source_loc, Location(type="Point", coordinates=[o_st["lon"], o_st["lat"]]),
-                    mode="foot", alternatives="false"
-                )
-                egr_routes = await route_provider.get_routes(
-                    Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]), dest_loc,
-                    mode="foot", alternatives="false"
-                )
+                # Access and Egress legs via OSRM - run concurrently
+                import asyncio as _asyncio
+                async def _get_bus_acc():
+                    try:
+                        return await route_provider.get_routes(
+                            source_loc, Location(type="Point", coordinates=[o_st["lon"], o_st["lat"]]),
+                            mode="foot", alternatives="false"
+                        )
+                    except Exception:
+                        return []
+
+                async def _get_bus_egr():
+                    try:
+                        return await route_provider.get_routes(
+                            Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]), dest_loc,
+                            mode="foot", alternatives="false"
+                        )
+                    except Exception:
+                        return []
+
+                try:
+                    acc_routes, egr_routes = await _asyncio.wait_for(
+                        _asyncio.gather(_get_bus_acc(), _get_bus_egr()),
+                        timeout=8.0
+                    )
+                except Exception:
+                    acc_routes, egr_routes = [], []
 
                 if acc_routes and egr_routes:
                     acc_r = acc_routes[0]
@@ -499,14 +517,34 @@ class MultimodalRouter:
                     acc_disp = itin["acc_disp"]
                     egr_disp = itin["egr_disp"]
 
-                    acc_r = await route_provider.get_routes(
-                        source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
-                        mode=itin["acc_osrm"], alternatives="false"
-                    )
-                    egr_r = await route_provider.get_routes(
-                        Location(type="Point", coordinates=[dest_st["lon"], dest_st["lat"]]), dest_loc,
-                        mode=itin["egr_osrm"], alternatives="false"
-                    )
+                    # Access and Egress legs via OSRM - run concurrently
+                    async def _get_itin_acc():
+                        try:
+                            return await route_provider.get_routes(
+                                source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
+                                mode=itin["acc_osrm"], alternatives="false"
+                            )
+                        except Exception:
+                            return []
+
+                    async def _get_itin_egr():
+                        try:
+                            return await route_provider.get_routes(
+                                Location(type="Point", coordinates=[dest_st["lon"], dest_st["lat"]]), dest_loc,
+                                mode=itin["egr_osrm"], alternatives="false"
+                            )
+                        except Exception:
+                            return []
+
+                    try:
+                        acc_r_list, egr_r_list = await _asyncio.wait_for(
+                            _asyncio.gather(_get_itin_acc(), _get_itin_egr()),
+                            timeout=8.0
+                        )
+                    except Exception:
+                        acc_r_list, egr_r_list = [], []
+                    acc_r = acc_r_list
+                    egr_r = egr_r_list
                     if not acc_r or not egr_r:
                         continue
 

@@ -1,6 +1,8 @@
 import time
 from typing import Dict, Any, Optional
 import logging
+import asyncio
+import asyncio as _asyncio
 from app.agents.workflow_manager import WorkflowManager
 from app.ml.normalizer import DataNormalizer
 from app.ml.features import FeatureEngineer
@@ -147,20 +149,31 @@ class JourneyIntelligenceCoordinator:
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Could not find destination: {str(e)}")
             
-        # Optional: reverse geocode for display names (done early to use for context)
-        try:
-            source_addr = await loc_provider.reverse_geocode(source_loc)
-            source_name = source_addr.display_name.split(",")[0]
-            source_full = source_addr.display_name.lower()
-        except:
+        # Optional: reverse geocode for display names - run source and dest concurrently
+        import asyncio as _asyncio
+        _GEOCODE_TIMEOUT_S = 5.0
+        async def _safe_reverse(loc):
+            try:
+                return await _asyncio.wait_for(
+                    loc_provider.reverse_geocode(loc),
+                    timeout=_GEOCODE_TIMEOUT_S
+                )
+            except Exception:
+                return None
+        _src_addr, _dst_addr = await _asyncio.gather(
+            _safe_reverse(source_loc),
+            _safe_reverse(dest_loc)
+        )
+        if _src_addr is not None:
+            source_name = _src_addr.display_name.split(",")[0]
+            source_full = _src_addr.display_name.lower()
+        else:
             source_name = "Current Location"
             source_full = ""
-            
-        try:
-            dest_addr = await loc_provider.reverse_geocode(dest_loc)
-            dest_name = dest_addr.display_name.split(",")[0]
-            dest_full = dest_addr.display_name.lower()
-        except:
+        if _dst_addr is not None:
+            dest_name = _dst_addr.display_name.split(",")[0]
+            dest_full = _dst_addr.display_name.lower()
+        else:
             dest_name = request.destination
             dest_full = ""
 
@@ -170,6 +183,7 @@ class JourneyIntelligenceCoordinator:
                 # Get Routes Dynamically
         try:
             import asyncio
+            import asyncio as _asyncio
             import datetime
             
             current_hour = datetime.datetime.utcnow().hour
@@ -206,8 +220,37 @@ class JourneyIntelligenceCoordinator:
 
             warnings = []
 
+            # --- LIVE WEATHER + PRIMARY OSRM DRIVING in parallel ---
+            # Weather (Open-Meteo) and the primary driving OSRM call are independent;
+            # run them concurrently to save ~2-4 s of sequential latency.
+            _OSRM_TIMEOUT_S = 6.0
+            _WEATHER_TIMEOUT_S = 6.0
+
+            async def _safe_weather():
+                try:
+                    return await _asyncio.wait_for(
+                        global_weather_provider.get_live_weather(s_lat, s_lon),
+                        timeout=_WEATHER_TIMEOUT_S
+                    )
+                except Exception:
+                    return {"available": False}
+
+            async def _safe_driving():
+                try:
+                    return await _asyncio.wait_for(
+                        route_provider.get_routes(source_loc, dest_loc, mode="driving", alternatives="true"),
+                        timeout=_OSRM_TIMEOUT_S
+                    )
+                except Exception as _e:
+                    logger.error(f"OSRM driving route query failed: {_e}")
+                    return []
+
+            weather_data, driving_routes = await _asyncio.gather(
+                _safe_weather(),
+                _safe_driving()
+            )
+
             # --- LIVE WEATHER INTEGRATION (Open-Meteo Verified Live Provider) ---
-            weather_data = await global_weather_provider.get_live_weather(s_lat, s_lon)
             if not weather_data.get("available"):
                 warnings.append("Live weather data is currently unavailable from provider.")
             if weather_data.get("hazards"):
@@ -217,78 +260,92 @@ class JourneyIntelligenceCoordinator:
             road_cands = []
             direct_road_dist_m = dist_m * 1.3
             direct_road_dur_s = (dist_m * 1.3) / 10.0
-            
-            try:
-                # 1. Driving route(s) via OSRM
-                driving_routes = await route_provider.get_routes(source_loc, dest_loc, mode="driving", alternatives="true")
-                for idx, r in enumerate(driving_routes):
-                    r.route_metadata = r.route_metadata or {}
-                    if idx == 0:
-                        direct_road_dist_m = float(r.distance)
-                        direct_road_dur_s = float(r.duration)
-                        r.route_metadata["travel_mode"] = "Personal Vehicle"
-                        r.route_metadata["route_name"] = "Personal Vehicle"
-                    else:
-                        r.route_metadata["travel_mode"] = "Cab Direct"
-                        r.route_metadata["route_name"] = f"Alternative Road Route {idx}"
-                    road_cands.append(r)
 
-                # 2. Secondary Road Corridor via waypoint offset if only 1 driving route returned
-                if len(driving_routes) == 1 and dist_km >= 0.8:
-                    try:
-                        dx = d_lon - s_lon
-                        dy = d_lat - s_lat
-                        vec_len = (dx*dx + dy*dy)**0.5
-                        if vec_len > 0:
-                            px = -dy / vec_len
-                            py = dx / vec_len
-                            offset_deg = min(0.0035, max(0.0015, vec_len * 0.15))
-                            wp_lon = (s_lon + d_lon)/2 + px * offset_deg
-                            wp_lat = (s_lat + d_lat)/2 + py * offset_deg
-                            via_loc = Location(type="Point", coordinates=[wp_lon, wp_lat])
-                            alt_routes = await route_provider.get_routes(
-                                source_loc, dest_loc, mode="driving", alternatives="false", waypoints=[via_loc]
-                            )
-                            if alt_routes:
-                                alt_r = alt_routes[0]
-                                if alt_r.distance <= driving_routes[0].distance * 1.6:
-                                    alt_r.route_metadata = alt_r.route_metadata or {}
-                                    alt_r.route_metadata["travel_mode"] = "Cab Direct"
-                                    alt_r.route_metadata["route_name"] = "Alternative Road Corridor"
-                                    road_cands.append(alt_r)
-                    except Exception as e:
-                        logger.debug(f"Waypoint alternative routing attempt: {e}")
-            except Exception as e:
-                logger.error(f"OSRM driving route query failed: {e}")
+            # 1. Process driving routes
+            for idx, r in enumerate(driving_routes):
+                r.route_metadata = r.route_metadata or {}
+                if idx == 0:
+                    direct_road_dist_m = float(r.distance)
+                    direct_road_dur_s = float(r.duration)
+                    r.route_metadata["travel_mode"] = "Personal Vehicle"
+                    r.route_metadata["route_name"] = "Personal Vehicle"
+                else:
+                    r.route_metadata["travel_mode"] = "Cab Direct"
+                    r.route_metadata["route_name"] = f"Alternative Road Route {idx}"
+                road_cands.append(r)
 
-            # 3. Two-Wheeler candidate
-            try:
-                bike_routes = await route_provider.get_routes(source_loc, dest_loc, mode="bike", alternatives="false")
-                if bike_routes:
-                    b_cand = bike_routes[0]
-                    b_cand.route_metadata = b_cand.route_metadata or {}
-                    b_cand.route_metadata["travel_mode"] = "Two Wheeler"
-                    b_cand.route_metadata["route_name"] = "Two Wheeler"
-                    # Realistic city traffic two-wheeler pace (~28 km/h or ~7.8 m/s)
-                    b_cand.duration = max(b_cand.distance / 7.8, b_cand.duration)
-                    road_cands.append(b_cand)
-            except Exception as e:
-                logger.debug(f"OSRM bike route query failed: {e}")
-
-            # 4. Walking candidate if trip is walkable (<= 4.0 km)
-            if dist_km <= 4.0:
+            # 2. Secondary Road Corridor via waypoint offset if only 1 driving route returned
+            # (must run after driving result is available)
+            if len(driving_routes) == 1 and dist_km >= 0.8:
                 try:
-                    foot_routes = await route_provider.get_routes(source_loc, dest_loc, mode="foot", alternatives="false")
-                    if foot_routes:
-                        f_cand = foot_routes[0]
-                        f_cand.route_metadata = f_cand.route_metadata or {}
-                        f_cand.route_metadata["travel_mode"] = "Walking"
-                        f_cand.route_metadata["route_name"] = "Walking"
-                        # Realistic pedestrian pace (~4.8 km/h or 1.35 m/s)
-                        f_cand.duration = max(f_cand.distance / 1.35, f_cand.duration)
-                        road_cands.append(f_cand)
+                    dx = d_lon - s_lon
+                    dy = d_lat - s_lat
+                    vec_len = (dx*dx + dy*dy)**0.5
+                    if vec_len > 0:
+                        px = -dy / vec_len
+                        py = dx / vec_len
+                        offset_deg = min(0.0035, max(0.0015, vec_len * 0.15))
+                        wp_lon = (s_lon + d_lon)/2 + px * offset_deg
+                        wp_lat = (s_lat + d_lat)/2 + py * offset_deg
+                        via_loc = Location(type="Point", coordinates=[wp_lon, wp_lat])
+                        alt_routes = await _asyncio.wait_for(
+                            route_provider.get_routes(
+                                source_loc, dest_loc, mode="driving", alternatives="false", waypoints=[via_loc]
+                            ),
+                            timeout=_OSRM_TIMEOUT_S
+                        )
+                        if alt_routes:
+                            alt_r = alt_routes[0]
+                            if alt_r.distance <= driving_routes[0].distance * 1.6:
+                                alt_r.route_metadata = alt_r.route_metadata or {}
+                                alt_r.route_metadata["travel_mode"] = "Cab Direct"
+                                alt_r.route_metadata["route_name"] = "Alternative Road Corridor"
+                                road_cands.append(alt_r)
                 except Exception as e:
-                    logger.debug(f"OSRM foot route query failed: {e}")
+                    logger.debug(f"Waypoint alternative routing attempt: {e}")
+
+            # 3 & 4. Bike and Walking candidates — independent of driving result, run concurrently
+            async def _safe_bike():
+                try:
+                    return await _asyncio.wait_for(
+                        route_provider.get_routes(source_loc, dest_loc, mode="bike", alternatives="false"),
+                        timeout=_OSRM_TIMEOUT_S
+                    )
+                except Exception as _e:
+                    logger.debug(f"OSRM bike route query failed: {_e}")
+                    return []
+
+            async def _safe_foot():
+                if dist_km > 4.0:
+                    return []
+                try:
+                    return await _asyncio.wait_for(
+                        route_provider.get_routes(source_loc, dest_loc, mode="foot", alternatives="false"),
+                        timeout=_OSRM_TIMEOUT_S
+                    )
+                except Exception as _e:
+                    logger.debug(f"OSRM foot route query failed: {_e}")
+                    return []
+
+            bike_routes, foot_routes = await _asyncio.gather(_safe_bike(), _safe_foot())
+
+            if bike_routes:
+                b_cand = bike_routes[0]
+                b_cand.route_metadata = b_cand.route_metadata or {}
+                b_cand.route_metadata["travel_mode"] = "Two Wheeler"
+                b_cand.route_metadata["route_name"] = "Two Wheeler"
+                # Realistic city traffic two-wheeler pace (~28 km/h or ~7.8 m/s)
+                b_cand.duration = max(b_cand.distance / 7.8, b_cand.duration)
+                road_cands.append(b_cand)
+
+            if foot_routes:
+                f_cand = foot_routes[0]
+                f_cand.route_metadata = f_cand.route_metadata or {}
+                f_cand.route_metadata["travel_mode"] = "Walking"
+                f_cand.route_metadata["route_name"] = "Walking"
+                # Realistic pedestrian pace (~4.8 km/h or 1.35 m/s)
+                f_cand.duration = max(f_cand.distance / 1.35, f_cand.duration)
+                road_cands.append(f_cand)
 
             fully_validated_routes = []
             can_attempt_transit = wants_public and (direct_road_dist_m > 0)
