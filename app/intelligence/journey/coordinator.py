@@ -1,3 +1,4 @@
+import time
 from typing import Dict, Any, Optional
 import logging
 from app.agents.workflow_manager import WorkflowManager
@@ -294,8 +295,30 @@ class JourneyIntelligenceCoordinator:
 
             if can_attempt_transit:
                 # 2A. Optional Gemini Mobility Strategy Validation
+                # Hard wall-clock cap: asyncio.wait_for bounded to 3.5s ensures dynamic planning
+                # cannot consume excessive latency budget or trigger gateway timeouts.
+                GEMINI_DYNAMIC_PLANS_BUDGET_S = 3.5
+                gemini_strategies = []
                 try:
-                    gemini_strategies = await self.reasoning_tool.generate_dynamic_plans(source_full, dest_full, dist_km, pref_list)
+                    import asyncio
+                    gemini_strategies = await asyncio.wait_for(
+                        self.reasoning_tool.generate_dynamic_plans(
+                            source_full, dest_full, dist_km, pref_list,
+                            deadline=time.time() + GEMINI_DYNAMIC_PLANS_BUDGET_S
+                        ),
+                        timeout=GEMINI_DYNAMIC_PLANS_BUDGET_S
+                    )
+                except asyncio.TimeoutError:
+                    logger.info(
+                        f"Gemini dynamic planning exceeded {GEMINI_DYNAMIC_PLANS_BUDGET_S}s budget; "
+                        "proceeding with verified multimodal transit corridor discovery."
+                    )
+                    gemini_strategies = []
+                except Exception as e:
+                    logger.info(f"Gemini dynamic planning skipped: {e}")
+                    gemini_strategies = []
+
+                try:
                     for strategy in gemini_strategies:
                         req_time = getattr(request, 'travel_time', None) or datetime.datetime.now().isoformat()
                         val_result = global_validator.validate_strategy(strategy, source_loc.coordinates, dest_loc.coordinates, req_time)
@@ -656,6 +679,10 @@ class JourneyIntelligenceCoordinator:
             self.ml_route_scorer.score_candidate_routes(candidates)
 
             # --- PHASE 4: GEMINI OBJECTIVE EXPLANATION (Ground Truth Context Only) ---
+            # Hard wall-clock cap: asyncio.wait_for ensures Gemini never blocks the route
+            # response for more than GEMINI_EXPLANATION_BUDGET_S seconds, preventing
+            # Render's 30s gateway from returning 502 when all Gemini models time out.
+            GEMINI_EXPLANATION_BUDGET_S = 5.0
             ai_explanation = None
             try:
                 routes_summary = []
@@ -667,12 +694,22 @@ class JourneyIntelligenceCoordinator:
                         "eta_min": int(c.duration / 60.0),
                         "safety_score": c.route_metadata.get("safety_score")
                     })
-                ai_explanation = await self.reasoning_tool.explain_journey_recommendations(
-                    source=source_name,
-                    dest=dest_name,
-                    verified_routes=routes_summary,
-                    preferences=pref_list,
-                    weather=weather_data
+                import asyncio
+                ai_explanation = await asyncio.wait_for(
+                    self.reasoning_tool.explain_journey_recommendations(
+                        source=source_name,
+                        dest=dest_name,
+                        verified_routes=routes_summary,
+                        preferences=pref_list,
+                        weather=weather_data,
+                        deadline=time.time() + GEMINI_EXPLANATION_BUDGET_S
+                    ),
+                    timeout=GEMINI_EXPLANATION_BUDGET_S,
+                )
+            except asyncio.TimeoutError:
+                logger.info(
+                    f"Gemini route explanation exceeded {GEMINI_EXPLANATION_BUDGET_S}s budget; "
+                    "serving static fallback to prevent gateway timeout."
                 )
             except Exception as e:
                 logger.info(f"Gemini route explanation generation skipped: {e}")

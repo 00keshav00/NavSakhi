@@ -66,6 +66,15 @@ class ReasoningTool(BaseTool):
     - Safe non-LLM static fallbacks when external LLM is unavailable
     """
 
+    # _model_cooldown is intentionally a CLASS-LEVEL attribute (process-wide circuit breaker).
+    # When a Gemini model times out or fails for one request, it is placed on cooldown so that
+    # subsequent requests from ANY user immediately serve the static fallback instead of waiting
+    # for a known-unresponsive external service.  This is desirable behaviour: if Gemini is down,
+    # every route-planning call would otherwise spend 3+ seconds blocking before falling back.
+    # Consequence: one user's Gemini timeout will suppress Gemini for all concurrent/subsequent
+    # users until the cooldown expires (30-120 s depending on error type).  This is an explicit
+    # design trade-off: latency protection for all users outweighs per-request freshness.
+    # Tests in test_gemini_security_and_fallback.py verify this behaviour explicitly.
     _model_cooldown: Dict[str, float] = {}
 
     @property
@@ -85,7 +94,7 @@ class ReasoningTool(BaseTool):
             ranking_score=10
         )
 
-    async def _call_gemini_content(self, prompt: str, timeout: float = 5.0) -> Optional[str]:
+    async def _call_gemini_content(self, prompt: str, timeout: float = 3.0, deadline: Optional[float] = None) -> Optional[str]:
         """
         Executes prompt against Gemini API using header-based authentication,
         bounded retries, error classification, and multi-model fallback.
@@ -99,13 +108,34 @@ class ReasoningTool(BaseTool):
             logger.debug("Gemini global cooldown active; skipping external LLM call.")
             return None
 
+        if deadline is not None and (deadline - now) <= 0.5:
+            logger.info("Gemini request deadline budget exhausted; skipping external LLM call.")
+            return None
+
         models = get_gemini_models()
         for model in models:
+            now = time.time()
+            if deadline is not None:
+                remaining = deadline - now
+                if remaining <= 0.5:
+                    logger.info(f"Gemini deadline budget exhausted before evaluating '{model}'; returning fallback.")
+                    break
+                call_timeout = min(timeout, remaining)
+            else:
+                call_timeout = timeout
+
             if model in self._model_cooldown and now < self._model_cooldown[model]:
                 logger.debug(f"Gemini model '{model}' in cooldown; evaluating next candidate.")
                 continue
 
             for attempt in range(2):
+                now = time.time()
+                if deadline is not None:
+                    remaining = deadline - now
+                    if remaining <= 0.5:
+                        logger.info(f"Gemini deadline budget exhausted during attempt {attempt+1}; terminating retries.")
+                        break
+                    call_timeout = min(timeout, remaining)
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
                 headers = {
                     "Content-Type": "application/json",
@@ -114,7 +144,7 @@ class ReasoningTool(BaseTool):
                 payload = {"contents": [{"parts": [{"text": prompt}]}]}
 
                 try:
-                    async with httpx.AsyncClient(timeout=timeout) as client:
+                    async with httpx.AsyncClient(timeout=call_timeout) as client:
                         resp = await client.post(url, json=payload, headers=headers)
 
                     if resp.status_code == 200:
@@ -133,13 +163,14 @@ class ReasoningTool(BaseTool):
                     status = resp.status_code
                     if status in (500, 502, 503, 504, 408):
                         retry_after = resp.headers.get("Retry-After")
-                        wait_sec = min(float(retry_after), 2.0) if retry_after and retry_after.isdigit() else (0.4 * (attempt + 1))
-                        logger.info(f"Gemini model '{model}' returned transient HTTP {status} (attempt {attempt+1}/2). Retrying in {wait_sec:.2f}s...")
-                        if attempt < 1:
+                        wait_sec = min(float(retry_after), 1.0) if retry_after and retry_after.isdigit() else (0.3 * (attempt + 1))
+                        if attempt < 1 and (deadline is None or (deadline - time.time()) > (wait_sec + 1.0)):
+                            logger.info(f"Gemini model '{model}' returned transient HTTP {status} (attempt {attempt+1}/2). Retrying in {wait_sec:.2f}s...")
                             await asyncio.sleep(wait_sec)
                             continue
                         else:
                             logger.warning(f"Gemini model '{model}' failed after retries (HTTP {status}). Transitioning to fallback model.")
+                            self._model_cooldown[model] = time.time() + 30.0
                             break
 
                     elif status == 429:
@@ -195,10 +226,15 @@ class ReasoningTool(BaseTool):
                 except (httpx.TimeoutException, httpx.NetworkError) as e:
                     err_type = type(e).__name__
                     logger.info(f"Gemini model '{model}' {err_type} on attempt {attempt+1}/2.")
-                    if attempt < 1:
-                        await asyncio.sleep(0.4)
+                    if isinstance(e, httpx.TimeoutException):
+                        logger.warning(f"Gemini model '{model}' timed out. Setting 60s cooldown and evaluating fallback.")
+                        self._model_cooldown[model] = time.time() + 60.0
+                        break
+                    if attempt < 1 and (deadline is None or (deadline - time.time()) > 1.0):
+                        await asyncio.sleep(0.3)
                         continue
                     else:
+                        self._model_cooldown[model] = time.time() + 30.0
                         logger.warning(f"Gemini model '{model}' network failure after retries. Trying fallback model.")
                         break
                 except Exception as e:
@@ -207,6 +243,7 @@ class ReasoningTool(BaseTool):
                     break
 
         logger.info("All configured Gemini models failed or unavailable; using verified non-LLM reasoning fallback.")
+        self._model_cooldown["_all_"] = time.time() + 60.0
         return None
 
     async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -235,7 +272,7 @@ class ReasoningTool(BaseTool):
             "Do not state that any route guarantees safety. Keep explanations grounded strictly in objective route metrics."
         )
 
-        text = await self._call_gemini_content(prompt, timeout=5.0)
+        text = await self._call_gemini_content(prompt, timeout=3.0)
         if text:
             return {
                 "summary": text,
@@ -247,14 +284,7 @@ class ReasoningTool(BaseTool):
             "reasoning": fallback_reasoning
         }
 
-    async def explain_journey_recommendations(
-        self,
-        source: str,
-        dest: str,
-        verified_routes: List[Dict[str, Any]],
-        preferences: Optional[List[str]] = None,
-        weather: Optional[Dict[str, Any]] = None
-    ) -> Optional[Dict[str, Any]]:
+    async def explain_journey_recommendations(self, source: str, dest: str, verified_routes: List[Dict[str, Any]], preferences: Optional[List[str]] = None, weather: Optional[Dict[str, Any]] = None, deadline: Optional[float] = None) -> Optional[Dict[str, Any]]:
         """
         Explains already validated and scored candidate routes using supplied evidence,
         actual ML scores, live weather, and explicit user preferences.
@@ -275,6 +305,15 @@ class ReasoningTool(BaseTool):
 
         api_key = get_gemini_api_key()
         if not api_key:
+            return static_fallback
+
+        now = time.time()
+        if "_all_" in self._model_cooldown and now < self._model_cooldown["_all_"]:
+            logger.debug("Gemini global cooldown active; serving static fallback immediately.")
+            return static_fallback
+
+        if deadline is not None and (deadline - now) <= 0.5:
+            logger.info("Gemini explanation deadline budget exhausted; serving static fallback immediately.")
             return static_fallback
 
         prefs_str = ", ".join(preferences) if preferences else "Fastest, Safest, Balanced"
@@ -313,7 +352,7 @@ Return JSON only in this exact format:
   "tradeoffs": ["Tradeoff 1", "Tradeoff 2"]
 }}
 """
-        text = await self._call_gemini_content(prompt, timeout=5.0)
+        text = await self._call_gemini_content(prompt, timeout=3.0, deadline=deadline)
         if not text:
             return static_fallback
 
@@ -331,7 +370,7 @@ Return JSON only in this exact format:
             logger.info(f"Gemini route explanation JSON parse fallback: {clean_err}")
             return static_fallback
 
-    async def generate_dynamic_plans(self, source: str, dest: str, dist_km: float, preferences: list = None) -> list:
+    async def generate_dynamic_plans(self, source: str, dest: str, dist_km: float, preferences: list = None, deadline: Optional[float] = None) -> list:
         """
         Uses Gemini to suggest high-level candidate strategies.
         Must ONLY suggest public transit if realistic stations exist along the travel axis.
@@ -339,6 +378,15 @@ Return JSON only in this exact format:
         api_key = get_gemini_api_key()
         if not api_key:
             logger.info("GEMINI_API_KEY not configured; skipping dynamic planning.")
+            return []
+
+        now = time.time()
+        if "_all_" in self._model_cooldown and now < self._model_cooldown["_all_"]:
+            logger.debug("Gemini global cooldown active; skipping dynamic planning prompt.")
+            return []
+
+        if deadline is not None and (deadline - now) <= 0.5:
+            logger.info("Gemini dynamic planning deadline budget exhausted; skipping dynamic planning prompt.")
             return []
 
         # If trip is short, public transit is not realistic
@@ -378,7 +426,7 @@ Each strategy object:
   ]
 }}
 """
-        text = await self._call_gemini_content(prompt, timeout=5.0)
+        text = await self._call_gemini_content(prompt, timeout=3.0, deadline=deadline)
         if not text:
             return []
 

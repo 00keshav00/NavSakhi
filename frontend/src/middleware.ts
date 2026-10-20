@@ -12,17 +12,21 @@ export function middleware(request: NextRequest) {
   // - AI Assistant (/assistant) for general safety inquiries
   // - Community insights (/community)
   // - Safety resources and emergency helplines (/resources)
-  const isPublicRoute = 
-    pathname === '/' || 
-    pathname.startsWith('/login') || 
-    pathname === '/robots.txt' || 
-    pathname === '/sitemap.xml' || 
+  // - Static public assets: /manifest.json and /maplibre-worker.js are served directly
+  //   via exact-path checks here so that other .js/.json paths remain protected by auth.
+  const isPublicRoute =
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
+    pathname === '/manifest.json' ||
+    pathname === '/maplibre-worker.js' ||
     pathname === '/resources' ||
     pathname === '/home' ||
     pathname === '/journey' ||
     pathname === '/assistant' ||
     pathname === '/community';
-  
+
   // Protect account-specific routes:
   // - Emergency SOS workflow (/emergency)
   // - Live personalized telemetry monitoring (/live)
@@ -43,6 +47,8 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Apply middleware to all routes except API, static files, images, robots.txt, sitemap.xml
+  // Apply middleware to all routes except API, static files, images, robots.txt, sitemap.xml.
+  // /maplibre-worker.js and /manifest.json are exempted via exact-path isPublicRoute checks above,
+  // NOT via matcher exclusion, so that all other .js and .json paths remain auth-protected.
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)'],
 };
