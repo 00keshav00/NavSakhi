@@ -2,10 +2,11 @@ import { apiClient, StandardResponse } from "../client";
 import { JourneyCreateRequest, JourneyPlanResponse, LocationSuggestion } from "../../types/journey";
 
 export const journeyService = {
-  autocomplete: async (query: string, limit: number = 8): Promise<LocationSuggestion[]> => {
+  autocomplete: async (query: string, limit: number = 8, signal?: AbortSignal): Promise<LocationSuggestion[]> => {
     if (!query || query.trim().length === 0) return [];
     const response = await apiClient.get<StandardResponse<LocationSuggestion[]>>(
-      `/api/v1/journeys/autocomplete?q=${encodeURIComponent(query.trim())}&limit=${limit}`
+      `/api/v1/journeys/autocomplete?q=${encodeURIComponent(query.trim())}&limit=${limit}`,
+      { signal }
     );
     return response.data?.data || [];
   },

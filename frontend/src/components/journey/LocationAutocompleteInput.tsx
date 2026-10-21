@@ -43,8 +43,10 @@ export function LocationAutocompleteInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const latestQueryRef = useRef<string>("");
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchCacheRef = useRef<Map<string, LocationSuggestion[]>>(new Map());
 
-  // Close on outside click
+  // Close on outside click and cancel in-flight work on unmount
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -53,29 +55,59 @@ export function LocationAutocompleteInput({
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
   }, []);
 
-  // Debounced search query
+  // Immediate or debounced search query with progressive matching & AbortController
   const performSearch = useCallback(async (query: string) => {
     const trimmed = query.trim();
     latestQueryRef.current = trimmed;
 
-    if (trimmed.length < 2) {
+    if (trimmed.length === 0) {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
       setSuggestions([]);
       setIsLoading(false);
       setIsOpen(false);
       return;
     }
 
+    // 1. Instant Cache Check (0ms response for repeated queries)
+    const cacheKey = trimmed.toLowerCase();
+    const cached = searchCacheRef.current.get(cacheKey);
+    if (cached && cached.length > 0) {
+      if (latestQueryRef.current === trimmed) {
+        setSuggestions(cached);
+        setHighlightedIndex(-1);
+        setIsOpen(true);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // 2. Abort any previous in-flight request to prevent race conditions or connection starvation
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsLoading(true);
 
     try {
-      const results = await journeyService.autocomplete(trimmed, 8);
+      const results = await journeyService.autocomplete(trimmed, 8, controller.signal);
+
       // Discard stale out-of-order response
       if (latestQueryRef.current !== trimmed) return;
 
       if (results && results.length > 0) {
+        // Cache valid result in memory
+        searchCacheRef.current.set(cacheKey, results);
         setSuggestions(results);
         setHighlightedIndex(-1);
         setIsOpen(true);
@@ -83,16 +115,23 @@ export function LocationAutocompleteInput({
         setSuggestions([]);
         setIsOpen(false);
       }
-    } catch {
+    } catch (err: unknown) {
+      const errorObj = err as { name?: string };
+      if (errorObj?.name === "CanceledError" || errorObj?.name === "AbortError") {
+        // Request was aborted by newer keystroke, cleanly ignore
+        return;
+      }
       if (latestQueryRef.current !== trimmed) return;
-      setSuggestions([]);
-      setIsOpen(false);
+      // On real network error, clear loading state; if no prior suggestions exist, close dropdown
+      if (suggestions.length === 0) {
+        setIsOpen(false);
+      }
     } finally {
       if (latestQueryRef.current === trimmed) {
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [suggestions.length]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newText = e.target.value;
@@ -107,11 +146,14 @@ export function LocationAutocompleteInput({
       onSelectSuggestion(null);
     }
 
-    if (newText.trim().length < 2) {
+    if (newText.trim().length === 0) {
       setSuggestions([]);
       setIsOpen(false);
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
       return;
     }
@@ -120,18 +162,21 @@ export function LocationAutocompleteInput({
       clearTimeout(debounceTimerRef.current);
     }
 
+    // Responsive 180ms debounce (fast typing assistance without excessive request flooding)
     debounceTimerRef.current = setTimeout(() => {
       performSearch(newText);
-    }, 280);
+    }, 180);
   };
 
   const handleSelect = (item: LocationSuggestion) => {
-    // Fill text with friendly name and bind canonical suggestion record
     onChangeText(item.name);
     onSelectSuggestion(item);
     setIsOpen(false);
     setSuggestions([]);
     setIsFocused(false);
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
   };
 
   const handleClear = () => {
@@ -139,24 +184,24 @@ export function LocationAutocompleteInput({
     onSelectSuggestion(null);
     setSuggestions([]);
     setIsOpen(false);
+    setIsLoading(false);
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
     inputRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsOpen(false);
-      return;
-    }
-
-    if (e.key === "Tab") {
       setIsOpen(false);
       return;
     }
 
     if (!isOpen || suggestions.length === 0) {
-      if (e.key === "ArrowDown" && value.trim().length >= 2) {
+      if (e.key === "ArrowDown" && value.trim().length >= 1) {
         performSearch(value);
       }
       return;
@@ -226,7 +271,7 @@ export function LocationAutocompleteInput({
   const activeDescendantId =
     highlightedIndex >= 0 ? `${id}-option-${highlightedIndex}` : undefined;
 
-  // The dropdown is ONLY visible when there are real, verified suggestions to show
+  // The dropdown is visible when there are real, verified suggestions to show
   const showDropdown = isOpen && isFocused && suggestions.length > 0;
 
   return (
@@ -251,7 +296,7 @@ export function LocationAutocompleteInput({
           onChange={handleInputChange}
           onFocus={() => {
             setIsFocused(true);
-            if (value.trim().length >= 2 && suggestions.length > 0) {
+            if (value.trim().length >= 1 && suggestions.length > 0) {
               setIsOpen(true);
             }
           }}
@@ -305,7 +350,7 @@ export function LocationAutocompleteInput({
         </div>
       )}
 
-      {/* Autocomplete Dropdown - STRICTLY rendered ONLY when genuine suggestions exist */}
+      {/* Autocomplete Dropdown */}
       {showDropdown && (
         <div
           id={listboxId}

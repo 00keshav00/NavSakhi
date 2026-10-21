@@ -82,7 +82,7 @@ class SpatialMatchingService:
         sample_interval_m: float = 25.0,
         projected_crs: str = "EPSG:32644",
         geographic_crs: str = "EPSG:4326",
-        auto_build_index: bool = True,
+        auto_build_index: bool = False,
     ):
         self.max_match_distance_m = float(max_match_distance_m)
         self.ambiguity_delta_m = float(ambiguity_delta_m)
@@ -132,27 +132,42 @@ class SpatialMatchingService:
         coords: List[Any],
         margin: float = 0.0035,
         max_step_pts: int = 30,
+        max_span_deg: float = 0.020,
     ) -> List[Tuple[float, float, float, float]]:
         """
         Partitions route polyline coordinates into a chain of tightly-bounded corridor bounding boxes.
-        Avoids loading hundreds of thousands of unrelated road segments from the diagonal rectangle.
+        Prevents diagonal bounding box explosion (loading 100k+ segments) by bounding both
+        point count (max_step_pts) and geographic extent (max_span_deg).
         """
-        if not coords:
+        if not coords or len(coords) < 2:
             return []
         boxes = []
         n = len(coords)
         i = 0
         while i < n:
-            chunk = coords[i : min(i + max_step_pts, n)]
+            chunk = [coords[i]]
+            j = i + 1
+            while j < n and (j - i) < max_step_pts:
+                test_chunk = chunk + [coords[j]]
+                valid = [c for c in test_chunk if isinstance(c, (list, tuple)) and len(c) >= 2]
+                if valid:
+                    lons = [c[0] for c in valid]
+                    lats = [c[1] for c in valid]
+                    if (max(lons) - min(lons)) > max_span_deg or (max(lats) - min(lats)) > max_span_deg:
+                        break
+                chunk.append(coords[j])
+                j += 1
+
             valid = [c for c in chunk if isinstance(c, (list, tuple)) and len(c) >= 2]
             if valid:
                 lons = [c[0] for c in valid]
                 lats = [c[1] for c in valid]
                 b = (min(lons) - margin, min(lats) - margin, max(lons) + margin, max(lats) + margin)
                 boxes.append(b)
-            if i + max_step_pts >= n:
+
+            if j >= n:
                 break
-            i += max(1, max_step_pts - 4)
+            i = max(i + 1, j - 2)
         return boxes
 
     def _ensure_index_for_corridor(self, coords: List[Any], margin: float = 0.0035) -> None:
@@ -182,10 +197,7 @@ class SpatialMatchingService:
                     if ib[0] <= b[0] and ib[1] <= b[1] and ib[2] >= b[2] and ib[3] >= b[3]:
                         box_covered = True
                         break
-                if not box_covered and self._indexed_bounds is not None:
-                    bnds = self._indexed_bounds
-                    if bnds[0] <= b[0] and bnds[1] <= b[1] and bnds[2] >= b[2] and bnds[3] >= b[3]:
-                        box_covered = True
+
                 if not box_covered:
                     all_covered = False
                     break
@@ -237,17 +249,26 @@ class SpatialMatchingService:
         cols = ["segment_id", "way_id", "latitude", "longitude", "length_m", "road_type"]
         table = road_dataset.to_table(filter=corridor_filter, columns=cols)
         new_df = table.to_pandas()
+        del table
 
         if len(new_df) > 0 and len(corridor_boxes) > 1:
             new_df = new_df.drop_duplicates(subset=["segment_id"])
 
         if self._index is not None and self._road_segments_df is not None:
-            combined_df = pd.concat([self._road_segments_df, new_df], ignore_index=True)
-            combined_df = combined_df.drop_duplicates(subset=["segment_id"])
+            # If combining with previous route exceeds 50k segments, keep new route directly to protect RAM
+            if len(self._road_segments_df) + len(new_df) > 50000:
+                logger.info("Combined route corridors exceed 50k segments; narrowing index to active corridor.")
+                combined_df = new_df
+                all_boxes_to_index = corridor_boxes
+                new_bounds = (c_min_lon, c_min_lat, c_max_lon, c_max_lat)
+            else:
+                combined_df = pd.concat([self._road_segments_df, new_df], ignore_index=True)
+                combined_df = combined_df.drop_duplicates(subset=["segment_id"])
         else:
             combined_df = new_df
 
         self.build_index(road_segments_df=combined_df)
+        del new_df
         self._indexed_boxes = all_boxes_to_index
         self._indexed_bounds = new_bounds
         self._indexed_bbox = new_bounds

@@ -119,9 +119,31 @@ class TestLocationAutocomplete:
 
     @pytest.mark.asyncio
     async def test_short_query_returns_empty(self):
-        """Single character queries return empty list immediately to save bandwidth."""
-        results = await self.service.get_suggestions("a")
-        assert results == []
+        """Single character queries return bounded local verified suggestions without calling external geocoder."""
+        # 1. Empty or whitespace-only input must strictly return an empty list
+        assert await self.service.get_suggestions("") == []
+        assert await self.service.get_suggestions("   ") == []
+
+        # 2. Single-character query returns bounded list of verified local suggestions
+        with patch("httpx.AsyncClient.get") as mock_get:
+            limit = 6
+            results = await self.service.get_suggestions("a", limit=limit)
+
+            # Prove Nominatim or external geocoding is NOT called
+            mock_get.assert_not_called()
+
+            # Results are capped according to the requested limit
+            assert 0 < len(results) <= limit
+
+            # Results must be verified local suggestions, no duplicates, no fabricated coordinates
+            seen_ids = set()
+            for r in results:
+                assert r.id not in seen_ids, f"Duplicate suggestion id {r.id}"
+                seen_ids.add(r.id)
+                assert r.source in ["LOCAL_TRANSIT", "LOCAL_POI", "LOCAL_LANDMARK"]
+                assert 12.5 <= r.latitude <= 13.5, f"Invalid latitude {r.latitude}"
+                assert 79.8 <= r.longitude <= 80.5, f"Invalid longitude {r.longitude}"
+                assert "a" in r.name.lower() or "a" in r.secondary_text.lower()
 
     @pytest.mark.asyncio
     async def test_canonical_coordinates_preserved(self):
