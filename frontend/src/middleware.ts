@@ -47,9 +47,10 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Apply middleware to all routes except API, static files, images,
-  // and exact standalone public assets: /manifest.json, /maplibre-worker.js, /favicon.ico, /robots.txt, /sitemap.xml.
-  // End-anchoring ((?:...)$) ensures that prefix/near-match lookalikes (e.g. /manifest.json.backup, /maplibre-worker.js/extra)
-  // are NOT exempted and continue through authentication middleware checks.
+  // CRITICAL SECURITY INVARIANT:
+  // Exclusions for /manifest.json and /maplibre-worker.js must remain narrowly scoped to exact root paths.
+  // Broad exemptions for .json or .js extensions (e.g. *.json or *.js) would unintentionally bypass authentication
+  // on private endpoints or sensitive data paths (e.g. /secret.json, /admin.js, or near-match paths like /manifest.json.backup).
+  // End-anchoring ((?:...)$) ensures that prefix/near-match lookalikes are NOT exempted and continue through middleware.
   matcher: ['/((?!api|_next/static|_next/image|(?:favicon\\.ico|manifest\\.json|maplibre-worker\\.js|robots\\.txt|sitemap\\.xml)$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)'],
 };
