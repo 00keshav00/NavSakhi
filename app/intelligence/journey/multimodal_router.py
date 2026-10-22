@@ -185,7 +185,8 @@ class MultimodalRouter:
         direct_road_dur_s: float,
         route_provider: Any,
         ist_dt: datetime.datetime,
-        preferences: List[str]
+        preferences: List[str],
+        cancel_check: Optional[Any] = None
     ) -> List[CandidateRoute]:
         """
         Generates validated multimodal transit candidates across Metro, Suburban Rail, MRTS, and Government Bus.
@@ -646,251 +647,398 @@ class MultimodalRouter:
             logger.warning(f"Error querying rail candidates: {e}")
 
         # -------------------------------------------------------------
-        # 3. GENERIC MULTIMODAL RAIL-TO-BUS INTERCHANGE CORRIDORS
+        # 3. GENERIC MULTIMODAL RAIL-TO-BUS INTERCHANGE CORRIDORS (BOUNDED)
         # -------------------------------------------------------------
+        if cancel_check is not None:
+            import inspect
+            _res = cancel_check() if callable(cancel_check) else cancel_check
+            if inspect.isawaitable(_res):
+                _is_canc = await _res
+            else:
+                _is_canc = bool(_res)
+            if _is_canc:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=499, detail="Client Closed Request")
+
         try:
             # Query multimodal transfers if few transit candidates exist or trip exceeds 8km
             if len(candidates) < 3 and direct_road_dist_m > 8000:
-                # 3A. Destination feeder bus stop catchment (up to 2000m from destination)
-                dest_bus_stops = self.query_nearby_stations(d_lat, d_lon, "bus", max_dist_m=2000, k=8)
-                dest_stop_ids = {s["id"]: s for s in dest_bus_stops}
+                # 3A. Bounded destination feeder bus stop catchment (up to 1500m, top 3 closest to destination)
+                raw_dest_bus_stops = self.query_nearby_stations(d_lat, d_lon, "bus", max_dist_m=1500, k=8)
+                raw_dest_bus_stops.sort(key=lambda s: haversine_m(d_lat, d_lon, s["lat"], s["lon"]))
+                primary_dest_stops = raw_dest_bus_stops[:3]
 
                 # 3B. Origin rail station catchment
                 max_acc_m = min(12000.0, max(3000.0, direct_road_dist_m * 0.65))
                 rail_modes_to_check = ["suburban", "metro"]
 
-                transfer_found = False
-                for rail_mode in rail_modes_to_check:
-                    if len(candidates) >= 3 or transfer_found:
+                # Explicit operation bounds to guarantee deterministic sub-second discovery
+                MAX_ROUTES_PER_STOP = 5
+                MAX_TRANSFER_COMBOS_BUDGET = 50
+                MAX_TRANSFER_CANDIDATES = 2
+
+                rail_memo: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
+                feasible_itineraries: List[Dict[str, Any]] = []
+                evaluated_combos = 0
+                seen_transfer_combos = set()
+
+                def _explore_dest_stops(dest_stop_list: List[Dict[str, Any]]) -> None:
+                    nonlocal evaluated_combos
+                    for rail_mode in rail_modes_to_check:
+                        if evaluated_combos >= MAX_TRANSFER_COMBOS_BUDGET:
+                            break
+
+                        graph = get_graph_for_mode(rail_mode)
+                        if not graph:
+                            continue
+
+                        orig_stations = self.query_nearby_stations(s_lat, s_lon, rail_mode, max_dist_m=max_acc_m, k=4)
+                        if not orig_stations:
+                            continue
+
+                        for d_st in dest_stop_list:
+                            if evaluated_combos >= MAX_TRANSFER_COMBOS_BUDGET:
+                                break
+
+                            routes = self.bus_stop_routes.get(d_st["id"], [])
+                            # Bounded bus routes per stop: pick up to MAX_ROUTES_PER_STOP distinct service numbers
+                            selected_routes = []
+                            seen_s_nums = set()
+                            for r in routes:
+                                s_num = r["service_number"]
+                                if s_num not in seen_s_nums:
+                                    seen_s_nums.add(s_num)
+                                    selected_routes.append(r)
+                                    if len(selected_routes) >= MAX_ROUTES_PER_STOP:
+                                        break
+
+                            for r in selected_routes:
+                                if evaluated_combos >= MAX_TRANSFER_COMBOS_BUDGET:
+                                    break
+
+                                s_num = r["service_number"]
+                                pat = r["pattern"]
+                                d_idx = r["stop_idx"]
+
+                                # Evaluate intermediate stops along the pattern
+                                for st_idx in range(0, d_idx):
+                                    if evaluated_combos >= MAX_TRANSFER_COMBOS_BUDGET:
+                                        break
+
+                                    tr_sid = pat[st_idx]
+                                    tr_bus_stop = self.bus_stop_map.get(tr_sid)
+                                    if not tr_bus_stop:
+                                        continue
+
+                                    # Fast geographic progress pruning before any KDTree or graph queries
+                                    d_tr_to_dest = haversine_m(tr_bus_stop["lat"], tr_bus_stop["lon"], d_lat, d_lon)
+                                    d_src_to_dest = haversine_m(s_lat, s_lon, d_lat, d_lon)
+                                    if d_tr_to_dest >= (d_src_to_dest - 1500):
+                                        continue
+
+                                    # Memoized rail station proximity query
+                                    memo_key = (tr_sid, rail_mode)
+                                    if memo_key in rail_memo:
+                                        nearby_rail = rail_memo[memo_key]
+                                    else:
+                                        nearby_rail = self.query_nearby_stations(
+                                            tr_bus_stop["lat"], tr_bus_stop["lon"], rail_mode, max_dist_m=600, k=2
+                                        )
+                                        rail_memo[memo_key] = nearby_rail
+
+                                    if not nearby_rail:
+                                        continue
+
+                                    for tr_rail_st in nearby_rail:
+                                        combo_key = (orig_stations[0]["name"], tr_rail_st["name"], s_num)
+                                        if combo_key in seen_transfer_combos:
+                                            continue
+                                        seen_transfer_combos.add(combo_key)
+
+                                        for orig_st in orig_stations:
+                                            if orig_st["name"] == tr_rail_st["name"]:
+                                                continue
+
+                                            d_orig_to_dest = haversine_m(orig_st["lat"], orig_st["lon"], d_lat, d_lon)
+                                            # Transfer station must bring user significantly closer to destination
+                                            if d_tr_to_dest >= (d_orig_to_dest - 2000):
+                                                continue
+
+                                            evaluated_combos += 1
+                                            track_coords, track_dist, track_status = graph.build_transit_segment(
+                                                rail_mode, orig_st["lat"], orig_st["lon"], tr_rail_st["lat"], tr_rail_st["lon"]
+                                            )
+                                            if track_status != "SUCCESS" or not track_coords or track_dist < 1500:
+                                                continue
+
+                                            # Bus segment geometry from transfer stop to destination stop
+                                            bus_sub_pat = pat[st_idx:d_idx+1]
+                                            bus_geom_coords = []
+                                            bus_dist_m = 0.0
+                                            last_pt = None
+                                            for sid in bus_sub_pat:
+                                                st_obj = self.bus_stop_map.get(sid)
+                                                if st_obj:
+                                                    pt = [st_obj["lon"], st_obj["lat"]]
+                                                    if last_pt:
+                                                        bus_dist_m += haversine_m(last_pt[1], last_pt[0], pt[1], pt[0])
+                                                    bus_geom_coords.append(pt)
+                                                    last_pt = pt
+
+                                            if len(bus_geom_coords) < 2 or bus_dist_m < 800:
+                                                continue
+
+                                            # Speeds and durations
+                                            rail_speed = 11.1 if "suburban" in rail_mode else 9.7
+                                            rail_wait = 10 * 60 if "suburban" in rail_mode else 6 * 60
+                                            rail_dur = (track_dist / rail_speed) + rail_wait
+
+                                            bus_wait = 8 * 60  # expected wait at transfer hub
+                                            bus_dur = (bus_dist_m / 5.0) + (len(bus_sub_pat) * 30) + bus_wait
+
+                                            # Straight-line distance estimates for access, transfer walk, and egress
+                                            acc_dist_est = haversine_m(s_lat, s_lon, orig_st["lat"], orig_st["lon"])
+                                            tr_w_dist_est = haversine_m(tr_rail_st["lat"], tr_rail_st["lon"], tr_bus_stop["lat"], tr_bus_stop["lon"])
+                                            egr_dist_est = haversine_m(d_st["lat"], d_st["lon"], d_lat, d_lon)
+
+                                            est_walking_dur = (acc_dist_est + tr_w_dist_est + egr_dist_est) / 1.35
+                                            cost_score = rail_dur + bus_dur + (est_walking_dur * 1.5)
+
+                                            feasible_itineraries.append({
+                                                "rail_mode": rail_mode,
+                                                "orig_st": orig_st,
+                                                "tr_rail_st": tr_rail_st,
+                                                "tr_bus_stop": tr_bus_stop,
+                                                "d_st": d_st,
+                                                "s_num": s_num,
+                                                "track_coords": track_coords,
+                                                "track_dist": track_dist,
+                                                "rail_dur": rail_dur,
+                                                "rail_wait": rail_wait,
+                                                "bus_sub_pat": bus_sub_pat,
+                                                "bus_geom_coords": bus_geom_coords,
+                                                "bus_dist_m": bus_dist_m,
+                                                "bus_dur": bus_dur,
+                                                "bus_wait": bus_wait,
+                                                "cost_score": cost_score,
+                                            })
+
+                # Initial pass with primary top 3 destination stops
+                _explore_dest_stops(primary_dest_stops)
+
+                # Controlled bounded fallback: if no feasible transfer found, check next 2 catchment stops within budget
+                if not feasible_itineraries and len(raw_dest_bus_stops) > 3 and evaluated_combos < MAX_TRANSFER_COMBOS_BUDGET:
+                    _explore_dest_stops(raw_dest_bus_stops[3:5])
+
+                # Deterministically sort itineraries by door-to-door cost score
+                feasible_itineraries.sort(key=lambda x: x["cost_score"])
+
+                # Select up to MAX_TRANSFER_CANDIDATES distinct itineraries
+                added_transfers = 0
+                seen_transfer_pairs = set()
+                seen_route_names = {c.route_metadata.get("route_name") for c in candidates if hasattr(c, "route_metadata") and c.route_metadata}
+
+                for itin in feasible_itineraries:
+                    if added_transfers >= MAX_TRANSFER_CANDIDATES or len(candidates) >= 4:
                         break
 
-                    graph = get_graph_for_mode(rail_mode)
-                    if not graph:
+                    pair_key = (itin["tr_rail_st"]["name"], itin["s_num"], itin["d_st"]["name"])
+                    if pair_key in seen_transfer_pairs:
+                        continue
+                    seen_transfer_pairs.add(pair_key)
+
+                    orig_st = itin["orig_st"]
+                    tr_rail_st = itin["tr_rail_st"]
+                    tr_bus_stop = itin["tr_bus_stop"]
+                    d_st = itin["d_st"]
+                    s_num = itin["s_num"]
+                    rail_mode = itin["rail_mode"]
+                    track_coords = itin["track_coords"]
+                    track_dist = itin["track_dist"]
+                    rail_dur = itin["rail_dur"]
+                    rail_wait = itin["rail_wait"]
+                    bus_sub_pat = itin["bus_sub_pat"]
+                    bus_geom_coords = itin["bus_geom_coords"]
+                    bus_dist_m = itin["bus_dist_m"]
+                    bus_dur = itin["bus_dur"]
+                    bus_wait = itin["bus_wait"]
+
+                    # Execute access, transfer walk, and egress routing concurrently
+                    import asyncio as _asyncio
+
+                    async def _get_acc():
+                        try:
+                            return await route_provider.get_routes(
+                                source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
+                                mode="foot", alternatives="false"
+                            )
+                        except Exception:
+                            return []
+
+                    async def _get_tr_w():
+                        try:
+                            return await route_provider.get_routes(
+                                Location(type="Point", coordinates=[tr_rail_st["lon"], tr_rail_st["lat"]]),
+                                Location(type="Point", coordinates=[tr_bus_stop["lon"], tr_bus_stop["lat"]]),
+                                mode="foot", alternatives="false"
+                            )
+                        except Exception:
+                            return []
+
+                    async def _get_egr():
+                        try:
+                            return await route_provider.get_routes(
+                                Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]),
+                                dest_loc,
+                                mode="foot", alternatives="false"
+                            )
+                        except Exception:
+                            return []
+
+                    try:
+                        acc_routes, tr_walk_routes, egr_routes = await _asyncio.wait_for(
+                            _asyncio.gather(_get_acc(), _get_tr_w(), _get_egr()),
+                            timeout=8.0
+                        )
+                    except Exception:
+                        acc_routes, tr_walk_routes, egr_routes = [], [], []
+
+                    if not acc_routes or not tr_walk_routes or not egr_routes:
                         continue
 
-                    orig_stations = self.query_nearby_stations(s_lat, s_lon, rail_mode, max_dist_m=max_acc_m, k=5)
-                    if not orig_stations:
+                    acc_r = acc_routes[0]
+                    tr_w_r = tr_walk_routes[0]
+                    egr_r = egr_routes[0]
+
+                    total_dist = acc_r.distance + track_dist + tr_w_r.distance + bus_dist_m + egr_r.distance
+                    total_dur = acc_r.duration + rail_dur + tr_w_r.duration + bus_dur + egr_r.duration
+
+                    # Detour check: Total multimodal distance must not exceed 1.75x direct road
+                    if total_dist > max(direct_road_dist_m * 1.75, direct_road_dist_m + 1500):
                         continue
 
-                    seen_combos = set()
-                    for d_sid, d_st in dest_stop_ids.items():
-                        if transfer_found:
-                            break
-                        routes = self.bus_stop_routes.get(d_sid, [])
-                        for r in routes:
-                            if transfer_found:
-                                break
-                            s_num = r["service_number"]
-                            pat = r["pattern"]
-                            d_idx = r["stop_idx"]
+                    acc_geom = acc_r.route_metadata.get("geometry", {}).get("coordinates", [])
+                    tr_w_geom = tr_w_r.route_metadata.get("geometry", {}).get("coordinates", [])
+                    egr_geom = egr_r.route_metadata.get("geometry", {}).get("coordinates", [])
 
-                            # Scan earlier stops in the bus pattern for rail transfer proximity (within 800m)
-                            for st_idx in range(0, d_idx):
-                                tr_sid = pat[st_idx]
-                                tr_bus_stop = self.bus_stop_map.get(tr_sid)
-                                if not tr_bus_stop:
-                                    continue
+                    o_pt = [orig_st["lon"], orig_st["lat"]]
+                    tr_rail_pt = [tr_rail_st["lon"], tr_rail_st["lat"]]
+                    tr_bus_pt = [tr_bus_stop["lon"], tr_bus_stop["lat"]]
+                    d_bus_pt = [d_st["lon"], d_st["lat"]]
 
-                                nearby_rail = self.query_nearby_stations(
-                                    tr_bus_stop["lat"], tr_bus_stop["lon"], rail_mode, max_dist_m=800, k=3
-                                )
-                                for tr_rail_st in nearby_rail:
-                                    combo_key = (orig_stations[0]["name"], tr_rail_st["name"], s_num)
-                                    if combo_key in seen_combos:
-                                        continue
-                                    seen_combos.add(combo_key)
+                    full_coords = []
+                    for pt in (acc_geom or [[s_lon, s_lat], o_pt]):
+                        if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
+                    for pt in track_coords:
+                        if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
+                    for pt in (tr_w_geom or [tr_rail_pt, tr_bus_pt]):
+                        if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
+                    for pt in bus_geom_coords:
+                        if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
+                    for pt in (egr_geom or [d_bus_pt, [d_lon, d_lat]]):
+                        if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
 
-                                    for orig_st in orig_stations:
-                                        if orig_st["name"] == tr_rail_st["name"]:
-                                            continue
+                    # Calculate fares
+                    if "metro" in rail_mode:
+                        rail_fare = global_fare_engine.calculate_metro_fare(orig_st["name"], tr_rail_st["name"])
+                    else:
+                        rail_fare = global_fare_engine.calculate_suburban_fare(orig_st["name"], tr_rail_st["name"], track_dist)
+                    bus_fare = global_fare_engine.calculate_bus_fare(s_num, tr_bus_stop["name"], d_st["name"], bus_dist_m)
 
-                                        d_orig_to_dest = haversine_m(orig_st["lat"], orig_st["lon"], d_lat, d_lon)
-                                        d_tr_to_dest = haversine_m(tr_rail_st["lat"], tr_rail_st["lon"], d_lat, d_lon)
+                    combined_amount = (rail_fare.amount or 0.0) + (bus_fare.amount or 0.0)
+                    if rail_fare.is_official and bus_fare.is_official:
+                        fare_display = f"₹ {combined_amount:.0f}"
+                        is_off = True
+                    elif rail_fare.amount is not None:
+                        fare_display = f"₹ {combined_amount:.0f} (estimated)" if bus_fare.amount else f"{rail_fare.display_text} + Bus"
+                        is_off = False
+                    else:
+                        fare_display = "Fare unavailable"
+                        is_off = False
 
-                                        # Progress check: transfer station must be significantly closer to destination than origin
-                                        if d_tr_to_dest >= (d_orig_to_dest - 2500):
-                                            continue
+                    mode_title = orig_st.get("type", rail_mode.capitalize())
+                    cand_route_name = f"Walk + {mode_title} ({orig_st['name']} to {tr_rail_st['name']}) + MTC Bus {s_num} to {d_st['name']} + Walk"
+                    if cand_route_name in seen_route_names:
+                        continue
+                    seen_route_names.add(cand_route_name)
 
-                                        # Rail segment geometry
-                                        track_coords, track_dist, track_status = graph.build_transit_segment(
-                                            rail_mode, orig_st["lat"], orig_st["lon"], tr_rail_st["lat"], tr_rail_st["lon"]
-                                        )
-                                        if track_status != "SUCCESS" or not track_coords or track_dist < 2000:
-                                            continue
-
-                                        # Bus segment geometry from transfer stop to destination stop
-                                        bus_sub_pat = pat[st_idx:d_idx+1]
-                                        bus_geom_coords = []
-                                        bus_dist_m = 0.0
-                                        last_pt = None
-                                        for sid in bus_sub_pat:
-                                            st_obj = self.bus_stop_map.get(sid)
-                                            if st_obj:
-                                                pt = [st_obj["lon"], st_obj["lat"]]
-                                                if last_pt:
-                                                    bus_dist_m += haversine_m(last_pt[1], last_pt[0], pt[1], pt[0])
-                                                bus_geom_coords.append(pt)
-                                                last_pt = pt
-
-                                        if len(bus_geom_coords) < 2 or bus_dist_m < 800:
-                                            continue
-
-                                        # Walking access to origin rail station
-                                        acc_routes = await route_provider.get_routes(
-                                            source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
-                                            mode="foot", alternatives="false"
-                                        )
-                                        # Transfer walk from rail station to bus stand
-                                        tr_walk_routes = await route_provider.get_routes(
-                                            Location(type="Point", coordinates=[tr_rail_st["lon"], tr_rail_st["lat"]]),
-                                            Location(type="Point", coordinates=[tr_bus_stop["lon"], tr_bus_stop["lat"]]),
-                                            mode="foot", alternatives="false"
-                                        )
-                                        # Egress walk from destination bus stop to final destination
-                                        egr_routes = await route_provider.get_routes(
-                                            Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]),
-                                            dest_loc,
-                                            mode="foot", alternatives="false"
-                                        )
-
-                                        if not acc_routes or not tr_walk_routes or not egr_routes:
-                                            continue
-
-                                        acc_r = acc_routes[0]
-                                        tr_w_r = tr_walk_routes[0]
-                                        egr_r = egr_routes[0]
-
-                                        # Speeds and durations
-                                        rail_speed = 11.1 if "suburban" in rail_mode else 9.7
-                                        rail_wait = 10 * 60 if "suburban" in rail_mode else 6 * 60
-                                        rail_dur = (track_dist / rail_speed) + rail_wait
-
-                                        bus_wait = 8 * 60  # average wait at transfer hub
-                                        bus_dur = (bus_dist_m / 5.0) + (len(bus_sub_pat) * 30) + bus_wait
-
-                                        total_dist = acc_r.distance + track_dist + tr_w_r.distance + bus_dist_m + egr_r.distance
-                                        total_dur = acc_r.duration + rail_dur + tr_w_r.duration + bus_dur + egr_r.duration
-
-                                        # Continuity
-                                        acc_geom = acc_r.route_metadata.get("geometry", {}).get("coordinates", [])
-                                        tr_w_geom = tr_w_r.route_metadata.get("geometry", {}).get("coordinates", [])
-                                        egr_geom = egr_r.route_metadata.get("geometry", {}).get("coordinates", [])
-
-                                        o_pt = [orig_st["lon"], orig_st["lat"]]
-                                        tr_rail_pt = [tr_rail_st["lon"], tr_rail_st["lat"]]
-                                        tr_bus_pt = [tr_bus_stop["lon"], tr_bus_stop["lat"]]
-                                        d_bus_pt = [d_st["lon"], d_st["lat"]]
-
-                                        full_coords = []
-                                        for pt in (acc_geom or [[s_lon, s_lat], o_pt]):
-                                            if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
-                                        for pt in track_coords:
-                                            if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
-                                        for pt in (tr_w_geom or [tr_rail_pt, tr_bus_pt]):
-                                            if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
-                                        for pt in bus_geom_coords:
-                                            if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
-                                        for pt in (egr_geom or [d_bus_pt, [d_lon, d_lat]]):
-                                            if not full_coords or full_coords[-1] != pt: full_coords.append(pt)
-
-                                        # Calculate fares
-                                        if "metro" in rail_mode:
-                                            rail_fare = global_fare_engine.calculate_metro_fare(orig_st["name"], tr_rail_st["name"])
-                                        else:
-                                            rail_fare = global_fare_engine.calculate_suburban_fare(orig_st["name"], tr_rail_st["name"], track_dist)
-                                        bus_fare = global_fare_engine.calculate_bus_fare(s_num, tr_bus_stop["name"], d_st["name"], bus_dist_m)
-
-                                        combined_amount = (rail_fare.amount or 0.0) + (bus_fare.amount or 0.0)
-                                        if rail_fare.is_official and bus_fare.is_official:
-                                            fare_display = f"₹ {combined_amount:.0f}"
-                                            is_off = True
-                                        elif rail_fare.amount is not None:
-                                            fare_display = f"₹ {combined_amount:.0f} (estimated)" if bus_fare.amount else f"{rail_fare.display_text} + Bus"
-                                            is_off = False
-                                        else:
-                                            fare_display = "Fare unavailable"
-                                            is_off = False
-
-                                        mode_title = orig_st.get("type", rail_mode.capitalize())
-                                        cand = CandidateRoute(
-                                            route_identifier=f"multimodal_transfer_{len(candidates)}",
-                                            distance=total_dist,
-                                            duration=total_dur,
-                                            recommendation_status="AVAILABLE"
-                                        )
-                                        cand.route_metadata = {
-                                            "geometry": {"type": "LineString", "coordinates": full_coords},
-                                            "travel_mode": "Multimodal",
-                                            "route_name": f"Walk + {mode_title} to {tr_rail_st['name']} + MTC Bus {s_num} to {d_st['name']} + Walk",
-                                            "cost": fare_display,
-                                            "fare": {
-                                                "fare_type": "OFFICIAL_FARE" if is_off else "ESTIMATED_FARE",
-                                                "currency": "INR",
-                                                "amount": combined_amount if combined_amount > 0 else None,
-                                                "display_text": fare_display,
-                                                "source_label": f"{rail_fare.source_label} + {bus_fare.source_label}",
-                                                "is_official": is_off
-                                            },
-                                            "distinctness_status": "DISTINCT",
-                                            "dynamic_segments": [
-                                                {
-                                                    "mode": "walk",
-                                                    "start_name": "Origin",
-                                                    "end_name": orig_st["name"],
-                                                    "distance_m": acc_r.distance,
-                                                    "duration_s": acc_r.duration,
-                                                    "geometry": {"type": "LineString", "coordinates": acc_geom},
-                                                    "geometry_complete": True
-                                                },
-                                                {
-                                                    "mode": rail_mode,
-                                                    "start_name": orig_st["name"],
-                                                    "end_name": tr_rail_st["name"],
-                                                    "distance_m": track_dist,
-                                                    "duration_s": rail_dur,
-                                                    "waiting_time_s": rail_wait,
-                                                    "geometry": {"type": "LineString", "coordinates": track_coords},
-                                                    "geometry_complete": True
-                                                },
-                                                {
-                                                    "mode": "walk",
-                                                    "start_name": tr_rail_st["name"],
-                                                    "end_name": tr_bus_stop["name"],
-                                                    "distance_m": tr_w_r.distance,
-                                                    "duration_s": tr_w_r.duration,
-                                                    "geometry": {"type": "LineString", "coordinates": tr_w_geom},
-                                                    "geometry_complete": True
-                                                },
-                                                {
-                                                    "mode": "bus",
-                                                    "service_number": s_num,
-                                                    "start_name": tr_bus_stop["name"],
-                                                    "end_name": d_st["name"],
-                                                    "distance_m": bus_dist_m,
-                                                    "duration_s": bus_dur,
-                                                    "waiting_time_s": bus_wait,
-                                                    "geometry": {"type": "LineString", "coordinates": bus_geom_coords},
-                                                    "geometry_complete": True,
-                                                    "stops_count": len(bus_sub_pat)
-                                                },
-                                                {
-                                                    "mode": "walk",
-                                                    "start_name": d_st["name"],
-                                                    "end_name": "Destination",
-                                                    "distance_m": egr_r.distance,
-                                                    "duration_s": egr_r.duration,
-                                                    "geometry": {"type": "LineString", "coordinates": egr_geom},
-                                                    "geometry_complete": True
-                                                }
-                                            ]
-                                        }
-                                        candidates.append(cand)
-                                        logger.info(f"Discovered multimodal transfer route: {orig_st['name']} -> {tr_rail_st['name']} -> Bus {s_num} -> {d_st['name']}")
-                                        transfer_found = True
-                                        break
+                    cand = CandidateRoute(
+                        route_identifier=f"multimodal_transfer_{len(candidates)}",
+                        distance=total_dist,
+                        duration=total_dur,
+                        recommendation_status="AVAILABLE"
+                    )
+                    cand.route_metadata = {
+                        "geometry": {"type": "LineString", "coordinates": full_coords},
+                        "travel_mode": "Multimodal",
+                        "route_name": cand_route_name,
+                        "cost": fare_display,
+                        "fare": {
+                            "fare_type": "OFFICIAL_FARE" if is_off else "ESTIMATED_FARE",
+                            "currency": "INR",
+                            "amount": combined_amount if combined_amount > 0 else None,
+                            "display_text": fare_display,
+                            "source_label": f"{rail_fare.source_label} + {bus_fare.source_label}",
+                            "is_official": is_off
+                        },
+                        "distinctness_status": "DISTINCT",
+                        "dynamic_segments": [
+                            {
+                                "mode": "walk",
+                                "start_name": "Origin",
+                                "end_name": orig_st["name"],
+                                "distance_m": acc_r.distance,
+                                "duration_s": acc_r.duration,
+                                "geometry": {"type": "LineString", "coordinates": acc_geom},
+                                "geometry_complete": True
+                            },
+                            {
+                                "mode": rail_mode,
+                                "start_name": orig_st["name"],
+                                "end_name": tr_rail_st["name"],
+                                "distance_m": track_dist,
+                                "duration_s": rail_dur,
+                                "waiting_time_s": rail_wait,
+                                "geometry": {"type": "LineString", "coordinates": track_coords},
+                                "geometry_complete": True
+                            },
+                            {
+                                "mode": "walk",
+                                "start_name": tr_rail_st["name"],
+                                "end_name": tr_bus_stop["name"],
+                                "distance_m": tr_w_r.distance,
+                                "duration_s": tr_w_r.duration,
+                                "geometry": {"type": "LineString", "coordinates": tr_w_geom},
+                                "geometry_complete": True
+                            },
+                            {
+                                "mode": "bus",
+                                "service_number": s_num,
+                                "start_name": tr_bus_stop["name"],
+                                "end_name": d_st["name"],
+                                "distance_m": bus_dist_m,
+                                "duration_s": bus_dur,
+                                "waiting_time_s": bus_wait,
+                                "geometry": {"type": "LineString", "coordinates": bus_geom_coords},
+                                "geometry_complete": True,
+                                "stops_count": len(bus_sub_pat)
+                            },
+                            {
+                                "mode": "walk",
+                                "start_name": d_st["name"],
+                                "end_name": "Destination",
+                                "distance_m": egr_r.distance,
+                                "duration_s": egr_r.duration,
+                                "geometry": {"type": "LineString", "coordinates": egr_geom},
+                                "geometry_complete": True
+                            }
+                        ]
+                    }
+                    candidates.append(cand)
+                    logger.info(f"Discovered multimodal transfer route: {orig_st['name']} -> {tr_rail_st['name']} -> Bus {s_num} -> {d_st['name']}")
+                    added_transfers += 1
         except Exception as e:
             logger.warning(f"Error querying multimodal transfer candidates: {e}")
-
         return candidates
 
 global_multimodal_router = MultimodalRouter()

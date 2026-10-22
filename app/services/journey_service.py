@@ -28,7 +28,7 @@ class JourneyService:
     async def get_active_journey(self, user_id: str) -> Optional[Journey]:
         return await self.journey_repo.get_active_journey(user_id)
 
-    async def create_journey(self, user_id: str, data: JourneyCreate) -> Any:
+    async def create_journey(self, user_id: str, data: JourneyCreate, cancel_check: Optional[Any] = None) -> Any:
         """Journey Creation"""
         journey = Journey(
             user_id=user_id,
@@ -41,7 +41,7 @@ class JourneyService:
         created_journey = await self.journey_repo.create(journey)
         await self.initialize_journey(str(created_journey.id))
         
-        plan_response = await self.coordinator.build_journey_plan_response(str(created_journey.id), data)
+        plan_response = await self.coordinator.build_journey_plan_response(str(created_journey.id), data, cancel_check=cancel_check)
         
         # Persist calculated route geometry onto the journey document for authentic progress tracking
         if plan_response and hasattr(plan_response, 'recommended_routes') and plan_response.recommended_routes:
@@ -59,7 +59,7 @@ class JourneyService:
             
         return plan_response
 
-    async def plan_guest_journey(self, data: JourneyCreate) -> Any:
+    async def plan_guest_journey(self, data: JourneyCreate, cancel_check: Optional[Any] = None) -> Any:
         """
         Narrowly scoped read-only route planning for unauthenticated guests.
         Does not persist journey to database, create user records, or modify private state.
@@ -68,7 +68,7 @@ class JourneyService:
         if not data.source or not data.destination:
             from app.api.exceptions import ValidationException
             raise ValidationException("Source and destination are required.")
-        return await self.coordinator.build_journey_plan_response("guest-exploration", data)
+        return await self.coordinator.build_journey_plan_response("guest-exploration", data, cancel_check=cancel_check)
 
     async def initialize_journey(self, journey_id: str) -> Journey:
         """Journey Initialization: Delegates to agent to plan the journey"""

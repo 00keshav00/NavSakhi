@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { journeyService } from "../api/services/journeyService";
 import { useAuthStore } from "../store/authStore";
 import { JourneyCreateRequest, JourneyPlanResponse } from "../types/journey";
@@ -13,14 +13,23 @@ export const useJourney = () => {
 
   // Monotonically increasing request counter to reject stale out-of-order asynchronous responses
   const requestIdRef = useRef<number>(0);
+  // Active AbortController to cleanly cancel superseded in-flight requests or abort on unmount
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const planJourney = useCallback(async (request: JourneyCreateRequest) => {
+    // Cancel superseded in-flight request on new journey submission
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const currentRequestId = ++requestIdRef.current;
     setStatus("LOADING");
     setError(null);
 
     try {
-      const responseData = await journeyService.planJourney(request);
+      const responseData = await journeyService.planJourney(request, controller.signal);
 
       // If a newer search was submitted in the meantime, ignore this stale response
       if (currentRequestId !== requestIdRef.current) {
@@ -51,7 +60,9 @@ export const useJourney = () => {
         description: scoreDesc,
       });
     } catch (err: unknown) {
-      if (currentRequestId !== requestIdRef.current) {
+      // If request was canceled by a newer submission or unmount, cleanly ignore without showing error toast
+      const isCanceled = (err as any)?.name === "CanceledError" || (err as any)?.name === "AbortError" || (err as any)?.code === "ERR_CANCELED";
+      if (isCanceled || currentRequestId !== requestIdRef.current) {
         return;
       }
       const errorMsg = (err as Error).message || "An unexpected error occurred while planning your journey.";
@@ -64,10 +75,23 @@ export const useJourney = () => {
   }, []);
 
   const resetJourney = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     requestIdRef.current += 1; // Invalidate any in-flight requests
     setData(null);
     setStatus("IDLE");
     setError(null);
+  }, []);
+
+  // Cancel any active in-flight request on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   return {

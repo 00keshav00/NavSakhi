@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from app.schemas.responses import StandardResponse
 from app.schemas.journey_schemas import JourneyCreate, JourneyResponse, JourneyPlanResponse
 from app.models.journey import JourneyStateEnum
@@ -18,18 +18,20 @@ router = APIRouter()
 @router.post("/", response_model=StandardResponse[JourneyPlanResponse])
 async def create_journey(
     data: JourneyCreate,
+    request: Request,
     user_id: Optional[str] = Depends(get_optional_user_id),
     journey_service: JourneyService = Depends(get_journey_service)
 ):
     if user_id:
-        plan_response = await journey_service.create_journey(user_id, data)
+        plan_response = await journey_service.create_journey(user_id, data, cancel_check=request.is_disconnected)
     else:
-        plan_response = await journey_service.plan_guest_journey(data)
+        plan_response = await journey_service.plan_guest_journey(data, cancel_check=request.is_disconnected)
     return StandardResponse(success=True, data=plan_response)
 
 @router.post("/guest/plan", response_model=StandardResponse[JourneyPlanResponse])
 async def plan_guest_journey(
     data: JourneyCreate,
+    request: Request,
     journey_service: JourneyService = Depends(get_journey_service)
 ):
     """
@@ -37,7 +39,7 @@ async def plan_guest_journey(
     Permits unauthenticated multimodal exploration across the supported transit and road network.
     Does not persist user journey documents or require session state.
     """
-    plan_response = await journey_service.plan_guest_journey(data)
+    plan_response = await journey_service.plan_guest_journey(data, cancel_check=request.is_disconnected)
     return StandardResponse(success=True, data=plan_response)
  
 @router.get("/active", response_model=StandardResponse[Optional[JourneyResponse]])
