@@ -8,6 +8,7 @@ import re
 import time
 import os
 import json
+import threading
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 import httpx
@@ -42,11 +43,21 @@ class AutocompleteService:
         self._cache_ttl = 3600  # 1 hour
         self._local_places_loaded = False
         self._local_places: List[Dict[str, Any]] = []
+        self._lock = threading.Lock()
+
+    def warm_cache(self) -> None:
+        """Public pre-warm hook to load verified local places index into memory."""
+        self._ensure_local_places()
 
     def _ensure_local_places(self):
         if self._local_places_loaded:
             return
+        with self._lock:
+            if self._local_places_loaded:
+                return
+            self._load_local_places_impl()
 
+    def _load_local_places_impl(self):
         try:
             places: List[Dict[str, Any]] = []
 
@@ -373,3 +384,8 @@ class AutocompleteService:
 
 # Global singleton instance
 global_autocomplete_service = AutocompleteService()
+
+
+def get_global_autocomplete_service() -> AutocompleteService:
+    """Returns the shared global AutocompleteService singleton."""
+    return global_autocomplete_service

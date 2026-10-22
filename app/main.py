@@ -65,8 +65,8 @@ async def _async_startup_db_init():
         from app.intelligence.journey.multimodal_router import global_multimodal_router
         await asyncio.sleep(0.05)
 
-        from app.services.autocomplete_service import get_global_autocomplete_service
-        get_global_autocomplete_service()
+        from app.services.autocomplete_service import global_autocomplete_service
+        global_autocomplete_service.warm_cache()
         _prewarm_status["status"] = "completed"
         import time
         _prewarm_status["completed_at"] = time.time()
@@ -74,7 +74,7 @@ async def _async_startup_db_init():
     except Exception as e:
         _prewarm_status["status"] = "failed"
         _prewarm_status["error"] = str(e)
-        logger.warning(f"Background singletons pre-warm non-fatal error: {e}")
+        logger.warning(f"Background singletons pre-warm non-fatal error: {e}", exc_info=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
