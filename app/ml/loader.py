@@ -2,11 +2,14 @@ import os
 import json
 import hashlib
 import logging
+import threading
 from pathlib import Path
 from typing import Tuple, Any, Dict
 import joblib
 
 logger = logging.getLogger("SafeSheMLLoader")
+
+_cache_lock = threading.Lock()
 
 
 class MLArtifactSecurityError(Exception):
@@ -26,6 +29,13 @@ class SafeMLArtifactLoader:
     
     # Canonical trusted directory relative to repository root
     TRUSTED_MODELS_DIR = Path(__file__).resolve().parent / "Hack" / "ml" / "models"
+    _cached_artifacts = None
+
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clears the in-memory cached artifacts (primarily for test isolation)."""
+        with _cache_lock:
+            cls._cached_artifacts = None
     
     @classmethod
     def get_trusted_dir(cls) -> Path:
@@ -62,11 +72,7 @@ class SafeMLArtifactLoader:
             raise MLArtifactSecurityError(f"Failed to read feature metadata: {e}") from e
 
     @classmethod
-    def load_artifacts(cls, verify_checksum: bool = True) -> Tuple[Any, Any, Dict[str, Any]]:
-        """
-        Loads (model, preprocessor, manifest) with strict checksum verification.
-        Fails closed if any artifact is missing, unreadable, or tampered.
-        """
+    def _do_load_artifacts(cls, verify_checksum: bool = True) -> Tuple[Any, Any, Dict[str, Any]]:
         manifest = cls.load_manifest()
         
         model_path = cls.TRUSTED_MODELS_DIR / "best_model.pkl"
@@ -104,4 +110,26 @@ class SafeMLArtifactLoader:
         except Exception as e:
             raise MLArtifactSecurityError(f"Deserialization of trusted artifact failed: {e}") from e
             
-        return model, preprocessor, manifest
+        return (model, preprocessor, manifest)
+
+    @classmethod
+    def load_artifacts(cls, verify_checksum: bool = True, use_cache: bool = True) -> Tuple[Any, Any, Dict[str, Any]]:
+        """
+        Loads (model, preprocessor, manifest) with strict checksum verification.
+        Fails closed if any artifact is missing, unreadable, or tampered.
+        When use_cache=True, reuses verified in-memory artifacts to prevent redundant
+        re-deserialization and peak memory spikes on constrained instances.
+        Thread-safe via double-checked locking.
+        """
+        if use_cache and cls._cached_artifacts is not None:
+            return cls._cached_artifacts
+
+        if not use_cache:
+            return cls._do_load_artifacts(verify_checksum=verify_checksum)
+
+        with _cache_lock:
+            if cls._cached_artifacts is not None:
+                return cls._cached_artifacts
+            artifacts = cls._do_load_artifacts(verify_checksum=verify_checksum)
+            cls._cached_artifacts = artifacts
+            return artifacts

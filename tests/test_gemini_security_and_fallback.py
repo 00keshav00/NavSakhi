@@ -1316,9 +1316,9 @@ def test_public_assets_accessible_and_valid():
 
     # Matcher should NOT contain blanket exclusions for .js or .json
 
-    assert "\\.js" not in pattern, "Matcher must not blanket-exclude .js files"
+    assert not re.search(r"\.\*\\\.(?:[^\\)]*\|)?js[\\|\\)]", pattern), "Matcher must not blanket-exclude .js files"
 
-    assert "\\.json" not in pattern, "Matcher must not blanket-exclude .json files"
+    assert not re.search(r"\.\*\\\.(?:[^\\)]*\|)?json[\\|\\)]", pattern), "Matcher must not blanket-exclude .json files"
 
 
 

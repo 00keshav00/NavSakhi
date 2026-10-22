@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Dict, Any, List, Optional
 import numpy as np
 import pandas as pd
@@ -257,6 +258,33 @@ class MLSafetyPredictor:
 
 # Backward compatibility alias for legacy callers
 SafeSheMLPredictor = MLSafetyPredictor
+
+_shared_ml_predictor = None
+_predictor_lock = threading.Lock()
+
+
+def get_ml_safety_predictor(verify_checksum: bool = True) -> MLSafetyPredictor:
+    """
+    Returns a shared, thread-safe MLSafetyPredictor singleton using cached artifacts.
+    Eliminates multi-instance model deserialization and memory ballooning.
+    Thread-safe via double-checked locking.
+    """
+    global _shared_ml_predictor
+    if _shared_ml_predictor is not None:
+        return _shared_ml_predictor
+    with _predictor_lock:
+        if _shared_ml_predictor is not None:
+            return _shared_ml_predictor
+        instance = MLSafetyPredictor(verify_checksum=verify_checksum)
+        _shared_ml_predictor = instance
+        return _shared_ml_predictor
+
+
+def reset_ml_safety_predictor() -> None:
+    """Resets the shared predictor singleton (primarily for test isolation)."""
+    global _shared_ml_predictor
+    with _predictor_lock:
+        _shared_ml_predictor = None
 
 
 class MockSafetyPredictor:

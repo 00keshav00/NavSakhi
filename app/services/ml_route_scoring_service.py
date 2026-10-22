@@ -86,6 +86,7 @@ class MLRouteScoringService:
         travel_mode: str = "Road",
         route_identifier: str = "route_0",
         transit_unscored_length_m: float = 0.0,
+        compute_explainability: bool = True,
     ) -> RouteScoreResult:
         """
         Executes genuine frozen-model inference on matched segments and aggregates scores
@@ -179,9 +180,9 @@ class MLRouteScoringService:
             # Ensure all canonical features exist in exact schema order
             batch_df = batch_df[CANONICAL_PREDICTOR_FEATURES]
 
-            # Execute real frozen LightGBM inference and TreeSHAP attribution
+            # Execute real frozen LightGBM inference; only compute TreeSHAP attribution when requested
             predictions = self.predictor.predict_segments(batch_df)
-            explanations = self.predictor.explain_segments(batch_df)
+            explanations = self.predictor.explain_segments(batch_df) if compute_explainability else None
 
             if len(predictions) != len(eligible_items):
                 raise RuntimeError(
@@ -276,7 +277,7 @@ class MLRouteScoringService:
 
             # Aggregate length-weighted feature attribution across scoreable segments
             try:
-                if explanations and all(e is not None for e in explanations):
+                if compute_explainability and explanations and all(e is not None for e in explanations):
                     feature_names = self.predictor.preprocessor.get_feature_names_out()
                     base_val = float(explanations[0]["base_value"])
                     
@@ -458,10 +459,12 @@ class MLRouteScoringService:
                 if any(m in s_mode for m in ["auto", "cab", "walk", "bike", "two_wheeler", "driving", "personal"]):
                     try:
                         seg_match = self.spatial_matcher.match_route(s_geom, travel_mode=s_mode)
+                        # Sub-legs only consume safety_score and coverage; skip redundant TreeSHAP computation on sub-legs
                         seg_score_res = self.score_route_match(
                             seg_match,
                             travel_mode=s_mode,
-                            route_identifier=f"{route_id}_leg_{s_idx+1}"
+                            route_identifier=f"{route_id}_leg_{s_idx+1}",
+                            compute_explainability=False,
                         )
                         d_seg["score_status"] = seg_score_res.score_status.value
                         d_seg["safety_score"] = seg_score_res.safety_score

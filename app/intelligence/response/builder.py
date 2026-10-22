@@ -113,9 +113,6 @@ class ResponseBuilder:
             return "#DC2626" # Red
             
         # The user requested 3 specific scenarios: Route A (Walk->Metro->Auto), Route B (Walk->Bus->Walk), Route C (Cab Direct)
-        from app.ml.predictor import MLSafetyPredictor, SafeSheMLPredictor
-        predictor = MLSafetyPredictor()
-        
         from app.intelligence.journey.recommender import global_recommender
         # Recommender handles objective ranking and missing data without mutating arrays
         # Extract transport preference safely (default to ANY if not provided or missing from context)
@@ -327,10 +324,15 @@ class ResponseBuilder:
             # Query verified safety facilities along the route corridor
             from app.services.poi_service import get_poi_service
             poi_service = get_poi_service()
+            # Bounded leg mapping: pass only essential leg_id and polyline geometry without full model_dump serialization
+            poi_legs = [
+                {"leg_id": s.leg_id, "polyline": s.polyline}
+                for s in segments
+            ] if segments else None
             poi_query_res = poi_service.query_pois_near_route(
                 coords,
                 corridor_m=800.0,
-                legs=[s.model_dump() for s in segments] if segments else None,
+                legs=poi_legs,
             )
             raw_pois = poi_query_res.get("pois", [])
             route_pois = [RoutePOI(**p) for p in raw_pois]

@@ -6,7 +6,7 @@ import asyncio as _asyncio
 from app.agents.workflow_manager import WorkflowManager
 from app.ml.normalizer import DataNormalizer
 from app.ml.features import FeatureEngineer
-from app.ml.predictor import MLSafetyPredictor, SafeSheMLPredictor
+from app.ml.predictor import MLSafetyPredictor, SafeSheMLPredictor, get_ml_safety_predictor
 from app.services.ml_route_scoring_service import MLRouteScoringService
 from app.intelligence.decision.engine import DecisionEngine
 from app.tools.specialized.reasoning_tool import ReasoningTool
@@ -20,11 +20,11 @@ class JourneyIntelligenceCoordinator:
     Orchestrates the Agentic AI Pipeline without executing logic itself.
     """
     
-    def __init__(self):
+    def __init__(self, ml_predictor: Optional[MLSafetyPredictor] = None):
         self.workflow_manager = WorkflowManager()
         self.normalizer = DataNormalizer()
         self.feature_engineer = FeatureEngineer()
-        self.ml_predictor = MLSafetyPredictor()
+        self.ml_predictor = ml_predictor or get_ml_safety_predictor()
         self.ml_route_scorer = MLRouteScoringService(predictor=self.ml_predictor)
         self.decision_engine = DecisionEngine()
         self.reasoning_tool = ReasoningTool()
