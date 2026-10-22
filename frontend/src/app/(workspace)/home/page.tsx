@@ -48,9 +48,15 @@ const itemVariants = {
 export default function HomePage() {
   const { data, isLoading, error, refresh } = useDashboard();
   const user = useAuthStore((state) => state.user);
+  const [mounted, setMounted] = React.useState(false);
 
-  // Derive time-of-day greeting
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Derive time-of-day greeting (deterministic on SSR and initial client hydration)
   const getGreeting = () => {
+    if (!mounted) return "Welcome";
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
     if (hour < 17) return "Good Afternoon";
@@ -59,7 +65,7 @@ export default function HomePage() {
 
   const rawName = user?.full_name || (user?.email ? user.email.split("@")[0] : "");
   const isGenericOrTest = !rawName || /test|admin|user\d+/i.test(rawName);
-  const displayName = isGenericOrTest ? "explorer" : rawName.split(" ")[0];
+  const displayName = !mounted || isGenericOrTest ? "explorer" : rawName.split(" ")[0];
 
   return (
     <motion.div 
