@@ -11,8 +11,8 @@ export const journeyService = {
     return response.data?.data || [];
   },
 
-  planJourney: async (request: JourneyCreateRequest): Promise<JourneyPlanResponse> => {
-    const response = await apiClient.post<StandardResponse<JourneyPlanResponse>>("/api/v1/journeys/", request);
+  planJourney: async (request: JourneyCreateRequest, signal?: AbortSignal): Promise<JourneyPlanResponse> => {
+    const response = await apiClient.post<StandardResponse<JourneyPlanResponse>>("/api/v1/journeys/", request, { signal });
     return response.data.data;
   },
 

@@ -6,9 +6,12 @@ export interface StandardResponse<T> {
   message?: string;
 }
 
+const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const normalizedBaseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+
 // This creates a reusable Axios instance.
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  baseURL: normalizedBaseUrl,
   headers: {
     "Content-Type": "application/json",
   },

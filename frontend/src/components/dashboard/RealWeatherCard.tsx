@@ -23,9 +23,14 @@ export function RealWeatherCard() {
     refresh,
   } = useWeather();
 
+  const [mounted, setMounted] = useState(false);
   const [isChangingLocation, setIsChangingLocation] = useState(false);
   const [manualSearchQuery, setManualSearchQuery] = useState("");
   const [selectedSuggestion, setSelectedSuggestion] = useState<LocationSuggestion | null>(null);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSelectSuggestion = (sug: LocationSuggestion | null) => {
     setSelectedSuggestion(sug);
@@ -64,6 +69,7 @@ export function RealWeatherCard() {
 
   const formatTimestamp = (isoString?: string) => {
     if (!isoString) return "Live";
+    if (!mounted) return "Live"; // Deterministic on SSR and initial client hydration
     try {
       const dt = new Date(isoString);
       if (isNaN(dt.getTime())) {

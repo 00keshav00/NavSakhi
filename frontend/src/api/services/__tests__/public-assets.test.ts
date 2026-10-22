@@ -132,6 +132,7 @@ describe('NavSakhi Phase 46C: Public Static Assets and Middleware Routing Integr
       return (
         pathname === '/' ||
         pathname.startsWith('/login') ||
+        pathname.startsWith('/register') ||
         pathname === '/robots.txt' ||
         pathname === '/sitemap.xml' ||
         pathname === '/manifest.json' ||
@@ -148,6 +149,8 @@ describe('NavSakhi Phase 46C: Public Static Assets and Middleware Routing Integr
       '/',
       '/login',
       '/login?redirect=/profile',
+      '/register',
+      '/register?redirect=/journey',
       '/robots.txt',
       '/sitemap.xml',
       '/manifest.json',
@@ -178,5 +181,18 @@ describe('NavSakhi Phase 46C: Public Static Assets and Middleware Routing Integr
     for (const route of protectedRoutes) {
       assert.equal(isPublic(route), false, `Route ${route} must be protected`);
     }
+  });
+  it('5. Actual middleware.ts contains /register in isPublicRoute and authenticated redirect', () => {
+    const middlewarePath = path.join(frontendRoot, 'src', 'middleware.ts');
+    const middlewareCode = fs.readFileSync(middlewarePath, 'utf-8');
+
+    assert.ok(
+      middlewareCode.includes("pathname.startsWith('/register')"),
+      'middleware.ts must include pathname.startsWith("/register") in isPublicRoute'
+    );
+    assert.ok(
+      middlewareCode.includes("pathname.startsWith('/login') || pathname.startsWith('/register')"),
+      'middleware.ts must redirect authenticated users trying to access login or register'
+    );
   });
 });

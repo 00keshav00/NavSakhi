@@ -14,12 +14,16 @@ from app.intelligence.response.builder import ResponseBuilder
 
 logger = logging.getLogger(__name__)
 
+# Bounded Gemini Latency Budgets (deterministic non-LLM fallback on timeout)
+DEFAULT_GEMINI_DYNAMIC_PLANS_BUDGET_S: float = 1.5
+DEFAULT_GEMINI_EXPLANATION_BUDGET_S: float = 2.0
+
 class JourneyIntelligenceCoordinator:
     """
     The exclusive public entry point into the Journey Intelligence Layer.
     Orchestrates the Agentic AI Pipeline without executing logic itself.
     """
-    
+
     def __init__(self, ml_predictor: Optional[MLSafetyPredictor] = None):
         self.workflow_manager = WorkflowManager()
         self.normalizer = DataNormalizer()
@@ -36,13 +40,13 @@ class JourneyIntelligenceCoordinator:
         """
         # Step 1: Agent Execution via Workflow Manager (includes Agent Registry -> Tools -> Providers)
         agent_results = await self.workflow_manager.run_workflow(workflow_type, initial_context)
-        
+
         # Step 2: Normalization
         normalized_data = self.normalizer.normalize(agent_results)
-        
+
         # Step 3: Feature Engineering
         feature_vector = self.feature_engineer.engineer_features(normalized_data)
-        
+
         # Step 4: ML Prediction (Restricted strictly to spatial/road scoring workflows)
         if workflow_type in ["assistant", "profile", "dashboard", "emergency", "settings"]:
             ml_prediction = {
@@ -63,23 +67,23 @@ class JourneyIntelligenceCoordinator:
                     "status": "INFERENCE_FAILED",
                     "error": str(e)
                 }
-        
+
         # Step 5: Decision Engine
         context_for_decision = {**normalized_data, **initial_context}
         decision = self.decision_engine.decide(ml_prediction, context_for_decision)
-        
+
         # Step 6: LLM Reasoning (Only for workflows that need text explanations)
         llm_context = {
             "decision": decision,
             "ml_prediction": ml_prediction,
             "agent_results": agent_results
         }
-        
+
         if workflow_type in ["journey_plan", "assistant"]:
             llm_reasoning = await self.reasoning_tool.execute({"context": llm_context})
         else:
             llm_reasoning = {"summary": "System operating normally.", "reasoning": ["Metrics within safe parameters."]}
-        
+
         # Assemble Final Context for Response Builder
         final_context = {
             **agent_results,
@@ -88,12 +92,12 @@ class JourneyIntelligenceCoordinator:
             "Decision": decision,
             "LLM": llm_reasoning
         }
-        
+
         return final_context
 
     # --- Router Endpoints ---
 
-    async def build_journey_plan_response(self, journey_id: str, request: Any) -> Any:
+    async def build_journey_plan_response(self, journey_id: str, request: Any, cancel_check: Optional[Any] = None) -> Any:
         from app.providers.location.provider import NominatimLocationProvider
         from app.providers.routing.provider import OSRMRoutingProvider
         from app.models.journey import Location
@@ -104,17 +108,42 @@ class JourneyIntelligenceCoordinator:
         from app.intelligence.journey.fare_engine import global_fare_engine
         from app.intelligence.journey.deduplication import deduplicate_routes
         from app.providers.live.weather import global_weather_provider
-        
+
+        import inspect
+        async def _check_cancellation(stage: str = ""):
+            if cancel_check is not None:
+                try:
+                    if callable(cancel_check):
+                        res = cancel_check()
+                    elif inspect.isawaitable(cancel_check):
+                        res = cancel_check
+                    else:
+                        res = bool(cancel_check)
+
+                    if inspect.isawaitable(res):
+                        is_cancelled = await res
+                    else:
+                        is_cancelled = bool(res)
+
+                    if is_cancelled:
+                        logger.info(f"Journey planning cooperatively halted at {stage}: client disconnected.")
+                        from fastapi import HTTPException
+                        raise HTTPException(status_code=499, detail="Client Closed Request")
+                except HTTPException:
+                    raise
+                except Exception as _ce:
+                    logger.debug(f"Cancellation check error at {stage}: {_ce}")
+
         def ensure_lon_lat(coords):
             if coords[0] < coords[1]: # In India, lon (~77-80) > lat (~10-13)
                 return [coords[1], coords[0]]
             return coords
 
-        
+
         logger = logging.getLogger(__name__)
         loc_provider = NominatimLocationProvider()
         route_provider = OSRMRoutingProvider()
-        
+
         # IST timestamp
         import datetime
         ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -134,7 +163,7 @@ class JourneyIntelligenceCoordinator:
         except Exception as e:
             logger.error(f"Geocoding source failed: {str(e)}")
             source_loc = Location(type="Point", coordinates=[77.5946, 12.9716])
-            
+
         # Parse Destination
         try:
             if "," in request.destination:
@@ -148,7 +177,9 @@ class JourneyIntelligenceCoordinator:
                 dest_loc = await loc_provider.forward_geocode(request.destination)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Could not find destination: {str(e)}")
-            
+
+        await _check_cancellation('init')
+
         # Optional: reverse geocode for display names - run source and dest concurrently
         import asyncio as _asyncio
         _GEOCODE_TIMEOUT_S = 5.0
@@ -185,15 +216,15 @@ class JourneyIntelligenceCoordinator:
             import asyncio
             import asyncio as _asyncio
             import datetime
-            
+
             current_hour = datetime.datetime.utcnow().hour
-            
+
             # --- PREFERENCE PARSING ---
             pref_list = getattr(request, "preferences", None) or []
             pref_lower = [str(p).lower() for p in pref_list]
             wants_public = any(p in pref_lower for p in ["public_transport", "transit", "public", "metro", "suburban", "bus", "train"])
             wants_personal = any(p in pref_lower for p in ["personal_vehicle", "personal", "car", "bike", "driving", "two_wheeler"])
-            
+
             if not wants_public and not wants_personal:
                 wants_public = True
                 wants_personal = True
@@ -256,6 +287,7 @@ class JourneyIntelligenceCoordinator:
             if weather_data.get("hazards"):
                 warnings.extend(weather_data["hazards"])
 
+            await _check_cancellation('pre-osrm')
             # --- PHASE 1: DIVERSE VERIFIED ROAD CANDIDATES VIA OSRM ---
             road_cands = []
             direct_road_dist_m = dist_m * 1.3
@@ -348,13 +380,14 @@ class JourneyIntelligenceCoordinator:
                 road_cands.append(f_cand)
 
             fully_validated_routes = []
+            await _check_cancellation('pre-transit')
             can_attempt_transit = wants_public and (direct_road_dist_m > 0)
 
             if can_attempt_transit:
                 # 2A. Optional Gemini Mobility Strategy Validation
                 # Hard wall-clock cap: asyncio.wait_for bounded to 3.5s ensures dynamic planning
                 # cannot consume excessive latency budget or trigger gateway timeouts.
-                GEMINI_DYNAMIC_PLANS_BUDGET_S = 3.5
+                GEMINI_DYNAMIC_PLANS_BUDGET_S = DEFAULT_GEMINI_DYNAMIC_PLANS_BUDGET_S
                 gemini_strategies = []
                 try:
                     import asyncio
@@ -379,14 +412,14 @@ class JourneyIntelligenceCoordinator:
                     for strategy in gemini_strategies:
                         req_time = getattr(request, 'travel_time', None) or datetime.datetime.now().isoformat()
                         val_result = global_validator.validate_strategy(strategy, source_loc.coordinates, dest_loc.coordinates, req_time)
-                        
+
                         if val_result["validation"]["status"] == "VALID" and val_result.get("segments"):
                             geom_complete = True
                             total_dist = 0
                             total_dur = 0
                             all_coords = []
                             seg_list = []
-                            
+
                             for seg in val_result.get("segments", []):
                                 mode = seg.get("mode")
                                 if mode in ["metro", "suburban", "mrts", "train"]:
@@ -428,7 +461,7 @@ class JourneyIntelligenceCoordinator:
                                         logger.warning(f"Failed to route dynamic access leg: {e}")
                                         geom_complete = False
                                         break
-                            
+
                             # Detour sanity: Multimodal total distance must not exceed 1.55x direct road
                             if geom_complete and len(all_coords) >= 2 and total_dist <= direct_road_dist_m * 1.55:
                                 from app.models.journey import CandidateRoute
@@ -457,6 +490,7 @@ class JourneyIntelligenceCoordinator:
 
                 # Query generic data-driven multimodal routing engine across Bus, Metro, Suburban, and MRTS
                 if wants_public:
+                    await _check_cancellation('pre-multimodal')
                     try:
                         data_driven_cands = await global_multimodal_router.search_candidates(
                             source_loc=source_loc,
@@ -465,10 +499,13 @@ class JourneyIntelligenceCoordinator:
                             direct_road_dur_s=direct_road_dur_s,
                             route_provider=route_provider,
                             ist_dt=ist_dt,
-                            preferences=pref_list
+                            preferences=pref_list,
+                            cancel_check=cancel_check
                         )
                         for ddc in data_driven_cands:
                             fully_validated_routes.append(ddc)
+                    except HTTPException:
+                        raise
                     except Exception as e:
                         logger.warning(f"Generic multimodal router error: {e}")
 
@@ -482,27 +519,27 @@ class JourneyIntelligenceCoordinator:
                         # Catchment distances: access up to 12 km or 65% of trip; egress up to 14 km or 45% of trip
                         max_access_dist_m = min(12000.0, max(4000.0, direct_road_dist_m * 0.65))
                         max_egress_dist_m = min(14000.0, max(2500.0, direct_road_dist_m * 0.45))
-                        
+
                         candidate_modes = ["metro", "suburban"]
-                        
+
                         for target_mode in candidate_modes:
                             if len(fully_validated_routes) >= 2:
                                 break
-                                
+
                             graph = get_graph_for_mode(target_mode)
                             if not graph:
                                 continue
 
                             # Eligible origin and destination stations within catchment
                             orig_candidates = [
-                                n for n in global_index.nodes 
+                                n for n in global_index.nodes
                                 if target_mode in n.type.lower() and n.is_operational()
                                 and haversine_m(s_lat, s_lon, n.latitude, n.longitude) <= max_access_dist_m
                             ]
                             orig_candidates.sort(key=lambda n: haversine_m(s_lat, s_lon, n.latitude, n.longitude))
 
                             dest_candidates = [
-                                n for n in global_index.nodes 
+                                n for n in global_index.nodes
                                 if target_mode in n.type.lower() and n.is_operational()
                                 and haversine_m(d_lat, d_lon, n.latitude, n.longitude) <= max_egress_dist_m
                             ]
@@ -515,27 +552,27 @@ class JourneyIntelligenceCoordinator:
                                 for dest_st in dest_candidates[:5]:
                                     if orig_st.name == dest_st.name:
                                         continue
-                                        
+
                                     d_orig_to_dest = haversine_m(orig_st.latitude, orig_st.longitude, d_lat, d_lon)
                                     d_dest_st_to_dest = haversine_m(dest_st.latitude, dest_st.longitude, d_lat, d_lon)
-                                    
+
                                     # Progress invariant: destination station must bring user closer to destination (at least 1.5 km progress)
                                     if d_dest_st_to_dest >= (d_orig_to_dest - 1500):
                                         continue
-                                        
+
                                     # Direction invariant: transit leg must move in destination direction
                                     st_dist_approx = haversine_m(orig_st.latitude, orig_st.longitude, dest_st.latitude, dest_st.longitude)
                                     if st_dist_approx < 1500 or (d_orig_to_dest - d_dest_st_to_dest) < (0.35 * st_dist_approx):
                                         continue
-                                        
+
                                     mode_str = orig_st.type.lower()
                                     track_coords, track_dist, track_status = graph.build_transit_segment(
                                         mode_str, orig_st.latitude, orig_st.longitude, dest_st.latitude, dest_st.longitude
                                     )
-                                    
+
                                     if track_status != "SUCCESS" or not track_coords or track_dist < 1500:
                                         continue
-                                        
+
                                     # Operating window verification (IST local time)
                                     req_time_str = getattr(request, 'travel_time', None)
                                     req_dt = None
@@ -568,7 +605,7 @@ class JourneyIntelligenceCoordinator:
                                     # Route road access and egress legs via OSRM
                                     acc_dist_direct = haversine_m(s_lat, s_lon, orig_st.latitude, orig_st.longitude)
                                     egr_dist_direct = haversine_m(dest_st.latitude, dest_st.longitude, d_lat, d_lon)
-                                    
+
                                     acc_mode_osrm = "foot" if acc_dist_direct <= 1200 else "driving"
                                     egr_mode_osrm = "foot" if egr_dist_direct <= 1200 else "driving"
                                     acc_display_mode = "walk" if acc_mode_osrm == "foot" else "auto"
@@ -582,29 +619,29 @@ class JourneyIntelligenceCoordinator:
                                         Location(type="Point", coordinates=[dest_st.longitude, dest_st.latitude]), dest_loc,
                                         mode=egr_mode_osrm, alternatives="false"
                                     )
-                                    
+
                                     if not access_routes or not egress_routes:
                                         continue
-                                        
+
                                     acc_dist = access_routes[0].distance
                                     egr_dist = egress_routes[0].distance
                                     total_multimodal_dist = acc_dist + track_dist + egr_dist
-                                    
+
                                     # Detour check: Total multimodal distance must not exceed 1.55x direct road distance
                                     if total_multimodal_dist > direct_road_dist_m * 1.55:
                                         continue
-                                        
+
                                     # Transit significance: Rail portion must be at least 25% of total travel
                                     if (track_dist / total_multimodal_dist) < 0.25:
                                         continue
-                                        
+
                                     # Realistic Door-to-Door ETA (in seconds)
                                     # Metro: 8 min entry/wait. Suburban: 14 min entry/wait. Station exit: 3 min.
                                     wait_secs = 8 * 60 if "metro" in mode_str else 14 * 60
                                     transit_speed_mps = 11.1 if "suburban" in mode_str else 9.7 # ~40km/h suburban, ~35km/h metro
                                     transit_dur_s = (track_dist / transit_speed_mps) + wait_secs + 180
                                     total_dur_s = access_routes[0].duration + transit_dur_s + egress_routes[0].duration
-                                    
+
                                     # Practicality check: total multimodal duration must not exceed realistic transit threshold
                                     # (allowing for realistic 8-15 min headway wait + access/egress transfers)
                                     if total_dur_s > max(direct_road_dur_s * 2.65, direct_road_dur_s + 2100):
@@ -612,26 +649,26 @@ class JourneyIntelligenceCoordinator:
 
                                     acc_geom = access_routes[0].route_metadata.get("geometry", {}).get("coordinates", [])
                                     egr_geom = egress_routes[0].route_metadata.get("geometry", {}).get("coordinates", [])
-                                    
+
                                     # Strict geographic continuity enforcement: ensure consecutive legs share matching endpoints
                                     orig_pt = [orig_st.longitude, orig_st.latitude]
                                     dest_pt = [dest_st.longitude, dest_st.latitude]
-                                    
+
                                     if not acc_geom:
                                         acc_geom = [[s_lon, s_lat], orig_pt]
                                     elif acc_geom[-1] != orig_pt:
                                         acc_geom.append(orig_pt)
-                                        
+
                                     if track_coords[0] != orig_pt:
                                         track_coords.insert(0, orig_pt)
                                     if track_coords[-1] != dest_pt:
                                         track_coords.append(dest_pt)
-                                        
+
                                     if not egr_geom:
                                         egr_geom = [dest_pt, [d_lon, d_lat]]
                                     elif egr_geom[0] != dest_pt:
                                         egr_geom.insert(0, dest_pt)
-                                    
+
                                     # Stitch continuous GeoJSON coordinates without disconnected jumps
                                     multimodal_coords = []
                                     for pt in acc_geom:
@@ -643,7 +680,7 @@ class JourneyIntelligenceCoordinator:
                                     for pt in egr_geom:
                                         if not multimodal_coords or multimodal_coords[-1] != pt:
                                             multimodal_coords.append(pt)
-                                            
+
                                     from app.models.journey import CandidateRoute
                                     t_cand = CandidateRoute(
                                         route_identifier=f"verified_transit_{len(fully_validated_routes)}",
@@ -697,6 +734,7 @@ class JourneyIntelligenceCoordinator:
             if not fully_validated_routes and wants_public:
                 warnings.append("No practical direct public transit route is available between these locations without excessive detours. Showing verified road alternatives.")
 
+            await _check_cancellation('pre-scoring')
             # --- DEDUPLICATION ACROSS ALL CANDIDATES ---
             all_raw_candidates = fully_validated_routes + road_cands
             all_raw_candidates = deduplicate_routes(all_raw_candidates)
@@ -735,11 +773,12 @@ class JourneyIntelligenceCoordinator:
             # Genuine ML inference and length-weighted aggregation (No synthetic variance or heuristics)
             self.ml_route_scorer.score_candidate_routes(candidates)
 
+            await _check_cancellation('pre-explanation')
             # --- PHASE 4: GEMINI OBJECTIVE EXPLANATION (Ground Truth Context Only) ---
             # Hard wall-clock cap: asyncio.wait_for ensures Gemini never blocks the route
             # response for more than GEMINI_EXPLANATION_BUDGET_S seconds, preventing
             # Render's 30s gateway from returning 502 when all Gemini models time out.
-            GEMINI_EXPLANATION_BUDGET_S = 5.0
+            GEMINI_EXPLANATION_BUDGET_S = DEFAULT_GEMINI_EXPLANATION_BUDGET_S
             ai_explanation = None
             try:
                 routes_summary = []
@@ -783,6 +822,8 @@ class JourneyIntelligenceCoordinator:
                 "ai_explanation": ai_explanation
             }
             return self.response_builder.build_journey_plan(final_context, user_id, journey_id)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Routing failed: {e}")
             from fastapi import HTTPException
@@ -810,18 +851,18 @@ class JourneyIntelligenceCoordinator:
                 journey_history = await journey_repo.get_journey_history(user_id, limit=5)
             except Exception as e:
                 logger.warning(f"Could not load journey context for assistant: {e}")
-        
+
         context = {
-            "user_id": user_id, 
-            "query": "init", 
-            "active_journey": active_journey, 
+            "user_id": user_id,
+            "query": "init",
+            "active_journey": active_journey,
             "journey_history": journey_history
         }
         final_context = await self.execute_pipeline("assistant", context)
         return self.response_builder.build_assistant_context(
-            final_context, 
-            user_id, 
-            active_journey=active_journey, 
+            final_context,
+            user_id,
+            active_journey=active_journey,
             journey_history=journey_history
         )
 
@@ -836,17 +877,17 @@ class JourneyIntelligenceCoordinator:
                 logger.warning(f"Could not load journey context for assistant chat: {e}")
 
         context = {
-            "user_id": user_id, 
-            "query": query, 
-            "active_journey": active_journey, 
+            "user_id": user_id,
+            "query": query,
+            "active_journey": active_journey,
             "journey_history": journey_history
         }
         final_context = await self.execute_pipeline("assistant", context)
         return self.response_builder.build_assistant_chat(
-            final_context, 
-            user_id, 
-            query, 
-            active_journey=active_journey, 
+            final_context,
+            user_id,
+            query,
+            active_journey=active_journey,
             journey_history=journey_history
         )
 

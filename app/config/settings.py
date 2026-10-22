@@ -53,6 +53,18 @@ class Settings(BaseSettings):
         return origins
 
     @property
+    def cors_origin_regex(self) -> str:
+        """
+        Regex pattern permitting legitimate Vercel Preview deployments for NavSakhi:
+        Matches exact project prefixes 'nav-sakhi' and 'navsakhi' under the '00keshav00s-projects' team/account:
+        e.g., https://nav-sakhi-git-feature-phase46k3-bou-adbb8e-00keshav00s-projects.vercel.app
+        e.g., https://nav-sakhi-2upd8mv40-00keshav00s-projects.vercel.app
+        e.g., https://navsakhi-git-preview-00keshav00s-projects.vercel.app
+        Rejects arbitrary *.vercel.app domains or spoofed origins.
+        """
+        return r"^https://nav-?sakhi(-[a-zA-Z0-9_-]+)?-00keshav00s-projects\.vercel\.app$"
+
+    @property
     def is_production(self) -> bool:
         """
         Determines if the application is running in a production or strictly bounded environment.

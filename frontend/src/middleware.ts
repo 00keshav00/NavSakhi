@@ -17,6 +17,7 @@ export function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname === '/' ||
     pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml' ||
     pathname === '/manifest.json' ||
@@ -38,8 +39,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // If a user is authenticated and tries to access login, redirect to workspace
-  if (token && pathname.startsWith('/login')) {
+  // If a user is authenticated and tries to access login or register, redirect to workspace
+  if (token && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
     return NextResponse.redirect(new URL('/home', request.url));
   }
 

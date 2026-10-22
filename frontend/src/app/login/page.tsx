@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { 
+import {
   ShieldCheck, ArrowRight, Eye, EyeOff, Lock, Mail, Loader2, AlertCircle, KeyRound, Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -77,13 +77,13 @@ function LoginForm() {
         <div className="flex flex-col items-center text-center mb-8">
           <Link href="/" className="inline-block transition-transform hover:scale-105">
             <div className="relative h-14 w-52 mb-3 flex items-center justify-center">
-              <Image 
-                src="/images/navsakhi/navsakhi_logo_official.png" 
-                alt="NavSakhi - Safer Journeys • Stronger Women" 
-                width={200} 
-                height={64} 
-                className="h-12 w-auto object-contain" 
-                priority 
+              <Image
+                src="/images/navsakhi/navsakhi_logo_official.png"
+                alt="NavSakhi - Safer Journeys • Stronger Women"
+                width={200}
+                height={64}
+                className="h-12 w-auto object-contain"
+                priority
               />
             </div>
           </Link>
@@ -94,8 +94,8 @@ function LoginForm() {
 
         {/* Form Card */}
         <div className="glass-card rounded-3xl p-8 border border-border/50 shadow-2xl">
-          
-          {redirectTarget && (
+
+          {redirectTarget && redirectTarget !== "/register" && (
             <div className="mb-6 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3.5 flex items-center gap-2.5 text-amber-600 dark:text-amber-400 text-xs font-medium">
               <KeyRound size={18} className="shrink-0" />
               <span>Authentication required to access <code className="bg-amber-500/20 px-1 py-0.5 rounded">{redirectTarget}</code>. Please sign in below.</span>
@@ -104,7 +104,7 @@ function LoginForm() {
 
           <AnimatePresence mode="wait">
             {error && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: -10, height: 0 }}
                 animate={{ opacity: 1, y: 0, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
@@ -122,7 +122,7 @@ function LoginForm() {
               <label className="text-sm font-semibold text-foreground ml-1">Email Address</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                <Input 
+                <Input
                   {...register("email")}
                   disabled={isLoading}
                   placeholder="name@example.com"
@@ -140,8 +140,8 @@ function LoginForm() {
             <div className="space-y-1">
               <div className="flex justify-between items-center ml-1">
                 <label className="text-sm font-semibold text-foreground">Password</label>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleForgotPassword}
                   className="text-xs font-semibold text-primary hover:underline transition-all"
                 >
@@ -150,7 +150,7 @@ function LoginForm() {
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                <Input 
+                <Input
                   {...register("password")}
                   disabled={isLoading}
                   type={showPassword ? "text" : "password"}
@@ -175,12 +175,12 @@ function LoginForm() {
 
             {/* Remember Me */}
             <div className="flex items-center gap-2 mt-1">
-              <input 
-                type="checkbox" 
-                id="remember" 
+              <input
+                type="checkbox"
+                id="remember"
                 {...register("rememberMe")}
                 disabled={isLoading}
-                className="rounded border-border/50 bg-background/50 text-primary focus:ring-primary h-4 w-4" 
+                className="rounded border-border/50 bg-background/50 text-primary focus:ring-primary h-4 w-4"
               />
               <label htmlFor="remember" className="text-sm font-medium text-muted-foreground cursor-pointer">
                 Remember this device
@@ -188,7 +188,7 @@ function LoginForm() {
             </div>
 
             {/* Submit Button */}
-            <Button 
+            <Button
               type="submit"
               disabled={isLoading}
               className="h-12 w-full rounded-xl bg-primary text-primary-foreground font-bold text-base mt-2 shadow-lg shadow-primary/25 hover:shadow-primary/40 transition-all group"
@@ -213,8 +213,8 @@ function LoginForm() {
               <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">or</span>
               <div className="h-px flex-1 bg-border/50" />
             </div>
-            
-            <Button 
+
+            <Button
               type="button"
               variant="outline"
               disabled={isLoading}
@@ -236,8 +236,8 @@ function LoginForm() {
         <div className="mt-8 flex flex-col items-center gap-3">
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link 
-              href={redirectTarget ? `/register?redirect=${redirectTarget}` : "/register"} 
+            <Link
+              href={redirectTarget && redirectTarget !== "/register" ? `/register?redirect=${redirectTarget}` : "/register"}
               className="font-bold text-primary hover:underline"
             >
               Create one
