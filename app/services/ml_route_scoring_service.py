@@ -1,3 +1,4 @@
+import contextvars
 import logging
 import math
 import time
@@ -20,6 +21,9 @@ from app.ml.predictor import MLSafetyPredictor
 from app.ml.schemas import CANONICAL_PREDICTOR_FEATURES
 
 logger = logging.getLogger(__name__)
+
+# Request-isolated spatial matcher context variable for safe multi-candidate / concurrent scoring
+_current_spatial_matcher: contextvars.ContextVar[Optional[SpatialMatchingService]] = contextvars.ContextVar("current_spatial_matcher", default=None)
 
 # Modes that physically traverse roads and are semantically compatible with the road-segment ML model
 ROAD_COMPATIBLE_MODES: Set[str] = {
@@ -73,10 +77,23 @@ class MLRouteScoringService:
         min_scoreable_coverage: float = 0.70,
         road_compatible_modes: Optional[Set[str]] = None,
     ):
-        self.spatial_matcher = spatial_matcher or get_shared_spatial_matcher()
+        self._custom_spatial_matcher = spatial_matcher
+        self._default_spatial_matcher: Optional[SpatialMatchingService] = None
         self.predictor = predictor or MLSafetyPredictor()
         self.min_scoreable_coverage = float(min_scoreable_coverage)
         self.road_compatible_modes = set(road_compatible_modes) if road_compatible_modes else ROAD_COMPATIBLE_MODES
+
+    @property
+    def spatial_matcher(self) -> SpatialMatchingService:
+        if self._custom_spatial_matcher is not None:
+            return self._custom_spatial_matcher
+        if self._default_spatial_matcher is None:
+            self._default_spatial_matcher = SpatialMatchingService(auto_build_index=False)
+        return self._default_spatial_matcher
+
+    @spatial_matcher.setter
+    def spatial_matcher(self, value: Optional[SpatialMatchingService]) -> None:
+        self._custom_spatial_matcher = value
 
     # --- Core Route Scoring ---
 
@@ -180,9 +197,13 @@ class MLRouteScoringService:
             # Ensure all canonical features exist in exact schema order
             batch_df = batch_df[CANONICAL_PREDICTOR_FEATURES]
 
-            # Execute real frozen LightGBM inference; only compute TreeSHAP attribution when requested
-            predictions = self.predictor.predict_segments(batch_df)
-            explanations = self.predictor.explain_segments(batch_df) if compute_explainability else None
+            # Execute real frozen LightGBM inference; single-pass prediction and TreeSHAP attribution
+            if compute_explainability:
+                predictions, explanations, raw_contrib_matrix = self.predictor.predict_and_explain(batch_df)
+            else:
+                predictions = self.predictor.predict_segments(batch_df)
+                explanations = None
+                raw_contrib_matrix = None
 
             if len(predictions) != len(eligible_items):
                 raise RuntimeError(
@@ -281,9 +302,10 @@ class MLRouteScoringService:
                     feature_names = self.predictor.preprocessor.get_feature_names_out()
                     base_val = float(explanations[0]["base_value"])
                     
-                    X = batch_df[CANONICAL_PREDICTOR_FEATURES]
-                    X_trans = self.predictor.preprocessor.transform(X)
-                    raw_contrib_matrix = self.predictor.model.booster_.predict(X_trans, pred_contrib=True)[:, :-1]
+                    if raw_contrib_matrix is None:
+                        X = batch_df[CANONICAL_PREDICTOR_FEATURES]
+                        X_trans = self.predictor.preprocessor.transform(X)
+                        raw_contrib_matrix = self.predictor.model.booster_.predict(X_trans, pred_contrib=True)[:, :-1]
 
                     seg_spans = np.array([
                         float(match_response.matched_segments[eligible_items[k][0]].diagnostics.get("span_m") or
@@ -366,11 +388,28 @@ class MLRouteScoringService:
 
     # --- Candidate Route Scoring Boundary ---
 
-    def score_candidate_route(self, candidate_route: Any) -> RouteScoreResult:
+    def score_candidate_route(
+        self, candidate_route: Any, spatial_matcher: Optional[SpatialMatchingService] = None
+    ) -> RouteScoreResult:
         """
         Evaluates and scores a single CandidateRoute instance, attaching verified ML scoring
         metadata to candidate_route.route_metadata without synthetic fallbacks.
         """
+        is_temp_matcher = False
+        matcher = spatial_matcher or _current_spatial_matcher.get() or self._custom_spatial_matcher
+        if matcher is None:
+            matcher = SpatialMatchingService(auto_build_index=False)
+            is_temp_matcher = True
+
+        try:
+            return self._score_candidate_route_impl(candidate_route, matcher)
+        finally:
+            if is_temp_matcher:
+                matcher.invalidate_index()
+
+    def _score_candidate_route_impl(
+        self, candidate_route: Any, matcher: SpatialMatchingService
+    ) -> RouteScoreResult:
         route_meta = getattr(candidate_route, "route_metadata", {}) or {}
         route_id = getattr(candidate_route, "route_identifier", "route")
         travel_mode = route_meta.get("travel_mode", "Road")
@@ -388,14 +427,16 @@ class MLRouteScoringService:
                 leg_dist = float(leg.get("distance_m", 0.0))
 
                 if leg_mode in self.road_compatible_modes:
-                    road_legs.append(leg)
+                    road_leg = dict(leg)
+                    road_leg["_dynamic_seg_idx"] = leg_idx
+                    road_legs.append(road_leg)
                 else:
                     # Transit leg (metro, train, suburban, etc.)
                     # Excluded from road snapping; counted as unscored transit traversal
                     transit_unscored_len += leg_dist
 
             if road_legs:
-                match_res = self.spatial_matcher.match_multimodal_route(road_legs, route_identifier=route_id)
+                match_res = matcher.match_multimodal_route(road_legs, route_identifier=route_id)
             else:
                 # 100% transit route with no road legs
                 from app.schemas.spatial_schemas import RouteCoverageMetrics
@@ -428,7 +469,7 @@ class MLRouteScoringService:
         else:
             # Single-road route
             geom = route_meta.get("geometry")
-            match_res = self.spatial_matcher.match_route(
+            match_res = matcher.match_route(
                 geom,
                 route_identifier=route_id,
                 travel_mode=travel_mode,
@@ -450,6 +491,7 @@ class MLRouteScoringService:
         route_meta["contributions"] = score_res.diagnostics.get("legacy_contributions", {})
         # Score individual legs/segments independently
         dynamic_segs = route_meta.get("dynamic_segments", [])
+        leg_matches_cache = match_res.diagnostics.get("leg_matches", {}) if match_res and match_res.diagnostics else {}
         if dynamic_segs:
             for s_idx, d_seg in enumerate(dynamic_segs):
                 s_mode = str(d_seg.get("mode", "")).lower().strip()
@@ -458,7 +500,11 @@ class MLRouteScoringService:
                 # Check if road-compatible
                 if any(m in s_mode for m in ["auto", "cab", "walk", "bike", "two_wheeler", "driving", "personal"]):
                     try:
-                        seg_match = self.spatial_matcher.match_route(s_geom, travel_mode=s_mode)
+                        # Request-local reuse of pre-matched sub-leg spatial result without re-snapping
+                        if s_idx in leg_matches_cache:
+                            seg_match = leg_matches_cache[s_idx]
+                        else:
+                            seg_match = matcher.match_route(s_geom, travel_mode=s_mode)
                         # Sub-legs only consume safety_score and coverage; skip redundant TreeSHAP computation on sub-legs
                         seg_score_res = self.score_route_match(
                             seg_match,
@@ -490,16 +536,30 @@ class MLRouteScoringService:
         candidate_route.route_metadata = route_meta
         return score_res
 
-    def score_candidate_routes(self, candidate_routes: List[Any]) -> List[RouteScoreResult]:
+    def score_candidate_routes(
+        self, candidate_routes: List[Any], spatial_matcher: Optional[SpatialMatchingService] = None
+    ) -> List[RouteScoreResult]:
         """
         Scores all candidate routes, attaching ML scores, and sorts routes deterministically:
         1. Routes with READY safety scores (descending safety score).
         2. Routes with unscored/unsupported states (sorted by duration ascending).
+
+        Uses a request-isolated spatial matcher when not explicitly injected,
+        guaranteeing that concurrent requests across different corridors cannot
+        mutate, invalidate, or corrupt each other's spatial index.
         """
-        results = []
-        for cand in candidate_routes:
-            res = self.score_candidate_route(cand)
-            results.append(res)
+        req_matcher = spatial_matcher or self._custom_spatial_matcher or SpatialMatchingService(auto_build_index=False)
+        token = _current_spatial_matcher.set(req_matcher)
+        try:
+            results = []
+            for cand in candidate_routes:
+                res = self.score_candidate_route(cand)
+                results.append(res)
+        finally:
+            _current_spatial_matcher.reset(token)
+            # Clean up request-local geometries if we created a temporary request matcher
+            if spatial_matcher is None and self._custom_spatial_matcher is None and req_matcher is not None:
+                req_matcher.invalidate_index()
 
         # Deterministic ranking policy:
         # READY routes sorted by safety_score descending.

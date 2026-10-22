@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 from shapely.geometry import LineString, Point, MultiLineString, shape
-from shapely import points as shapely_points
+from shapely import points as shapely_points, box as shapely_box
 from shapely.strtree import STRtree
 
 from app.schemas.spatial_schemas import (
@@ -777,11 +777,12 @@ class SpatialMatchingService:
         sample_results: List[Dict[str, Any]] = []
         last_matched_way_id: Optional[int] = None
 
+        d = self.max_match_distance_m
         for s_idx, (dist_along_m, pt) in enumerate(zip(sample_distances, sample_points)):
-            # Spatial query: query nearest candidates within max_match_distance_m
-            # Using query with buffer to catch parallel candidates for ambiguity audit
-            buffer_geom = pt.buffer(self.max_match_distance_m)
-            candidate_indices = self._index.query(buffer_geom)
+            # Fast axis-aligned query envelope with identical bounds: [x-d, y-d, x+d, y+d]
+            # Avoids high CPU cost of constructing 64-vertex polygons in GEOS while retaining exact candidates
+            query_box = shapely_box(pt.x - d, pt.y - d, pt.x + d, pt.y + d)
+            candidate_indices = self._index.query(query_box)
 
             if len(candidate_indices) == 0:
                 # No road within max_match_distance_m
@@ -1108,27 +1109,38 @@ class SpatialMatchingService:
         distance_offset = 0.0
         global_traversal_idx = 0
 
+        leg_matches: Dict[int, RouteSpatialMatchResponse] = {}
         for leg_idx, leg in enumerate(legs):
             leg_mode = leg.get("mode", f"Leg_{leg_idx}")
             leg_geom = leg.get("geometry")
             if not leg_geom:
                 continue
 
+            # Produce clean per-leg spatial match (offset=0.0) for potential direct sub-leg reuse
             leg_res = self.match_route(
                 route_input=leg_geom,
                 route_identifier=f"{route_identifier}_leg_{leg_idx}",
                 travel_mode=leg_mode,
                 leg_index=leg_idx,
-                distance_offset_m=distance_offset,
+                distance_offset_m=0.0,
             )
+            store_idx = leg.get('_dynamic_seg_idx', leg_idx)
+            leg_matches[store_idx] = leg_res
 
-            # Re-index traversal_index continuously across legs
+            # Re-index traversal_index continuously across legs for parent multimodal representation
             for seg in leg_res.matched_segments:
-                seg.traversal_index = global_traversal_idx
+                seg_copy = seg.model_copy(deep=True)
+                seg_copy.traversal_index = global_traversal_idx
+                seg_copy.route_start_m += distance_offset
+                seg_copy.route_end_m += distance_offset
                 global_traversal_idx += 1
-                all_matched_segments.append(seg)
+                all_matched_segments.append(seg_copy)
 
-            all_unmatched_intervals.extend(leg_res.unmatched_intervals)
+            for interval in leg_res.unmatched_intervals:
+                int_copy = interval.model_copy(deep=True)
+                int_copy.start_distance_m += distance_offset
+                int_copy.end_distance_m += distance_offset
+                all_unmatched_intervals.append(int_copy)
 
             total_route_length_m += leg_res.coverage.total_route_length_m
             matched_length_m += leg_res.coverage.matched_length_m
@@ -1161,7 +1173,10 @@ class SpatialMatchingService:
             coverage=coverage,
             matched_segments=all_matched_segments,
             unmatched_intervals=all_unmatched_intervals,
-            diagnostics={"legs_processed": len(legs)},
+            diagnostics={
+                "legs_processed": len(legs),
+                "leg_matches": leg_matches,
+            },
         )
 
     # --- Feature Bridge ---

@@ -6,6 +6,12 @@ from app.config.logging_config import logger
 from app.db.connection import connect_to_mongo, close_mongo_connection, get_database
 from app.db.init_db import initialize_database
 
+_prewarm_status = {
+    "status": "pending",
+    "completed_at": None,
+    "error": None,
+}
+
 async def _async_startup_db_init():
     """
     Background asynchronous database initializer.
@@ -37,6 +43,38 @@ async def _async_startup_db_init():
                 logger.warning(f"Could not seed local test user: {e}")
     except Exception as e:
         logger.error(f"Background database initialization encountered error: {e}")
+
+    # Safe sequential pre-warming of singletons during background initialization
+    # Eliminates 19-24s first-request cold-start latency under free-tier limits without blocking port binding or /health/ready
+    global _prewarm_status
+    _prewarm_status["status"] = "in_progress"
+    try:
+        logger.info("Starting background singletons pre-warm...")
+        from app.ml.predictor import get_ml_safety_predictor
+        get_ml_safety_predictor()
+        await asyncio.sleep(0.05)
+
+        from app.intelligence.journey.transit_validator import global_validator, global_index
+        from app.intelligence.journey.transit_graph import global_metro_graph, global_suburban_graph
+        await asyncio.sleep(0.05)
+
+        from app.intelligence.journey.schedule_engine import global_schedule_engine
+        from app.intelligence.journey.fare_engine import global_fare_engine
+        await asyncio.sleep(0.05)
+
+        from app.intelligence.journey.multimodal_router import global_multimodal_router
+        await asyncio.sleep(0.05)
+
+        from app.services.autocomplete_service import get_global_autocomplete_service
+        get_global_autocomplete_service()
+        _prewarm_status["status"] = "completed"
+        import time
+        _prewarm_status["completed_at"] = time.time()
+        logger.info("Background singletons pre-warm complete.")
+    except Exception as e:
+        _prewarm_status["status"] = "failed"
+        _prewarm_status["error"] = str(e)
+        logger.warning(f"Background singletons pre-warm non-fatal error: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -92,7 +130,12 @@ async def health_check():
     """
     Backend health check endpoint.
     """
-    return {"status": "ok", "app": settings.app_name, "version": settings.app_version}
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "version": settings.app_version,
+        "prewarm": _prewarm_status["status"],
+    }
 
 @app.get("/health/ready", tags=["Health"])
 async def readiness_check():
