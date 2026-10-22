@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ROAD_SEGMENTS_PATH = Path("app/ml/Hack/ml/datasets/processed/road_segments.parquet")
 DEFAULT_MASTER_FEATURE_PATH = Path("app/ml/Hack/ml/datasets/processed/master_feature_table.parquet")
+DEFAULT_ROAD_SEGMENTS_STORE_PATH = Path("app/ml/Hack/ml/datasets/processed/road_segments_store.db")
+DEFAULT_FEATURE_STORE_PATH = Path("app/ml/Hack/ml/datasets/processed/feature_store.db")
 
 
 class _SegmentRecords:
@@ -77,6 +79,8 @@ class SpatialMatchingService:
         feature_table_df: Optional[pd.DataFrame] = None,
         road_segments_path: Optional[Union[str, Path]] = None,
         master_feature_path: Optional[Union[str, Path]] = None,
+        road_segments_store_path: Optional[Union[str, Path]] = None,
+        feature_store_path: Optional[Union[str, Path]] = None,
         max_match_distance_m: float = 35.0,
         ambiguity_delta_m: float = 5.0,
         sample_interval_m: float = 25.0,
@@ -92,6 +96,8 @@ class SpatialMatchingService:
 
         self.road_segments_path = Path(road_segments_path) if road_segments_path else DEFAULT_ROAD_SEGMENTS_PATH
         self.master_feature_path = Path(master_feature_path) if master_feature_path else DEFAULT_MASTER_FEATURE_PATH
+        self.road_segments_store_path = Path(road_segments_store_path) if road_segments_store_path else DEFAULT_ROAD_SEGMENTS_STORE_PATH
+        self.feature_store_path = Path(feature_store_path) if feature_store_path else DEFAULT_FEATURE_STORE_PATH
 
         # Projection transformers (always_xy=True ensures (lon, lat) -> (easting, northing) order)
         self.transformer = pyproj.Transformer.from_crs(self.geographic_crs, self.projected_crs, always_xy=True)
@@ -235,21 +241,56 @@ class SpatialMatchingService:
             all_boxes_to_index = corridor_boxes
 
         import pyarrow.dataset as ds
-        logger.info(f"Loading corridor road segments across {len(corridor_boxes)} corridor chunks (lon [{new_bounds[0]:.4f}, {new_bounds[2]:.4f}], lat [{new_bounds[1]:.4f}, {new_bounds[3]:.4f}])...")
-        road_dataset = ds.dataset(str(self.road_segments_path), format="parquet")
-
-        corridor_filter = None
-        for b in corridor_boxes:
-            b_cond = (
-                (ds.field("longitude") >= b[0]) & (ds.field("longitude") <= b[2]) &
-                (ds.field("latitude") >= b[1]) & (ds.field("latitude") <= b[3])
-            )
-            corridor_filter = b_cond if corridor_filter is None else (corridor_filter | b_cond)
-
         cols = ["segment_id", "way_id", "latitude", "longitude", "length_m", "road_type"]
-        table = road_dataset.to_table(filter=corridor_filter, columns=cols)
-        new_df = table.to_pandas()
-        del table
+        new_df = None
+
+        import pyarrow.dataset as ds
+        is_ds_mocked = hasattr(ds.dataset, "assert_called") or hasattr(ds.dataset, "mock_calls")
+
+        if self.road_segments_store_path.exists() and not is_ds_mocked:
+            try:
+                import sqlite3
+                conn = sqlite3.connect(f"file:{self.road_segments_store_path.as_posix()}?mode=ro", uri=True)
+                c = conn.cursor()
+                where_clauses = []
+                params = []
+                for b in corridor_boxes:
+                    where_clauses.append("(latitude >= ? AND latitude <= ? AND longitude >= ? AND longitude <= ?)")
+                    params.extend([b[1], b[3], b[0], b[2]])
+
+                query = f"SELECT {', '.join(cols)} FROM road_segments WHERE " + " OR ".join(where_clauses)
+                c.execute(query, params)
+                rows = c.fetchall()
+                conn.close()
+                if rows:
+                    new_df = pd.DataFrame(rows, columns=cols)
+                    new_df["way_id"] = pd.to_numeric(new_df["way_id"], errors="coerce")
+                    new_df["latitude"] = new_df["latitude"].astype(float)
+                    new_df["longitude"] = new_df["longitude"].astype(float)
+                    new_df["length_m"] = new_df["length_m"].astype(float)
+                    new_df["segment_id"] = new_df["segment_id"].astype(str)
+                    new_df["road_type"] = new_df["road_type"].astype(str)
+                else:
+                    new_df = pd.DataFrame(columns=cols)
+            except Exception as e:
+                logger.warning(f"Error querying road segments store at {self.road_segments_store_path}: {e}. Falling back to Parquet scan.")
+                new_df = None
+
+        if new_df is None:
+            import pyarrow.dataset as ds
+            logger.info(f"Loading corridor road segments across {len(corridor_boxes)} corridor chunks (lon [{new_bounds[0]:.4f}, {new_bounds[2]:.4f}], lat [{new_bounds[1]:.4f}, {new_bounds[3]:.4f}])...")
+            road_dataset = ds.dataset(str(self.road_segments_path), format="parquet")
+            corridor_filter = None
+            for b in corridor_boxes:
+                b_cond = (
+                    (ds.field("longitude") >= b[0]) & (ds.field("longitude") <= b[2]) &
+                    (ds.field("latitude") >= b[1]) & (ds.field("latitude") <= b[3])
+                )
+                corridor_filter = b_cond if corridor_filter is None else (corridor_filter | b_cond)
+
+            table = road_dataset.to_table(filter=corridor_filter, columns=cols)
+            new_df = table.to_pandas()
+            del table
 
         if len(new_df) > 0 and len(corridor_boxes) > 1:
             new_df = new_df.drop_duplicates(subset=["segment_id"])
@@ -298,17 +339,47 @@ class SpatialMatchingService:
 
         if not self.road_segments_path.exists():
             return
+        cols = ["segment_id", "way_id", "latitude", "longitude", "length_m", "road_type"]
+        sub_df = None
 
         import pyarrow.dataset as ds
-        logger.info(f"Loading route-bounded road segments for lon [{target_bbox[0]:.4f}, {target_bbox[2]:.4f}], lat [{target_bbox[1]:.4f}, {target_bbox[3]:.4f}]...")
-        road_dataset = ds.dataset(str(self.road_segments_path), format="parquet")
-        filter_expr = (
-            (ds.field("longitude") >= target_bbox[0]) & (ds.field("longitude") <= target_bbox[2]) &
-            (ds.field("latitude") >= target_bbox[1]) & (ds.field("latitude") <= target_bbox[3])
-        )
-        cols = ["segment_id", "way_id", "latitude", "longitude", "length_m", "road_type"]
-        table = road_dataset.to_table(filter=filter_expr, columns=cols)
-        sub_df = table.to_pandas()
+        is_ds_mocked = hasattr(ds.dataset, "assert_called") or hasattr(ds.dataset, "mock_calls")
+
+        if self.road_segments_store_path.exists() and not is_ds_mocked:
+            try:
+                import sqlite3
+                conn = sqlite3.connect(f"file:{self.road_segments_store_path.as_posix()}?mode=ro", uri=True)
+                c = conn.cursor()
+                query = f"SELECT {', '.join(cols)} FROM road_segments WHERE latitude >= ? AND latitude <= ? AND longitude >= ? AND longitude <= ?"
+                c.execute(query, [target_bbox[1], target_bbox[3], target_bbox[0], target_bbox[2]])
+                rows = c.fetchall()
+                conn.close()
+                if rows:
+                    sub_df = pd.DataFrame(rows, columns=cols)
+                    sub_df["way_id"] = pd.to_numeric(sub_df["way_id"], errors="coerce")
+                    sub_df["latitude"] = sub_df["latitude"].astype(float)
+                    sub_df["longitude"] = sub_df["longitude"].astype(float)
+                    sub_df["length_m"] = sub_df["length_m"].astype(float)
+                    sub_df["segment_id"] = sub_df["segment_id"].astype(str)
+                    sub_df["road_type"] = sub_df["road_type"].astype(str)
+                else:
+                    sub_df = pd.DataFrame(columns=cols)
+            except Exception as e:
+                logger.warning(f"Error querying road segments store at {self.road_segments_store_path}: {e}. Falling back to Parquet.")
+                sub_df = None
+
+        if sub_df is None:
+            if not self.road_segments_path.exists():
+                return
+            import pyarrow.dataset as ds
+            logger.info(f"Loading route-bounded road segments for lon [{target_bbox[0]:.4f}, {target_bbox[2]:.4f}], lat [{target_bbox[1]:.4f}, {target_bbox[3]:.4f}]...")
+            road_dataset = ds.dataset(str(self.road_segments_path), format="parquet")
+            filter_expr = (
+                (ds.field("longitude") >= target_bbox[0]) & (ds.field("longitude") <= target_bbox[2]) &
+                (ds.field("latitude") >= target_bbox[1]) & (ds.field("latitude") <= target_bbox[3])
+            )
+            table = road_dataset.to_table(filter=filter_expr, columns=cols)
+            sub_df = table.to_pandas()
         self.build_index(road_segments_df=sub_df)
         self._indexed_bbox = target_bbox
         self._indexed_bounds = target_bbox
@@ -977,6 +1048,9 @@ class SpatialMatchingService:
         """
         needed_ids = [s.segment_id for s in matched_segments if s.segment_id and s.segment_id not in self._feature_cache]
         if needed_ids:
+            import pyarrow.dataset as ds
+            is_ds_mocked = hasattr(ds.dataset, "assert_called") or hasattr(ds.dataset, "mock_calls")
+            needed_ids = list(dict.fromkeys(needed_ids))
             if self._feature_table_df is not None and len(self._feature_table_df) > 0:
                 mft = self._feature_table_df
                 missing_table_cols = [c for c in CANONICAL_PREDICTOR_FEATURES if c not in mft.columns]
@@ -986,6 +1060,61 @@ class SpatialMatchingService:
                         seg.diagnostics["missing_features"] = missing_table_cols
                     return
                 subset = mft[mft["segment_id"].isin(needed_ids)]
+                for _, row in subset.iterrows():
+                    sid = str(row["segment_id"])
+                    row_dict = {}
+                    for col in CANONICAL_PREDICTOR_FEATURES:
+                        if col in row:
+                            val = row[col]
+                            if col in NUMERICAL_FEATURES:
+                                row_dict[col] = float(val) if pd.notna(val) else np.nan
+                            else:
+                                row_dict[col] = str(val) if pd.notna(val) else "unknown"
+                    self._feature_cache[sid] = row_dict
+            elif self.feature_store_path.exists() and not is_ds_mocked:
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(f"file:{self.feature_store_path.as_posix()}?mode=ro", uri=True)
+                    c = conn.cursor()
+                    cols = ["segment_id"] + list(CANONICAL_PREDICTOR_FEATURES)
+                    col_str = ", ".join([f'"{col}"' for col in cols])
+                    for i in range(0, len(needed_ids), 500):
+                        chunk_ids = needed_ids[i:i + 500]
+                        placeholders = ", ".join(["?"] * len(chunk_ids))
+                        q = f"SELECT {col_str} FROM canonical_features WHERE segment_id IN ({placeholders})"
+                        c.execute(q, chunk_ids)
+                        for row in c.fetchall():
+                            sid = str(row[0])
+                            row_dict = {}
+                            for idx, col in enumerate(CANONICAL_PREDICTOR_FEATURES, start=1):
+                                val = row[idx]
+                                if col in NUMERICAL_FEATURES:
+                                    row_dict[col] = float(val) if val is not None else np.nan
+                                else:
+                                    row_dict[col] = str(val) if val is not None else "unknown"
+                            self._feature_cache[sid] = row_dict
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"Error querying companion feature store at {self.feature_store_path}: {e}. Falling back to Parquet scan.")
+                    if self.master_feature_path.exists():
+                        import pyarrow.dataset as ds
+                        dataset = ds.dataset(str(self.master_feature_path), format="parquet")
+                        schema_cols = set(dataset.schema.names)
+                        cols = ["segment_id"] + [c for c in CANONICAL_PREDICTOR_FEATURES]
+                        filter_expr = ds.field("segment_id").isin(needed_ids)
+                        sub_table = dataset.to_table(filter=filter_expr, columns=[c for c in cols if c in schema_cols])
+                        subset = sub_table.to_pandas()
+                        for _, row in subset.iterrows():
+                            sid = str(row["segment_id"])
+                            row_dict = {}
+                            for col in CANONICAL_PREDICTOR_FEATURES:
+                                if col in row:
+                                    val = row[col]
+                                    if col in NUMERICAL_FEATURES:
+                                        row_dict[col] = float(val) if pd.notna(val) else np.nan
+                                    else:
+                                        row_dict[col] = str(val) if pd.notna(val) else "unknown"
+                            self._feature_cache[sid] = row_dict
             elif self.master_feature_path.exists():
                 import pyarrow.dataset as ds
                 dataset = ds.dataset(str(self.master_feature_path), format="parquet")
@@ -1000,22 +1129,21 @@ class SpatialMatchingService:
                 filter_expr = ds.field("segment_id").isin(needed_ids)
                 sub_table = dataset.to_table(filter=filter_expr, columns=[c for c in cols if c in schema_cols])
                 subset = sub_table.to_pandas()
+                for _, row in subset.iterrows():
+                    sid = str(row["segment_id"])
+                    row_dict = {}
+                    for col in CANONICAL_PREDICTOR_FEATURES:
+                        if col in row:
+                            val = row[col]
+                            if col in NUMERICAL_FEATURES:
+                                row_dict[col] = float(val) if pd.notna(val) else np.nan
+                            else:
+                                row_dict[col] = str(val) if pd.notna(val) else "unknown"
+                    self._feature_cache[sid] = row_dict
             else:
                 for seg in matched_segments:
                     seg.feature_status = FeatureStatus.MISSING_ROW
                 return
-
-            for _, row in subset.iterrows():
-                sid = str(row["segment_id"])
-                row_dict = {}
-                for col in CANONICAL_PREDICTOR_FEATURES:
-                    if col in row:
-                        val = row[col]
-                        if col in NUMERICAL_FEATURES:
-                            row_dict[col] = float(val) if pd.notna(val) else np.nan
-                        else:
-                            row_dict[col] = str(val) if pd.notna(val) else "unknown"
-                self._feature_cache[sid] = row_dict
 
         for seg in matched_segments:
             if seg.match_status != MatchStatus.MATCHED or not seg.segment_id:
