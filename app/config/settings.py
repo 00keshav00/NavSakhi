@@ -52,6 +52,22 @@ class Settings(BaseSettings):
                     origins.append(cleaned)
         return origins
 
+    @property
+    def is_production(self) -> bool:
+        """
+        Determines if the application is running in a production or strictly bounded environment.
+        Checks ENVIRONMENT env var, RENDER hosting flag, or explicit REQUIRE_COMPANION_STORES.
+        """
+        import os
+        env = (self.environment or "").strip().lower()
+        if env in ("production", "prod"):
+            return True
+        if os.getenv("RENDER", "").strip().lower() == "true":
+            return True
+        if os.getenv("REQUIRE_COMPANION_STORES", "").strip().lower() in ("1", "true", "yes"):
+            return True
+        return False
+
     # Provider Cache TTL (seconds)
     routing_cache_ttl: int = 3600
     location_cache_ttl: int = 86400

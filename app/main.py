@@ -93,3 +93,28 @@ async def health_check():
     Backend health check endpoint.
     """
     return {"status": "ok", "app": settings.app_name, "version": settings.app_version}
+
+@app.get("/health/ready", tags=["Health"])
+async def readiness_check():
+    """
+    Readiness probe validating that spatial companion stores are built,
+    accessible, and valid for bounded-memory production route scoring.
+    """
+    from fastapi.responses import JSONResponse
+    from app.intelligence.journey.spatial_matcher import validate_companion_stores
+    valid, reason = validate_companion_stores()
+    if not valid:
+        if settings.is_production:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unavailable", "reason": reason}
+            )
+        else:
+            return JSONResponse(
+                status_code=200,
+                content={"status": "degraded_dev_mode", "reason": reason}
+            )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ready", "stores": "verified"}
+    )

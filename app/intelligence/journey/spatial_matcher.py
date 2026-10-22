@@ -32,6 +32,81 @@ DEFAULT_MASTER_FEATURE_PATH = Path("app/ml/Hack/ml/datasets/processed/master_fea
 DEFAULT_ROAD_SEGMENTS_STORE_PATH = Path("app/ml/Hack/ml/datasets/processed/road_segments_store.db")
 DEFAULT_FEATURE_STORE_PATH = Path("app/ml/Hack/ml/datasets/processed/feature_store.db")
 
+class CompanionStoreError(RuntimeError):
+    """
+    Raised when required companion SQLite stores are missing or invalid in production mode,
+    preventing an unconstrained high-memory Parquet scan.
+    """
+    pass
+
+
+def validate_companion_stores(
+    road_segments_store_path: Optional[Union[str, Path]] = None,
+    feature_store_path: Optional[Union[str, Path]] = None,
+) -> Tuple[bool, Optional[str]]:
+    """
+    Fast, zero-scan integrity check for companion SQLite stores.
+    Validates existence, read-only connectivity, required table schemas, and critical indexes.
+    Executes in < 2ms without decompressing Parquet or allocating heap memory.
+    """
+    import sqlite3
+    rs_path = Path(road_segments_store_path) if road_segments_store_path else DEFAULT_ROAD_SEGMENTS_STORE_PATH
+    fs_path = Path(feature_store_path) if feature_store_path else DEFAULT_FEATURE_STORE_PATH
+
+    # Check existence
+    if not rs_path.exists():
+        return False, f"Road segments companion store missing at {rs_path}"
+    if not fs_path.exists():
+        return False, f"Feature companion store missing at {fs_path}"
+
+    # Validate road segments store
+    try:
+        conn = sqlite3.connect(f"file:{rs_path.as_posix()}?mode=ro", uri=True)
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(road_segments)")
+        rs_cols = {row[1] for row in c.fetchall()}
+        required_rs_cols = {"segment_id", "way_id", "latitude", "longitude", "length_m", "road_type"}
+        missing_rs = required_rs_cols - rs_cols
+        if missing_rs:
+            conn.close()
+            return False, f"Road segments store at {rs_path} missing columns: {sorted(missing_rs)}"
+
+        c.execute("PRAGMA index_list(road_segments)")
+        indexes = {row[1] for row in c.fetchall()}
+        if "idx_rs_spatial" not in indexes:
+            conn.close()
+            return False, f"Road segments store at {rs_path} missing spatial index 'idx_rs_spatial'"
+
+        c.execute("SELECT COUNT(*) FROM road_segments")
+        rs_count = c.fetchone()[0]
+        conn.close()
+        if rs_count == 0:
+            return False, f"Road segments store at {rs_path} is empty"
+    except Exception as e:
+        return False, f"Cannot open road segments store at {rs_path}: {e}"
+
+    # Validate feature store
+    try:
+        conn = sqlite3.connect(f"file:{fs_path.as_posix()}?mode=ro", uri=True)
+        c = conn.cursor()
+        c.execute("PRAGMA table_info(canonical_features)")
+        fs_cols = {row[1] for row in c.fetchall()}
+        required_fs_cols = {"segment_id"}.union(CANONICAL_PREDICTOR_FEATURES)
+        missing_fs = required_fs_cols - fs_cols
+        if missing_fs:
+            conn.close()
+            return False, f"Feature store at {fs_path} missing {len(missing_fs)} canonical columns"
+
+        c.execute("SELECT COUNT(*) FROM canonical_features")
+        fs_count = c.fetchone()[0]
+        conn.close()
+        if fs_count == 0:
+            return False, f"Feature store at {fs_path} is empty"
+    except Exception as e:
+        return False, f"Cannot open feature store at {fs_path}: {e}"
+
+    return True, None
+
 
 class _SegmentRecords:
     """
@@ -87,6 +162,7 @@ class SpatialMatchingService:
         projected_crs: str = "EPSG:32644",
         geographic_crs: str = "EPSG:4326",
         auto_build_index: bool = False,
+        require_companion_stores: Optional[bool] = None,
     ):
         self.max_match_distance_m = float(max_match_distance_m)
         self.ambiguity_delta_m = float(ambiguity_delta_m)
@@ -115,6 +191,15 @@ class SpatialMatchingService:
         self._indexed_bbox: Optional[tuple] = None
         self._indexed_boxes: List[Tuple[float, float, float, float]] = []
         self._indexed_bounds: Optional[Tuple[float, float, float, float]] = None
+
+        if require_companion_stores is None:
+            try:
+                from app.config.settings import settings
+                self._require_companion_stores = bool(settings.is_production)
+            except Exception:
+                self._require_companion_stores = False
+        else:
+            self._require_companion_stores = bool(require_companion_stores)
 
         if auto_build_index and (road_segments_df is not None or self.road_segments_path.exists()):
             self.build_index()
@@ -273,10 +358,25 @@ class SpatialMatchingService:
                 else:
                     new_df = pd.DataFrame(columns=cols)
             except Exception as e:
+                if self._require_companion_stores:
+                    raise CompanionStoreError(
+                        f"Road segments store query failed at {self.road_segments_store_path}: {e}. "
+                        "Full-table Parquet fallback prohibited in production mode."
+                    )
                 logger.warning(f"Error querying road segments store at {self.road_segments_store_path}: {e}. Falling back to Parquet scan.")
                 new_df = None
+        elif self._require_companion_stores and not is_ds_mocked:
+            raise CompanionStoreError(
+                f"Road segments companion store missing at {self.road_segments_store_path}. "
+                "Full-table Parquet fallback prohibited in production mode."
+            )
 
         if new_df is None:
+            if self._require_companion_stores:
+                raise CompanionStoreError(
+                    f"Road segments companion store missing or invalid. "
+                    "Full-table Parquet fallback prohibited in production mode."
+                )
             import pyarrow.dataset as ds
             logger.info(f"Loading corridor road segments across {len(corridor_boxes)} corridor chunks (lon [{new_bounds[0]:.4f}, {new_bounds[2]:.4f}], lat [{new_bounds[1]:.4f}, {new_bounds[3]:.4f}])...")
             road_dataset = ds.dataset(str(self.road_segments_path), format="parquet")
@@ -365,10 +465,25 @@ class SpatialMatchingService:
                 else:
                     sub_df = pd.DataFrame(columns=cols)
             except Exception as e:
+                if self._require_companion_stores:
+                    raise CompanionStoreError(
+                        f"Road segments store query failed at {self.road_segments_store_path}: {e}. "
+                        "Full-table Parquet fallback prohibited in production mode."
+                    )
                 logger.warning(f"Error querying road segments store at {self.road_segments_store_path}: {e}. Falling back to Parquet.")
                 sub_df = None
+        elif self._require_companion_stores and not is_ds_mocked:
+            raise CompanionStoreError(
+                f"Road segments companion store missing at {self.road_segments_store_path}. "
+                "Full-table Parquet fallback prohibited in production mode."
+            )
 
         if sub_df is None:
+            if self._require_companion_stores:
+                raise CompanionStoreError(
+                    f"Road segments companion store missing or invalid. "
+                    "Full-table Parquet fallback prohibited in production mode."
+                )
             if not self.road_segments_path.exists():
                 return
             import pyarrow.dataset as ds
@@ -416,6 +531,11 @@ class SpatialMatchingService:
             df = road_segments_df
             self._road_segments_df = road_segments_df
         else:
+            if self._require_companion_stores:
+                raise CompanionStoreError(
+                    "Full-dataset spatial index build prohibited in production mode. "
+                    "Use corridor-bounded queries with road_segments_store.db."
+                )
             df = self._load_road_segments_data()
 
         if len(df) == 0:
@@ -575,11 +695,17 @@ class SpatialMatchingService:
                     valid_coords = [c for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
                     if valid_coords:
                         self._ensure_index_for_corridor(valid_coords)
+            except CompanionStoreError:
+                raise
             except Exception as e:
                 logger.debug(f"Route-bounded index check: {e}")
 
         # Validate index (build lazily if data available)
         if (self._index is None or len(self._segment_records) == 0) and (self._road_segments_df is not None or self.road_segments_path.exists()):
+            if self._require_companion_stores:
+                raise CompanionStoreError(
+                    "Spatial index empty and full-dataset fallback is prohibited in production mode."
+                )
             try:
                 self.build_index()
             except Exception as e:
@@ -1095,6 +1221,11 @@ class SpatialMatchingService:
                             self._feature_cache[sid] = row_dict
                     conn.close()
                 except Exception as e:
+                    if self._require_companion_stores:
+                        raise CompanionStoreError(
+                            f"Feature companion store query failed at {self.feature_store_path}: {e}. "
+                            "Full-table Parquet fallback prohibited in production mode."
+                        )
                     logger.error(f"Error querying companion feature store at {self.feature_store_path}: {e}. Falling back to Parquet scan.")
                     if self.master_feature_path.exists():
                         import pyarrow.dataset as ds
@@ -1116,6 +1247,11 @@ class SpatialMatchingService:
                                         row_dict[col] = str(val) if pd.notna(val) else "unknown"
                             self._feature_cache[sid] = row_dict
             elif self.master_feature_path.exists():
+                if self._require_companion_stores:
+                    raise CompanionStoreError(
+                        f"Feature companion store missing at {self.feature_store_path}. "
+                        "Full-table Parquet fallback prohibited in production mode."
+                    )
                 import pyarrow.dataset as ds
                 dataset = ds.dataset(str(self.master_feature_path), format="parquet")
                 schema_cols = set(dataset.schema.names)
