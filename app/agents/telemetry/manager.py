@@ -99,11 +99,12 @@ class TelemetryManager:
             # We simulate a recommendation push if the newly recommended route is different
             if recommended_route and current_route and recommended_route != current_route:
                 logger.info(f"TelemetryManager: Safer route available for {journey_id}! Pushing recommendation.")
+                score_val = ml_prediction.get("safety_score")
                 await self._push_notification(journey_id, {
                     "type": "ROUTE_CHANGE_RECOMMENDATION",
-                    "message": "A significantly safer route is available.",
-                    "new_safety_score": ml_prediction.get("safety_score", 99.0),
-                    "reason": decision.get("warnings", ["Optimal conditions on alternative route"])[0]
+                    "message": "A route with alternative road infrastructure coverage is available.",
+                    "new_safety_score": float(score_val) if score_val is not None else None,
+                    "reason": decision.get("warnings", ["Alternative route evaluated"])[0]
                 })
                 
             # Update internal metrics

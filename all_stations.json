@@ -1,422 +1,3282 @@
 [
   {
-    "name": "Vandalur",
-    "type": "Suburban",
-    "coordinates": [
-      12.8916061,
-      80.084974
-    ],
-    "road_distance_km": 10.5,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Urappakkam",
-    "type": "Suburban",
-    "coordinates": [
-      12.8673657,
-      80.0720222
-    ],
-    "road_distance_km": 11.9,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Perungalattur",
-    "type": "Suburban",
-    "coordinates": [
-      12.9052432,
-      80.095046
-    ],
-    "road_distance_km": 12.2,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Tambaram",
-    "type": "Suburban",
-    "coordinates": [
-      12.9257923,
-      80.1179194
-    ],
-    "road_distance_km": 16.4,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Sholinganallur Metro",
+    "name": "Chennai Central Metro",
     "type": "Metro",
     "coordinates": [
-      12.9009583,
-      80.2279647
+      13.0814278369008,
+      80.2729075947633
     ],
-    "road_distance_km": 19.2,
-    "operational_status": "Planned/Under Construction"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0814278369008,
+        80.2729075947633
+      ]
+    ],
+    "aliases": [
+      "chennai central metro",
+      "chennai central",
+      "chennai  metro"
+    ],
+    "station_id": "METRO_104"
   },
   {
-    "name": "Guduvancheri",
-    "type": "Suburban",
-    "coordinates": [
-      12.8452303,
-      80.0576503
-    ],
-    "road_distance_km": 14.8,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Tambaram Sanatorium",
-    "type": "Suburban",
-    "coordinates": [
-      12.9369591,
-      80.1307034
-    ],
-    "road_distance_km": 14.6,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Chromepet",
-    "type": "Suburban",
-    "coordinates": [
-      12.9521897,
-      80.1411677
-    ],
-    "road_distance_km": 16.3,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Pallavaram",
-    "type": "Suburban",
-    "coordinates": [
-      12.9675742,
-      80.1520504
-    ],
-    "road_distance_km": 18.3,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Kattangulathur",
-    "type": "Suburban",
-    "coordinates": [
-      12.8055581,
-      80.0266339
-    ],
-    "road_distance_km": 20.0,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Tirusulam",
-    "type": "Suburban",
-    "coordinates": [
-      12.9804609,
-      80.1657933
-    ],
-    "road_distance_km": 20.6,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "\u0b9a\u0bc6\u0ba9\u0bcd\u0ba9\u0bc8 \u0bb5\u0bbf\u0bae\u0bbe\u0ba9 \u0ba8\u0bbf\u0bb2\u0bc8\u0baf\u0bae\u0bcd",
+    "name": "Egmore Metro",
     "type": "Metro",
     "coordinates": [
-      12.9807725,
-      80.1641832
+      13.0789665138486,
+      80.2609527908126
     ],
-    "road_distance_km": 20.6,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0789665138486,
+        80.2609527908126
+      ]
+    ],
+    "aliases": [
+      "egmore metro",
+      "egmore"
+    ],
+    "station_id": "METRO_202"
   },
   {
-    "name": "Chennai International Airport",
+    "name": "Nehru Park",
     "type": "Metro",
     "coordinates": [
-      12.9808092,
-      80.1642026
+      13.078611539333,
+      80.2500877161602
     ],
-    "road_distance_km": 20.6,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.078611539333,
+        80.2500877161602
+      ]
+    ],
+    "aliases": [
+      "nehru park"
+    ],
+    "station_id": "METRO_203"
   },
   {
-    "name": "\u0b9a\u0bc6\u0ba9\u0bcd\u0ba9\u0bc8 \u0bb5\u0bbf\u0bae\u0bbe\u0ba9 \u0ba8\u0bbf\u0bb2\u0bc8\u0baf\u0bae\u0bcd",
+    "name": "Kilpauk",
     "type": "Metro",
     "coordinates": [
-      12.9808178,
-      80.1641592
+      13.0774583333333,
+      80.2426277777777
     ],
-    "road_distance_km": 20.6,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0774583333333,
+        80.2426277777777
+      ]
+    ],
+    "aliases": [
+      "kilpauk"
+    ],
+    "station_id": "METRO_204"
   },
   {
-    "name": "Velachery",
-    "type": "Suburban",
-    "coordinates": [
-      12.9676192,
-      80.2195082
-    ],
-    "road_distance_km": 22.1,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Meenambakkam",
-    "type": "Suburban",
-    "coordinates": [
-      12.9846976,
-      80.1750925
-    ],
-    "road_distance_km": 22.7,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Puzhudivakkam",
-    "type": "MRTS",
-    "coordinates": [
-      12.9771578,
-      80.2054236
-    ],
-    "road_distance_km": 23.9,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Adambakkam",
-    "type": "MRTS",
-    "coordinates": [
-      12.9823811,
-      80.1968882
-    ],
-    "road_distance_km": 26.7,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "\u0bae\u0bc0\u0ba9\u0bae\u0bcd\u0baa\u0bbe\u0b95\u0bcd\u0b95\u0bae\u0bcd",
+    "name": "Pachaiyappa",
     "type": "Metro",
     "coordinates": [
-      12.9876388,
-      80.1764698
+      13.0753871698823,
+      80.2333847555819
     ],
-    "road_distance_km": 22.3,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0753871698823,
+        80.2333847555819
+      ]
+    ],
+    "aliases": [
+      "pachaiyappa"
+    ],
+    "station_id": "METRO_205"
   },
   {
-    "name": "\u0bae\u0bc0\u0ba9\u0bae\u0bcd\u0baa\u0bbe\u0b95\u0bcd\u0b95\u0bae\u0bcd",
+    "name": "Shenoy Nagar",
     "type": "Metro",
     "coordinates": [
-      12.9876709,
-      80.1764378
+      13.0783722222222,
+      80.2251166666666
     ],
-    "road_distance_km": 21.6,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0783722222222,
+        80.2251166666666
+      ]
+    ],
+    "aliases": [
+      "shenoy nagar"
+    ],
+    "station_id": "METRO_206"
   },
   {
-    "name": "Meenambakkam",
+    "name": "Anna Nagar East",
     "type": "Metro",
     "coordinates": [
-      12.9876728,
-      80.1764787
+      13.0845480398521,
+      80.2195665482508
     ],
-    "road_distance_km": 22.3,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0845480398521,
+        80.2195665482508
+      ]
+    ],
+    "aliases": [
+      "anna nagar east"
+    ],
+    "station_id": "METRO_207"
   },
   {
-    "name": "Palavanthangal",
-    "type": "Suburban",
-    "coordinates": [
-      12.9906385,
-      80.1879401
-    ],
-    "road_distance_km": 25.2,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Perungudi",
-    "type": "Suburban",
-    "coordinates": [
-      12.9760584,
-      80.2321916
-    ],
-    "road_distance_km": 28.5,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Saint Thomas Mount",
-    "type": "Suburban",
-    "coordinates": [
-      12.9947654,
-      80.1993715
-    ],
-    "road_distance_km": 27.2,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Saint Thomas Mount",
+    "name": "Anna Nagar Tower",
     "type": "Metro",
     "coordinates": [
-      12.995,
-      80.198582
+      13.084946899686,
+      80.2089036521052
     ],
-    "road_distance_km": 25.8,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.084946899686,
+        80.2089036521052
+      ]
+    ],
+    "aliases": [
+      "anna nagar tower"
+    ],
+    "station_id": "METRO_208"
   },
   {
-    "name": "Taramani",
-    "type": "Suburban",
-    "coordinates": [
-      12.9786584,
-      80.2416441
-    ],
-    "road_distance_km": 27.4,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Nanganallur Road",
+    "name": "Thirumangalam",
     "type": "Metro",
     "coordinates": [
-      12.9998483,
-      80.1940028
+      13.0852057015341,
+      80.2015389755152
     ],
-    "road_distance_km": 24.5,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Nanganallur Road",
-    "type": "Metro",
-    "coordinates": [
-      12.9998739,
-      80.1939756
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0852057015341,
+        80.2015389755152
+      ]
     ],
-    "road_distance_km": 23.9,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Nanganallur Road",
-    "type": "Metro",
-    "coordinates": [
-      12.9998798,
-      80.1940099
+    "aliases": [
+      "thirumangalam"
     ],
-    "road_distance_km": 23.9,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Regional Transport Office,Meenambakkam",
-    "type": "Metro",
-    "coordinates": [
-      12.9993186,
-      80.2009894
-    ],
-    "road_distance_km": 26.2,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Chennai Beach",
-    "type": "Suburban",
-    "coordinates": [
-      13.0924,
-      80.2929
-    ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Chennai Central",
-    "type": "Metro",
-    "coordinates": [
-      13.0825,
-      80.275
-    ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Chennai Egmore",
-    "type": "Metro",
-    "coordinates": [
-      13.0784,
-      80.2608
-    ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Guindy",
-    "type": "Metro",
-    "coordinates": [
-      13.0084,
-      80.2137
-    ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
-  },
-  {
-    "name": "Mambalam",
-    "type": "Suburban",
-    "coordinates": [
-      13.0378,
-      80.2285
-    ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "station_id": "METRO_209"
   },
   {
     "name": "Koyambedu",
     "type": "Metro",
     "coordinates": [
-      13.0732,
-      80.1947
+      13.0733611111111,
+      80.194875
     ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0733611111111,
+        80.194875
+      ]
+    ],
+    "aliases": [
+      "koyambedu"
+    ],
+    "station_id": "METRO_210"
   },
   {
-    "name": "Alandur",
+    "name": "Puratchi Thalaivi Dr.J.Jayalalithaa Cmbt Metro",
     "type": "Metro",
     "coordinates": [
-      13.0041,
-      80.2014
+      13.0684826617331,
+      80.2039458648564
     ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0684826617331,
+        80.2039458648564
+      ]
+    ],
+    "aliases": [
+      "puratchi thalaivi dr.j.jayalalithaa cmbt metro",
+      "puratchi thalaivi dr.j.jayalalithaa cmbt"
+    ],
+    "station_id": "METRO_211"
   },
   {
-    "name": "Tirumangalam",
+    "name": "Arumbakkam",
     "type": "Metro",
     "coordinates": [
-      13.0851,
-      80.1901
+      13.0620055555555,
+      80.2117027777777
     ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0620055555555,
+        80.2117027777777
+      ]
+    ],
+    "aliases": [
+      "arumbakkam"
+    ],
+    "station_id": "METRO_212"
   },
   {
     "name": "Vadapalani",
     "type": "Metro",
     "coordinates": [
-      13.0503,
-      80.212
+      13.0506972222222,
+      80.212075
     ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0506972222222,
+        80.212075
+      ]
+    ],
+    "aliases": [
+      "vadapalani"
+    ],
+    "station_id": "METRO_213"
   },
   {
-    "name": "Teynampet",
+    "name": "Ashok Nagar",
     "type": "Metro",
     "coordinates": [
-      13.0398,
-      80.249
+      13.0354926945213,
+      80.2110574620364
     ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0354926945213,
+        80.2110574620364
+      ]
+    ],
+    "aliases": [
+      "ashok nagar"
+    ],
+    "station_id": "METRO_214"
+  },
+  {
+    "name": "Ekkattuthangal",
+    "type": "Metro",
+    "coordinates": [
+      13.0165209328502,
+      80.2052816905165
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0165209328502,
+        80.2052816905165
+      ]
+    ],
+    "aliases": [
+      "ekkattuthangal"
+    ],
+    "station_id": "METRO_215"
+  },
+  {
+    "name": "Arignar Anna Alandur",
+    "type": "Metro",
+    "coordinates": [
+      13.0041955899379,
+      80.2015729878512
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0041955899379,
+        80.2015729878512
+      ]
+    ],
+    "aliases": [
+      "arignar anna alandur"
+    ],
+    "station_id": "METRO_114"
+  },
+  {
+    "name": "St.Thomas Mount",
+    "type": "Metro",
+    "coordinates": [
+      12.9947486116903,
+      80.1975543240622
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.9947486116903,
+        80.1975543240622
+      ]
+    ],
+    "aliases": [
+      "st.thomas mount"
+    ],
+    "station_id": "METRO_217"
+  },
+  {
+    "name": "Washermenpet Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1072181538364,
+      80.28078720715
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1072181538364,
+        80.28078720715
+      ]
+    ],
+    "aliases": [
+      "washermenpet metro",
+      "washermenpet"
+    ],
+    "station_id": "METRO_101"
+  },
+  {
+    "name": "Mannadi",
+    "type": "Metro",
+    "coordinates": [
+      13.0954195481676,
+      80.2860944786235
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0954195481676,
+        80.2860944786235
+      ]
+    ],
+    "aliases": [
+      "mannadi"
+    ],
+    "station_id": "METRO_102"
+  },
+  {
+    "name": "High Court",
+    "type": "Metro",
+    "coordinates": [
+      13.0870682009495,
+      80.2850252375623
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0870682009495,
+        80.2850252375623
+      ]
+    ],
+    "aliases": [
+      "high court"
+    ],
+    "station_id": "METRO_103"
+  },
+  {
+    "name": "Government Estate",
+    "type": "Metro",
+    "coordinates": [
+      13.0695605560349,
+      80.2728393302093
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0695605560349,
+        80.2728393302093
+      ]
+    ],
+    "aliases": [
+      "government estate"
+    ],
+    "station_id": "METRO_105"
+  },
+  {
+    "name": "Lic",
+    "type": "Metro",
+    "coordinates": [
+      13.064554966336,
+      80.2661008897026
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.064554966336,
+        80.2661008897026
+      ]
+    ],
+    "aliases": [
+      "lic"
+    ],
+    "station_id": "METRO_106"
   },
   {
     "name": "Thousand Lights",
     "type": "Metro",
     "coordinates": [
-      13.0592,
-      80.2584
+      13.0583556960582,
+      80.2585174189927
     ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0583556960582,
+        80.2585174189927
+      ]
+    ],
+    "aliases": [
+      "thousand lights"
+    ],
+    "station_id": "METRO_107"
   },
   {
-    "name": "LIC",
+    "name": "Ag-Dms",
     "type": "Metro",
     "coordinates": [
-      13.0649,
-      80.2657
+      13.0446825453354,
+      80.2480328953418
     ],
-    "road_distance_km": 0,
-    "operational_status": "Operational"
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0446825453354,
+        80.2480328953418
+      ]
+    ],
+    "aliases": [
+      "ag-dms"
+    ],
+    "station_id": "METRO_108"
+  },
+  {
+    "name": "Teynampet",
+    "type": "Metro",
+    "coordinates": [
+      13.0371184281625,
+      80.2464608951659
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0371184281625,
+        80.2464608951659
+      ]
+    ],
+    "aliases": [
+      "teynampet"
+    ],
+    "station_id": "METRO_109"
+  },
+  {
+    "name": "Nandanam",
+    "type": "Metro",
+    "coordinates": [
+      13.0316511399874,
+      80.2410427600109
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0316511399874,
+        80.2410427600109
+      ]
+    ],
+    "aliases": [
+      "nandanam"
+    ],
+    "station_id": "METRO_110"
+  },
+  {
+    "name": "Saidapet Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.0235991970907,
+      80.2283601008055
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0235991970907,
+        80.2283601008055
+      ]
+    ],
+    "aliases": [
+      "saidapet metro",
+      "saidapet"
+    ],
+    "station_id": "METRO_111"
+  },
+  {
+    "name": "Little Mount",
+    "type": "Metro",
+    "coordinates": [
+      13.0144841144851,
+      80.2239765743067
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0144841144851,
+        80.2239765743067
+      ]
+    ],
+    "aliases": [
+      "little mount"
+    ],
+    "station_id": "METRO_112"
+  },
+  {
+    "name": "Guindy Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.0091657741096,
+      80.2130302370042
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0091657741096,
+        80.2130302370042
+      ]
+    ],
+    "aliases": [
+      "guindy metro",
+      "guindy"
+    ],
+    "station_id": "METRO_113"
+  },
+  {
+    "name": "Nanganallur Road",
+    "type": "Metro",
+    "coordinates": [
+      12.9999661022836,
+      80.1941563192857
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.9999661022836,
+        80.1941563192857
+      ]
+    ],
+    "aliases": [
+      "nanganallur road"
+    ],
+    "station_id": "METRO_115"
+  },
+  {
+    "name": "Meenambakkam Metro",
+    "type": "Metro",
+    "coordinates": [
+      12.987750855203,
+      80.1765865612356
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.987750855203,
+        80.1765865612356
+      ]
+    ],
+    "aliases": [
+      "meenambakkam metro",
+      "meenambakkam"
+    ],
+    "station_id": "METRO_116"
+  },
+  {
+    "name": "Airport",
+    "type": "Metro",
+    "coordinates": [
+      12.9809762425917,
+      80.1642541413904
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.9809762425917,
+        80.1642541413904
+      ]
+    ],
+    "aliases": [
+      "airport"
+    ],
+    "station_id": "METRO_117"
+  },
+  {
+    "name": "Wimco Nagar Depot Station",
+    "type": "Metro",
+    "coordinates": [
+      13.1842801653482,
+      80.3091081576299
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1842801653482,
+        80.3091081576299
+      ]
+    ],
+    "aliases": [
+      "wimco nagar depot station",
+      "wimco nagar depot"
+    ],
+    "station_id": "METRO_141"
+  },
+  {
+    "name": "Wimco Nagar Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1789919458751,
+      80.3071594214505
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1789919458751,
+        80.3071594214505
+      ]
+    ],
+    "aliases": [
+      "wimco nagar metro",
+      "wimco nagar"
+    ],
+    "station_id": "METRO_142"
+  },
+  {
+    "name": "Thiruvotriyur Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1722674850635,
+      80.3053604844178
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1722674850635,
+        80.3053604844178
+      ]
+    ],
+    "aliases": [
+      "thiruvotriyur metro",
+      "thiruvotriyur"
+    ],
+    "station_id": "METRO_143"
+  },
+  {
+    "name": "Thiruvotriyur Theradi Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1598262414011,
+      80.3023357301322
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1598262414011,
+        80.3023357301322
+      ]
+    ],
+    "aliases": [
+      "thiruvotriyur theradi metro",
+      "thiruvotriyur theradi"
+    ],
+    "station_id": "METRO_144"
+  },
+  {
+    "name": "Kaladipet Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1510453452113,
+      80.2994119801748
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1510453452113,
+        80.2994119801748
+      ]
+    ],
+    "aliases": [
+      "kaladipet metro",
+      "kaladipet"
+    ],
+    "station_id": "METRO_145"
+  },
+  {
+    "name": "Tollgate Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1435188709634,
+      80.2963194179969
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1435188709634,
+        80.2963194179969
+      ]
+    ],
+    "aliases": [
+      "tollgate metro",
+      "tollgate"
+    ],
+    "station_id": "METRO_146"
+  },
+  {
+    "name": "New Washermenpet Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1347733580718,
+      80.2929550158724
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1347733580718,
+        80.2929550158724
+      ]
+    ],
+    "aliases": [
+      "new washermenpet metro",
+      "new washermenpet"
+    ],
+    "station_id": "METRO_147"
+  },
+  {
+    "name": "Tondiarpet Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1238111748783,
+      80.2881989835829
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1238111748783,
+        80.2881989835829
+      ]
+    ],
+    "aliases": [
+      "tondiarpet metro",
+      "tondiarpet"
+    ],
+    "station_id": "METRO_148"
+  },
+  {
+    "name": "Thiyagaraya College Metro",
+    "type": "Metro",
+    "coordinates": [
+      13.1165979211328,
+      80.2851276046741
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1165979211328,
+        80.2851276046741
+      ]
+    ],
+    "aliases": [
+      "thiyagaraya college metro",
+      "thiyagaraya college"
+    ],
+    "station_id": "METRO_149"
+  },
+  {
+    "name": "Chennai Beach",
+    "type": "Suburban",
+    "coordinates": [
+      13.092295629904,
+      80.291892662644
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.09421216,
+        80.29245809
+      ],
+      [
+        13.09126019,
+        80.29145809
+      ]
+    ],
+    "aliases": [
+      "chennai beach",
+      "chennai beach",
+      "msb"
+    ],
+    "station_id": "SRR_MSB"
+  },
+  {
+    "name": "Tambaram",
+    "type": "Suburban",
+    "coordinates": [
+      12.92534508,
+      80.11891922
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.92471366,
+        80.11904648
+      ],
+      [
+        12.92478114,
+        80.11910802
+      ],
+      [
+        12.92586076,
+        80.11785572
+      ],
+      [
+        12.92724477,
+        80.11798187
+      ],
+      [
+        12.92689689,
+        80.11831572
+      ]
+    ],
+    "aliases": [
+      "tambaram",
+      "tambaram",
+      "tbm"
+    ],
+    "station_id": "SRR_TBM"
+  },
+  {
+    "name": "Chennai Egmore",
+    "type": "Suburban",
+    "coordinates": [
+      13.07825171,
+      80.26103334
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.07735337,
+        80.2603929
+      ],
+      [
+        13.077664,
+        80.26134018
+      ],
+      [
+        13.07778504,
+        80.26175025
+      ],
+      [
+        13.07801126,
+        80.26247073
+      ],
+      [
+        13.07874026,
+        80.26083345
+      ],
+      [
+        13.07891806,
+        80.26223874
+      ],
+      [
+        13.07916396,
+        80.26310469
+      ],
+      [
+        13.07912261,
+        80.26235928
+      ]
+    ],
+    "aliases": [
+      "chennai egmore",
+      "chennai egmore",
+      "ms"
+    ],
+    "station_id": "SRR_MS"
+  },
+  {
+    "name": "Tiruvallur",
+    "type": "Suburban",
+    "coordinates": [
+      13.117196,
+      79.91586
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11605493,
+        79.91181623
+      ]
+    ],
+    "aliases": [
+      "tiruvallur",
+      "tiruvallur",
+      "trl"
+    ],
+    "station_id": "SRR_TRL"
+  },
+  {
+    "name": "Velachery",
+    "type": "MRTS",
+    "coordinates": [
+      12.967256,
+      80.22054
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.96781097,
+        80.2183957
+      ],
+      [
+        12.96714067,
+        80.21822584
+      ]
+    ],
+    "aliases": [
+      "velachery",
+      "velachery",
+      "vlcy"
+    ],
+    "station_id": "SRR_VLCY"
+  },
+  {
+    "name": "Guindy",
+    "type": "Suburban",
+    "coordinates": [
+      13.00828343,
+      80.21249612
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.00828742,
+        80.21314363
+      ],
+      [
+        13.00872563,
+        80.21248617
+      ]
+    ],
+    "aliases": [
+      "guindy",
+      "guindy",
+      "gdy"
+    ],
+    "station_id": "SRR_GDY"
+  },
+  {
+    "name": "Kodambakkam",
+    "type": "Suburban",
+    "coordinates": [
+      13.05278802,
+      80.2308973
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.05109233,
+        80.23088886
+      ],
+      [
+        13.05119027,
+        80.23048064
+      ],
+      [
+        13.05186986,
+        80.2305687
+      ]
+    ],
+    "aliases": [
+      "kodambakkam",
+      "kodambakkam",
+      "mkk"
+    ],
+    "station_id": "SRR_MKK"
+  },
+  {
+    "name": "Chengalpattu",
+    "type": "Suburban",
+    "coordinates": [
+      12.69411,
+      79.98084
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.69357649,
+        79.98048766
+      ]
+    ],
+    "aliases": [
+      "chengalpattu",
+      "chengalpattu",
+      "cgl"
+    ],
+    "station_id": "SRR_CGL"
+  },
+  {
+    "name": "Avadi",
+    "type": "Suburban",
+    "coordinates": [
+      13.118147,
+      80.101785
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11865001,
+        80.10238259
+      ],
+      [
+        13.11792782,
+        80.10234259
+      ]
+    ],
+    "aliases": [
+      "avadi",
+      "avadi",
+      "avd"
+    ],
+    "station_id": "SRR_AVD"
+  },
+  {
+    "name": "Palavantangal",
+    "type": "Suburban",
+    "coordinates": [
+      12.99104415,
+      80.1891505
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.98959496,
+        80.18604768
+      ],
+      [
+        12.98989426,
+        80.18590206
+      ],
+      [
+        12.98919296,
+        80.18530837
+      ],
+      [
+        12.98958863,
+        80.1852524
+      ],
+      [
+        12.9905149,
+        80.18827519
+      ]
+    ],
+    "aliases": [
+      "palavantangal",
+      "palavantangal",
+      "pza"
+    ],
+    "station_id": "SRR_PZA"
+  },
+  {
+    "name": "Arakkonam",
+    "type": "Suburban",
+    "coordinates": [
+      13.081652,
+      79.669611
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.08243552,
+        79.66857848
+      ],
+      [
+        13.08088604,
+        79.6686031
+      ],
+      [
+        13.08221524,
+        79.66410927
+      ],
+      [
+        13.08234111,
+        79.66436773
+      ]
+    ],
+    "aliases": [
+      "arakkonam",
+      "arakkonam",
+      "ajj"
+    ],
+    "station_id": "SRR_AJJ"
+  },
+  {
+    "name": "Potheri",
+    "type": "Suburban",
+    "coordinates": [
+      12.820981,
+      80.036813
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.82076463,
+        80.03698596
+      ],
+      [
+        12.82062962,
+        80.0375298
+      ]
+    ],
+    "aliases": [
+      "potheri",
+      "potheri",
+      "poti"
+    ],
+    "station_id": "SRR_POTI"
+  },
+  {
+    "name": "Perambur",
+    "type": "Suburban",
+    "coordinates": [
+      13.107617,
+      80.246783
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10794288,
+        80.24446063
+      ],
+      [
+        13.10734952,
+        80.2448514
+      ]
+    ],
+    "aliases": [
+      "perambur",
+      "perambur",
+      "per"
+    ],
+    "station_id": "SRR_PER"
+  },
+  {
+    "name": "Villivakkam",
+    "type": "Suburban",
+    "coordinates": [
+      13.110224,
+      80.209119
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11052456,
+        80.20934151
+      ],
+      [
+        13.11002561,
+        80.20886305
+      ]
+    ],
+    "aliases": [
+      "villivakkam",
+      "villivakkam",
+      "vlk"
+    ],
+    "station_id": "SRR_VLK"
+  },
+  {
+    "name": "Chromepet",
+    "type": "Suburban",
+    "coordinates": [
+      12.95127604,
+      80.14084709
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.95150793,
+        80.14115373
+      ],
+      [
+        12.95149368,
+        80.14062603
+      ],
+      [
+        12.95240077,
+        80.14077834
+      ]
+    ],
+    "aliases": [
+      "chromepet",
+      "chromepet",
+      "cmp"
+    ],
+    "station_id": "SRR_CMP"
+  },
+  {
+    "name": "Tiruninravur",
+    "type": "Suburban",
+    "coordinates": [
+      13.124014,
+      80.026914
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.12346702,
+        80.02947896
+      ],
+      [
+        13.12341832,
+        80.0297205
+      ]
+    ],
+    "aliases": [
+      "tiruninravur",
+      "tiruninravur",
+      "ti"
+    ],
+    "station_id": "SRR_TI"
+  },
+  {
+    "name": "Ambattur",
+    "type": "Suburban",
+    "coordinates": [
+      13.114245,
+      80.153109
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11396776,
+        80.15233783
+      ]
+    ],
+    "aliases": [
+      "ambattur",
+      "ambattur",
+      "abu"
+    ],
+    "station_id": "SRR_ABU"
+  },
+  {
+    "name": "Mambalam",
+    "type": "Suburban",
+    "coordinates": [
+      13.04150247,
+      80.22877073
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.03705459,
+        80.22772673
+      ],
+      [
+        13.03756813,
+        80.22789057
+      ],
+      [
+        13.04246307,
+        80.22922964
+      ],
+      [
+        13.03725228,
+        80.22737795
+      ],
+      [
+        13.03816004,
+        80.22760202
+      ]
+    ],
+    "aliases": [
+      "mambalam",
+      "mambalam",
+      "mbm"
+    ],
+    "station_id": "SRR_MBM"
+  },
+  {
+    "name": "Pallavaram",
+    "type": "Suburban",
+    "coordinates": [
+      12.96818726,
+      80.15260422
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.96703843,
+        80.15212185
+      ],
+      [
+        12.96730648,
+        80.15230666
+      ],
+      [
+        12.96759687,
+        80.15193131
+      ],
+      [
+        12.96713895,
+        80.15227944
+      ],
+      [
+        12.96752009,
+        80.15177229
+      ]
+    ],
+    "aliases": [
+      "pallavaram",
+      "pallavaram",
+      "pv"
+    ],
+    "station_id": "SRR_PV"
+  },
+  {
+    "name": "Saidapet",
+    "type": "Suburban",
+    "coordinates": [
+      13.02381606,
+      80.22398619
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.02336205,
+        80.22414704
+      ],
+      [
+        13.02342875,
+        80.22362906
+      ]
+    ],
+    "aliases": [
+      "saidapet",
+      "saidapet",
+      "sp"
+    ],
+    "station_id": "SRR_SP"
+  },
+  {
+    "name": "Guduvancheri",
+    "type": "Suburban",
+    "coordinates": [
+      12.844676,
+      80.0568
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.8450636,
+        80.0575782
+      ]
+    ],
+    "aliases": [
+      "guduvancheri",
+      "guduvancheri",
+      "gi"
+    ],
+    "station_id": "SRR_GI"
+  },
+  {
+    "name": "St. Thomas Mount",
+    "type": "Suburban",
+    "coordinates": [
+      12.99484802,
+      80.19882424
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.99443668,
+        80.19893425
+      ],
+      [
+        12.99479994,
+        80.19984909
+      ],
+      [
+        12.99557176,
+        80.20073246
+      ]
+    ],
+    "aliases": [
+      "st. thomas mount",
+      "st. thomas mount",
+      "stm"
+    ],
+    "station_id": "SRR_STM"
+  },
+  {
+    "name": "Nungambakkam",
+    "type": "Suburban",
+    "coordinates": [
+      13.06527764,
+      80.23285281
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.06579194,
+        80.23311039
+      ],
+      [
+        13.06568367,
+        80.23263042
+      ],
+      [
+        13.06590832,
+        80.23262234
+      ]
+    ],
+    "aliases": [
+      "nungambakkam",
+      "nungambakkam",
+      "nbk"
+    ],
+    "station_id": "SRR_NBK"
+  },
+  {
+    "name": "Tirusulam",
+    "type": "Suburban",
+    "coordinates": [
+      12.98009969,
+      80.16540747
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.98046503,
+        80.16577204
+      ],
+      [
+        12.98094339,
+        80.16523808
+      ]
+    ],
+    "aliases": [
+      "tirusulam",
+      "tirusulam",
+      "tlm"
+    ],
+    "station_id": "SRR_TLM"
+  },
+  {
+    "name": "Chennai Park",
+    "type": "Suburban",
+    "coordinates": [
+      13.080734135583,
+      80.272890301421
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.08074106,
+        80.2734968
+      ],
+      [
+        13.08088192,
+        80.27315218
+      ]
+    ],
+    "aliases": [
+      "chennai park",
+      "chennai park",
+      "mpk"
+    ],
+    "station_id": "SRR_MPK"
+  },
+  {
+    "name": "Chennai Chetpat",
+    "type": "Suburban",
+    "coordinates": [
+      13.07441652,
+      80.2436481
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.07370943,
+        80.24191588
+      ],
+      [
+        13.07400496,
+        80.24139921
+      ]
+    ],
+    "aliases": [
+      "chennai chetpat",
+      "chennai chetpat",
+      "msc"
+    ],
+    "station_id": "SRR_MSC"
+  },
+  {
+    "name": "Ponneri",
+    "type": "Suburban",
+    "coordinates": [
+      13.332605,
+      80.19901
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.3319568,
+        80.19898538
+      ]
+    ],
+    "aliases": [
+      "ponneri",
+      "ponneri",
+      "pon"
+    ],
+    "station_id": "SRR_PON"
+  },
+  {
+    "name": "Perungalattur",
+    "type": "Suburban",
+    "coordinates": [
+      12.904692,
+      80.09451
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.90441287,
+        80.09441809
+      ],
+      [
+        12.90449385,
+        80.09430579
+      ]
+    ],
+    "aliases": [
+      "perungalattur",
+      "perungalattur",
+      "prgl"
+    ],
+    "station_id": "SRR_PRGL"
+  },
+  {
+    "name": "Pattabiram",
+    "type": "Suburban",
+    "coordinates": [
+      13.118774,
+      80.065237
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.1186178,
+        80.06490885
+      ]
+    ],
+    "aliases": [
+      "pattabiram",
+      "pattabiram",
+      "pab"
+    ],
+    "station_id": "SRR_PAB"
+  },
+  {
+    "name": "Minjur",
+    "type": "Suburban",
+    "coordinates": [
+      13.282025,
+      80.259837
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.28103336,
+        80.26055751
+      ],
+      [
+        13.28147806,
+        80.26080828
+      ]
+    ],
+    "aliases": [
+      "minjur",
+      "minjur",
+      "mjr"
+    ],
+    "station_id": "SRR_MJR"
+  },
+  {
+    "name": "Chennai Fort",
+    "type": "MRTS",
+    "coordinates": [
+      13.082692231983,
+      80.282178372145
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.08221861,
+        80.28243985
+      ],
+      [
+        13.08271462,
+        80.28185831
+      ],
+      [
+        13.08481255,
+        80.28324138
+      ]
+    ],
+    "aliases": [
+      "chennai fort",
+      "chennai fort",
+      "msf"
+    ],
+    "station_id": "SRR_MSF"
+  },
+  {
+    "name": "Veppampattu",
+    "type": "Suburban",
+    "coordinates": [
+      13.123821,
+      79.998751
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.12360186,
+        79.99721136
+      ],
+      [
+        13.12394647,
+        79.99724828
+      ]
+    ],
+    "aliases": [
+      "veppampattu",
+      "veppampattu",
+      "veu"
+    ],
+    "station_id": "SRR_VEU"
+  },
+  {
+    "name": "Gummidipundi",
+    "type": "Suburban",
+    "coordinates": [
+      13.409115,
+      80.123624
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.40978131,
+        80.12304022
+      ],
+      [
+        13.41008361,
+        80.1236033
+      ]
+    ],
+    "aliases": [
+      "gummidipundi",
+      "gummidipundi",
+      "gpd"
+    ],
+    "station_id": "SRR_GPD"
+  },
+  {
+    "name": "Vandalur",
+    "type": "Suburban",
+    "coordinates": [
+      12.890356,
+      80.083928
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.8908906,
+        80.08465966
+      ],
+      [
+        12.89176042,
+        80.08447658
+      ]
+    ],
+    "aliases": [
+      "vandalur",
+      "vandalur",
+      "vdr"
+    ],
+    "station_id": "SRR_VDR"
+  },
+  {
+    "name": "Tambaram Sanatorium",
+    "type": "Suburban",
+    "coordinates": [
+      12.93794896,
+      80.13151066
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.93666798,
+        80.13090453
+      ],
+      [
+        12.93692587,
+        80.13052299
+      ]
+    ],
+    "aliases": [
+      "tambaram sanatorium",
+      "tambaram sanatorium",
+      "tbms"
+    ],
+    "station_id": "SRR_TBMS"
+  },
+  {
+    "name": "Basin Bridge",
+    "type": "Suburban",
+    "coordinates": [
+      13.102079,
+      80.271368
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10305514,
+        80.27099594
+      ],
+      [
+        13.10333984,
+        80.27095902
+      ]
+    ],
+    "aliases": [
+      "basin bridge",
+      "basin bridge",
+      "bbq"
+    ],
+    "station_id": "SRR_BBQ"
+  },
+  {
+    "name": "Annanur",
+    "type": "Suburban",
+    "coordinates": [
+      13.116517,
+      80.127255
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11682506,
+        80.12622867
+      ]
+    ],
+    "aliases": [
+      "annanur",
+      "annanur",
+      "annr"
+    ],
+    "station_id": "SRR_ANNR"
+  },
+  {
+    "name": "Tiruvanmiyur",
+    "type": "MRTS",
+    "coordinates": [
+      12.990599,
+      80.251031
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.98948673,
+        80.25122126
+      ]
+    ],
+    "aliases": [
+      "tiruvanmiyur",
+      "tiruvanmiyur",
+      "tymr"
+    ],
+    "station_id": "SRR_TYMR"
+  },
+  {
+    "name": "Pattaravakkam",
+    "type": "Suburban",
+    "coordinates": [
+      13.114582,
+      80.166268
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11487575,
+        80.16642625
+      ]
+    ],
+    "aliases": [
+      "pattaravakkam",
+      "pattaravakkam",
+      "pvm"
+    ],
+    "station_id": "SRR_PVM"
+  },
+  {
+    "name": "Hindu College",
+    "type": "Suburban",
+    "coordinates": [
+      13.118654,
+      80.074979
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11885378,
+        80.07431652
+      ],
+      [
+        13.11843051,
+        80.0740719
+      ],
+      [
+        13.11879085,
+        80.0740596
+      ],
+      [
+        13.11840204,
+        80.07409498
+      ]
+    ],
+    "aliases": [
+      "hindu college",
+      "hindu college",
+      "hc"
+    ],
+    "station_id": "SRR_HC"
+  },
+  {
+    "name": "Washermanpet",
+    "type": "Suburban",
+    "coordinates": [
+      13.108552,
+      80.283183
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10885763,
+        80.28107129
+      ]
+    ],
+    "aliases": [
+      "washermanpet",
+      "washermanpet",
+      "wst"
+    ],
+    "station_id": "SRR_WST"
+  },
+  {
+    "name": "Vyasarpadi Jeeva",
+    "type": "Suburban",
+    "coordinates": [
+      13.108968,
+      80.258128
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10924046,
+        80.2571806
+      ],
+      [
+        13.10880294,
+        80.2573129
+      ]
+    ],
+    "aliases": [
+      "vyasarpadi jeeva",
+      "vyasarpadi jeeva",
+      "vjm"
+    ],
+    "station_id": "SRR_VJM"
+  },
+  {
+    "name": "Chepauk",
+    "type": "MRTS",
+    "coordinates": [
+      13.062746,
+      80.280611
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.06184968,
+        80.28046583
+      ],
+      [
+        13.0618196,
+        80.28070307
+      ]
+    ],
+    "aliases": [
+      "chepauk",
+      "chepauk",
+      "mcpk"
+    ],
+    "station_id": "SRR_MCPK"
+  },
+  {
+    "name": "Taramani",
+    "type": "MRTS",
+    "coordinates": [
+      12.978686,
+      80.24167
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.97830028,
+        80.24096819
+      ]
+    ],
+    "aliases": [
+      "taramani",
+      "taramani",
+      "trmn"
+    ],
+    "station_id": "SRR_TRMN"
+  },
+  {
+    "name": "Singaperumalkoil",
+    "type": "Suburban",
+    "coordinates": [
+      12.761822,
+      80.000699
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.76213534,
+        80.00121529
+      ]
+    ],
+    "aliases": [
+      "singaperumalkoil",
+      "singaperumalkoil",
+      "skl"
+    ],
+    "station_id": "SRR_SKL"
+  },
+  {
+    "name": "Ennore",
+    "type": "Suburban",
+    "coordinates": [
+      13.217914,
+      80.321748
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.21761397,
+        80.32148348
+      ]
+    ],
+    "aliases": [
+      "ennore",
+      "ennore",
+      "enr"
+    ],
+    "station_id": "SRR_ENR"
+  },
+  {
+    "name": "Maraimalai Nagar Kamarajar",
+    "type": "Suburban",
+    "coordinates": [
+      12.79676,
+      80.020001
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.7963988,
+        80.02023677
+      ],
+      [
+        12.79607925,
+        80.02114293
+      ]
+    ],
+    "aliases": [
+      "maraimalai nagar kamarajar",
+      "maraimalai nagar kamarajar",
+      "mmnk"
+    ],
+    "station_id": "SRR_MMNK"
+  },
+  {
+    "name": "Kanchipuram",
+    "type": "Suburban",
+    "coordinates": [
+      12.84828692,
+      79.70498241
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.84817712,
+        79.70508299
+      ]
+    ],
+    "aliases": [
+      "kanchipuram",
+      "kanchipuram",
+      "cj"
+    ],
+    "station_id": "SRR_CJ"
+  },
+  {
+    "name": "Korukkupet",
+    "type": "Suburban",
+    "coordinates": [
+      13.120671,
+      80.278682
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11882213,
+        80.278149
+      ]
+    ],
+    "aliases": [
+      "korukkupet",
+      "korukkupet",
+      "kok"
+    ],
+    "station_id": "SRR_KOK"
+  },
+  {
+    "name": "Kadambattur",
+    "type": "Suburban",
+    "coordinates": [
+      13.100054,
+      79.863106
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.09976987,
+        79.86285637
+      ]
+    ],
+    "aliases": [
+      "kadambattur",
+      "kadambattur",
+      "kbt"
+    ],
+    "station_id": "SRR_KBT"
+  },
+  {
+    "name": "Tiruvottiyur",
+    "type": "Suburban",
+    "coordinates": [
+      13.159532,
+      80.296353
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.15776899,
+        80.29592356
+      ],
+      [
+        13.1579907,
+        80.29544664
+      ]
+    ],
+    "aliases": [
+      "tiruvottiyur",
+      "tiruvottiyur",
+      "tvt"
+    ],
+    "station_id": "SRR_TVT"
+  },
+  {
+    "name": "Thirumayilai",
+    "type": "Suburban",
+    "coordinates": [
+      13.03541,
+      80.267473
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.03551374,
+        80.26766563
+      ]
+    ],
+    "aliases": [
+      "thirumayilai",
+      "thirumayilai",
+      "mtmy"
+    ],
+    "station_id": "SRR_MTMY"
+  },
+  {
+    "name": "Korattur",
+    "type": "Suburban",
+    "coordinates": [
+      13.11326,
+      80.184464
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11361115,
+        80.18397081
+      ],
+      [
+        13.11310322,
+        80.18420312
+      ]
+    ],
+    "aliases": [
+      "korattur",
+      "korattur",
+      "kotr"
+    ],
+    "station_id": "SRR_KOTR"
+  },
+  {
+    "name": "Putlur Halt",
+    "type": "Suburban",
+    "coordinates": [
+      13.123063,
+      79.936792
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.12367528,
+        79.93814846
+      ]
+    ],
+    "aliases": [
+      "putlur halt",
+      "putlur halt",
+      "ptlr"
+    ],
+    "station_id": "SRR_PTLR"
+  },
+  {
+    "name": "Minambakkam",
+    "type": "Suburban",
+    "coordinates": [
+      12.98469755,
+      80.17524851
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.98536036,
+        80.17659656
+      ],
+      [
+        12.98511518,
+        80.17569774
+      ]
+    ],
+    "aliases": [
+      "minambakkam",
+      "minambakkam",
+      "mn"
+    ],
+    "station_id": "SRR_MN"
+  },
+  {
+    "name": "Wimco Nagar",
+    "type": "Suburban",
+    "coordinates": [
+      13.181026,
+      80.306223
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.17959037,
+        80.30582814
+      ],
+      [
+        13.1796428,
+        80.30548815
+      ]
+    ],
+    "aliases": [
+      "wimco nagar",
+      "wimco nagar",
+      "wcn"
+    ],
+    "station_id": "SRR_WCN"
+  },
+  {
+    "name": "Kavaraippettai",
+    "type": "Suburban",
+    "coordinates": [
+      13.36353,
+      80.147383
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.36314246,
+        80.14776938
+      ]
+    ],
+    "aliases": [
+      "kavaraippettai",
+      "kavaraippettai",
+      "kvp"
+    ],
+    "station_id": "SRR_KVP"
+  },
+  {
+    "name": "Perambur Loco Works",
+    "type": "Suburban",
+    "coordinates": [
+      13.108325,
+      80.225518
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10855796,
+        80.22433146
+      ],
+      [
+        13.10835268,
+        80.22430531
+      ]
+    ],
+    "aliases": [
+      "perambur loco works",
+      "perambur loco works",
+      "pew"
+    ],
+    "station_id": "SRR_PEW"
+  },
+  {
+    "name": "Tiruvalangadu",
+    "type": "Suburban",
+    "coordinates": [
+      13.090378,
+      79.763489
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.09073422,
+        79.76378128
+      ],
+      [
+        13.09019627,
+        79.76381051
+      ]
+    ],
+    "aliases": [
+      "tiruvalangadu",
+      "tiruvalangadu",
+      "to"
+    ],
+    "station_id": "SRR_TO"
+  },
+  {
+    "name": "Sevvapet Road",
+    "type": "Suburban",
+    "coordinates": [
+      13.125012,
+      79.966714
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.12538181,
+        79.96607761
+      ]
+    ],
+    "aliases": [
+      "sevvapet road",
+      "sevvapet road",
+      "svr"
+    ],
+    "station_id": "SRR_SVR"
+  },
+  {
+    "name": "Light House",
+    "type": "MRTS",
+    "coordinates": [
+      13.045875,
+      80.276974
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.04515368,
+        80.27699222
+      ]
+    ],
+    "aliases": [
+      "light house",
+      "light house",
+      "mlhs"
+    ],
+    "station_id": "SRR_MLHS"
+  },
+  {
+    "name": "Mandaveli",
+    "type": "MRTS",
+    "coordinates": [
+      13.028885,
+      80.260853
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.02795976,
+        80.26080194
+      ]
+    ],
+    "aliases": [
+      "mandaveli",
+      "mandaveli",
+      "mndy"
+    ],
+    "station_id": "SRR_MNDY"
+  },
+  {
+    "name": "Attippattu",
+    "type": "Suburban",
+    "coordinates": [
+      13.261438,
+      80.289153
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.26116174,
+        80.28902512
+      ]
+    ],
+    "aliases": [
+      "attippattu",
+      "attippattu",
+      "aip"
+    ],
+    "station_id": "SRR_AIP"
+  },
+  {
+    "name": "Urappakkam",
+    "type": "Suburban",
+    "coordinates": [
+      12.867348,
+      80.071818
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.86695752,
+        80.07218277
+      ],
+      [
+        12.86739547,
+        80.07168124
+      ]
+    ],
+    "aliases": [
+      "urappakkam",
+      "urappakkam",
+      "upm"
+    ],
+    "station_id": "SRR_UPM"
+  },
+  {
+    "name": "Anuppambattu",
+    "type": "Suburban",
+    "coordinates": [
+      13.304406,
+      80.230971
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.30419566,
+        80.2309699
+      ]
+    ],
+    "aliases": [
+      "anuppambattu",
+      "anuppambattu",
+      "apb"
+    ],
+    "station_id": "SRR_APB"
+  },
+  {
+    "name": "Tiruvallikeni",
+    "type": "MRTS",
+    "coordinates": [
+      13.055982,
+      80.28049
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.05519699,
+        80.28079431
+      ],
+      [
+        13.05531425,
+        80.28048899
+      ]
+    ],
+    "aliases": [
+      "tiruvallikeni",
+      "tiruvallikeni",
+      "mtcn"
+    ],
+    "station_id": "SRR_MTCN"
+  },
+  {
+    "name": "Tondiarpet",
+    "type": "Suburban",
+    "coordinates": [
+      13.126956,
+      80.281541
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.12808972,
+        80.28171129
+      ]
+    ],
+    "aliases": [
+      "tondiarpet",
+      "tondiarpet",
+      "tnp"
+    ],
+    "station_id": "SRR_TNP"
+  },
+  {
+    "name": "Kattangulatur",
+    "type": "Suburban",
+    "coordinates": [
+      12.80593,
+      80.026348
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.80565815,
+        80.02680752
+      ]
+    ],
+    "aliases": [
+      "kattangulatur",
+      "kattangulatur",
+      "ctm"
+    ],
+    "station_id": "SRR_CTM"
+  },
+  {
+    "name": "Voc Nagar",
+    "type": "Suburban",
+    "coordinates": [
+      13.140246,
+      80.287614
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.14145599,
+        80.28840973
+      ]
+    ],
+    "aliases": [
+      "voc nagar",
+      "voc nagar",
+      "voc"
+    ],
+    "station_id": "SRR_VOC"
+  },
+  {
+    "name": "Chintadaripet",
+    "type": "Suburban",
+    "coordinates": [
+      13.074676,
+      80.273723
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.07373246,
+        80.27374883
+      ]
+    ],
+    "aliases": [
+      "chintadaripet",
+      "chintadaripet",
+      "mcpt"
+    ],
+    "station_id": "SRR_MCPT"
+  },
+  {
+    "name": "Manavur",
+    "type": "Suburban",
+    "coordinates": [
+      13.096637,
+      79.801608
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.09690937,
+        79.80132117
+      ]
+    ],
+    "aliases": [
+      "manavur",
+      "manavur",
+      "maf"
+    ],
+    "station_id": "SRR_MAF"
+  },
+  {
+    "name": "Kotturpuram",
+    "type": "MRTS",
+    "coordinates": [
+      13.014867,
+      80.248379
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.01483975,
+        80.24829863
+      ]
+    ],
+    "aliases": [
+      "kotturpuram",
+      "kotturpuram",
+      "ktpm"
+    ],
+    "station_id": "SRR_KTPM"
+  },
+  {
+    "name": "Perungudi",
+    "type": "MRTS",
+    "coordinates": [
+      12.976039,
+      80.232135
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.97630426,
+        80.23196066
+      ],
+      [
+        12.97426314,
+        80.23096026
+      ]
+    ],
+    "aliases": [
+      "perungudi",
+      "perungudi",
+      "prgd"
+    ],
+    "station_id": "SRR_PRGD"
+  },
+  {
+    "name": "Kasturba Nagar",
+    "type": "Suburban",
+    "coordinates": [
+      13.006361,
+      80.247697
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.00529574,
+        80.24758552
+      ]
+    ],
+    "aliases": [
+      "kasturba nagar",
+      "kasturba nagar",
+      "ktbr"
+    ],
+    "station_id": "SRR_KTBR"
+  },
+  {
+    "name": "Greenways Road",
+    "type": "MRTS",
+    "coordinates": [
+      13.021594,
+      80.252547
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.02167542,
+        80.25277382
+      ]
+    ],
+    "aliases": [
+      "greenways road",
+      "greenways road",
+      "gwyr"
+    ],
+    "station_id": "SRR_GWYR"
+  },
+  {
+    "name": "Perambur Carriage Works",
+    "type": "Suburban",
+    "coordinates": [
+      13.107366,
+      80.239047
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10669848,
+        80.2387545
+      ]
+    ],
+    "aliases": [
+      "perambur carriage works",
+      "perambur carriage works",
+      "pcw"
+    ],
+    "station_id": "SRR_PCW"
+  },
+  {
+    "name": "Paranur",
+    "type": "Suburban",
+    "coordinates": [
+      12.729959,
+      79.983702
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.73003717,
+        79.98398611
+      ],
+      [
+        12.73002667,
+        79.98358457
+      ]
+    ],
+    "aliases": [
+      "paranur",
+      "paranur",
+      "pwu"
+    ],
+    "station_id": "SRR_PWU"
+  },
+  {
+    "name": "Walajabad",
+    "type": "Suburban",
+    "coordinates": [
+      12.79706326,
+      79.81808625
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.79664746,
+        79.8187165
+      ]
+    ],
+    "aliases": [
+      "walajabad",
+      "walajabad",
+      "wj"
+    ],
+    "station_id": "SRR_WJ"
+  },
+  {
+    "name": "Kathivakkam",
+    "type": "Suburban",
+    "coordinates": [
+      13.204528,
+      80.316968
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.20377332,
+        80.31644657
+      ]
+    ],
+    "aliases": [
+      "kathivakkam",
+      "kathivakkam",
+      "kavm"
+    ],
+    "station_id": "SRR_KAVM"
+  },
+  {
+    "name": "Mundakakanni Amman Koil",
+    "type": "Suburban",
+    "coordinates": [
+      13.041182,
+      80.270386
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.04096078,
+        80.27010817
+      ]
+    ],
+    "aliases": [
+      "mundakakanni amman koil",
+      "mundakakanni amman koil",
+      "mkak"
+    ],
+    "station_id": "SRR_MKAK"
+  },
+  {
+    "name": "Attipattu Pudu Nagar",
+    "type": "Suburban",
+    "coordinates": [
+      13.2492,
+      80.300049
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.24935119,
+        80.30027739
+      ]
+    ],
+    "aliases": [
+      "attipattu pudu nagar",
+      "attipattu pudu nagar",
+      "aipp"
+    ],
+    "station_id": "SRR_AIPP"
+  },
+  {
+    "name": "Royapuram",
+    "type": "Suburban",
+    "coordinates": [
+      13.104138,
+      80.293418
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10531472,
+        80.2934328
+      ],
+      [
+        13.10524804,
+        80.29337895
+      ]
+    ],
+    "aliases": [
+      "royapuram",
+      "royapuram",
+      "rpm"
+    ],
+    "station_id": "SRR_RPM"
+  },
+  {
+    "name": "Nandiyampakkam",
+    "type": "Suburban",
+    "coordinates": [
+      13.2687,
+      80.276032
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.26802288,
+        80.27688669
+      ]
+    ],
+    "aliases": [
+      "nandiyampakkam",
+      "nandiyampakkam",
+      "npkm"
+    ],
+    "station_id": "SRR_NPKM"
+  },
+  {
+    "name": "Tirumalpur",
+    "type": "Suburban",
+    "coordinates": [
+      12.95624396,
+      79.67377498
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.95683307,
+        79.67400154
+      ]
+    ],
+    "aliases": [
+      "tirumalpur",
+      "tirumalpur",
+      "tmlp"
+    ],
+    "station_id": "SRR_TMLP"
+  },
+  {
+    "name": "Mosur",
+    "type": "Suburban",
+    "coordinates": [
+      13.085278,
+      79.712473
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.08509389,
+        79.7137522
+      ]
+    ],
+    "aliases": [
+      "mosur",
+      "mosur",
+      "msu"
+    ],
+    "station_id": "SRR_MSU"
+  },
+  {
+    "name": "Senji Panambakkam",
+    "type": "Suburban",
+    "coordinates": [
+      13.094652,
+      79.834986
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.0945643,
+        79.83607184
+      ]
+    ],
+    "aliases": [
+      "senji panambakkam",
+      "senji panambakkam",
+      "spam"
+    ],
+    "station_id": "SRR_SPAM"
+  },
+  {
+    "name": "Palur",
+    "type": "Suburban",
+    "coordinates": [
+      12.76637993,
+      79.9066831
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.76622741,
+        79.9069224
+      ]
+    ],
+    "aliases": [
+      "palur",
+      "palur",
+      "palr"
+    ],
+    "station_id": "SRR_PALR"
+  },
+  {
+    "name": "Kanchipuram East",
+    "type": "Suburban",
+    "coordinates": [
+      12.8405755,
+      79.71222807
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.84083182,
+        79.7121322
+      ]
+    ],
+    "aliases": [
+      "kanchipuram east",
+      "kanchipuram east",
+      "cje"
+    ],
+    "station_id": "SRR_CJE"
+  },
+  {
+    "name": "Egattur",
+    "type": "Suburban",
+    "coordinates": [
+      13.107082,
+      79.884682
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.10716447,
+        79.88431631
+      ]
+    ],
+    "aliases": [
+      "egattur",
+      "egattur",
+      "egt"
+    ],
+    "station_id": "SRR_EGT"
+  },
+  {
+    "name": "Puliyamangalam",
+    "type": "Suburban",
+    "coordinates": [
+      13.083282,
+      79.685887
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.08331366,
+        79.68499074
+      ]
+    ],
+    "aliases": [
+      "puliyamangalam",
+      "puliyamangalam",
+      "plmg"
+    ],
+    "station_id": "SRR_PLMG"
+  },
+  {
+    "name": "Takkolam",
+    "type": "Suburban",
+    "coordinates": [
+      13.02428143,
+      79.6773306
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.02455113,
+        79.67738923
+      ]
+    ],
+    "aliases": [
+      "takkolam",
+      "takkolam",
+      "tko"
+    ],
+    "station_id": "SRR_TKO"
+  },
+  {
+    "name": "Villiyambakkam",
+    "type": "Suburban",
+    "coordinates": [
+      12.75212289,
+      79.93368707
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.75170737,
+        79.9344777
+      ]
+    ],
+    "aliases": [
+      "villiyambakkam",
+      "villiyambakkam",
+      "vb"
+    ],
+    "station_id": "SRR_VB"
+  },
+  {
+    "name": "Reddipalayam",
+    "type": "Suburban",
+    "coordinates": [
+      12.72850163,
+      79.95307135
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.72948362,
+        79.95263918
+      ]
+    ],
+    "aliases": [
+      "reddipalayam",
+      "reddipalayam",
+      "rdy"
+    ],
+    "station_id": "SRR_RDY"
+  },
+  {
+    "name": "Nathapettai",
+    "type": "Suburban",
+    "coordinates": [
+      12.82364716,
+      79.75601226
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.82365343,
+        79.75584438
+      ]
+    ],
+    "aliases": [
+      "nathapettai",
+      "nathapettai",
+      "ntt"
+    ],
+    "station_id": "SRR_NTT"
+  },
+  {
+    "name": "Palayasivaram",
+    "type": "Suburban",
+    "coordinates": [
+      12.77648995,
+      79.87761073
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.77674068,
+        79.87778864
+      ]
+    ],
+    "aliases": [
+      "palayasivaram",
+      "palayasivaram",
+      "pyv"
+    ],
+    "station_id": "SRR_PYV"
+  },
+  {
+    "name": "Elavur",
+    "type": "Suburban",
+    "coordinates": [
+      13.45820298,
+      80.11565755
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.45945143,
+        80.11533409
+      ],
+      [
+        13.45959506,
+        80.11592486
+      ]
+    ],
+    "aliases": [
+      "elavur",
+      "elavur",
+      "elr"
+    ],
+    "station_id": "SRR_ELR"
+  },
+  {
+    "name": "Arambakam",
+    "type": "Suburban",
+    "coordinates": [
+      13.5331367,
+      80.07458426
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.53316845,
+        80.0746619
+      ]
+    ],
+    "aliases": [
+      "arambakam",
+      "arambakam",
+      "akm"
+    ],
+    "station_id": "SRR_AKM"
+  },
+  {
+    "name": "Chennai Central Suburban",
+    "type": "Suburban",
+    "coordinates": [
+      13.083037,
+      80.27479
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.08299803,
+        80.27413516
+      ]
+    ],
+    "aliases": [
+      "chennai central suburban",
+      "chennai central suburban",
+      "mas"
+    ],
+    "station_id": "SRR_MAS"
+  },
+  {
+    "name": "Chennai Park Town",
+    "type": "Suburban",
+    "coordinates": [
+      13.079588,
+      80.277502
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.07981892,
+        80.2761619
+      ]
+    ],
+    "aliases": [
+      "chennai park town",
+      "chennai park town",
+      "mpkt"
+    ],
+    "station_id": "SRR_MPKT"
+  },
+  {
+    "name": "Tirumullaivayil",
+    "type": "Suburban",
+    "coordinates": [
+      13.115509,
+      80.136654
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.11560165,
+        80.1372665
+      ],
+      [
+        13.11521895,
+        80.13723163
+      ]
+    ],
+    "aliases": [
+      "tirumullaivayil",
+      "tirumullaivayil",
+      "tmvl"
+    ],
+    "station_id": "SRR_TMVL"
+  },
+  {
+    "name": "Pattabiram M Siding",
+    "type": "Suburban",
+    "coordinates": [
+      13.136719,
+      80.059878
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.13649167,
+        80.06001488
+      ]
+    ],
+    "aliases": [
+      "pattabiram m siding",
+      "pattabiram m siding",
+      "ptms"
+    ],
+    "station_id": "SRR_PTMS"
+  },
+  {
+    "name": "Pattabiram 'E' Depot",
+    "type": "Suburban",
+    "coordinates": [
+      13.145744,
+      80.067324
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.14639377,
+        80.06931239
+      ]
+    ],
+    "aliases": [
+      "pattabiram 'e' depot",
+      "pattabiram 'e' depot",
+      "pres"
+    ],
+    "station_id": "SRR_PRES"
+  },
+  {
+    "name": "Indra Nagar",
+    "type": "Suburban",
+    "coordinates": [
+      12.997514,
+      80.249234
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        12.99636688,
+        80.24946094
+      ]
+    ],
+    "aliases": [
+      "indra nagar",
+      "indra nagar",
+      "indr"
+    ],
+    "station_id": "SRR_INDR"
+  },
+  {
+    "name": "Nemilicherry Halt",
+    "type": "Suburban",
+    "coordinates": [
+      13.12147,
+      80.045185
+    ],
+    "operational_status": "OPERATIONAL",
+    "entrances": [
+      [
+        13.12155766,
+        80.04349624
+      ],
+      [
+        13.12204554,
+        80.04362392
+      ]
+    ],
+    "aliases": [
+      "nemilicherry halt",
+      "nemilicherry halt",
+      "nec"
+    ],
+    "station_id": "SRR_NEC"
   }
 ]

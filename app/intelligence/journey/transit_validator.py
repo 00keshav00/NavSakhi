@@ -1,10 +1,10 @@
 import json
 import logging
 import difflib
-from app.intelligence.journey.transit_graph import global_transit_graph
+import math
+from app.intelligence.journey.transit_graph import global_transit_graph, get_graph_for_mode
 from app.intelligence.journey.schedule_engine import global_schedule_engine
 from app.intelligence.journey.bus_network import global_bus_validator
-import datetime
 import datetime
 from typing import List, Dict, Any, Optional
 
@@ -15,6 +15,29 @@ except ImportError:
     HAS_SCIPY = False
 
 logger = logging.getLogger(__name__)
+
+def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371000
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+def ensure_lat_lon(pt: list) -> list:
+    if not pt or len(pt) < 2:
+        return [12.8448, 80.1527]
+    # In India, lon is ~77-81 and lat is ~10-14
+    if pt[0] > pt[1]:
+        return [pt[1], pt[0]]
+    return [pt[0], pt[1]]
+
+def ensure_lon_lat(pt: list) -> list:
+    if not pt or len(pt) < 2:
+        return [80.1527, 12.8448]
+    if pt[0] < pt[1]:
+        return [pt[1], pt[0]]
+    return [pt[0], pt[1]]
 
 class TransportNode:
     def __init__(self, data: dict):
@@ -27,9 +50,18 @@ class TransportNode:
         self.longitude = coords[1]
         self.operational_status = data.get("operational_status", "UNKNOWN")
         self.entrances = data.get("entrances", [])
-        self.aliases = data.get("aliases", [])
+        self.aliases = [a.lower() for a in data.get("aliases", [])]
         self.exits = data.get("exits", [])
         
+        name_lower = self.name.lower()
+        if name_lower not in self.aliases:
+            self.aliases.append(name_lower)
+        clean_name = name_lower.replace("metro station", "").replace("railway station", "").replace("metro", "").replace("station", "").strip()
+        if clean_name and clean_name not in self.aliases:
+            self.aliases.append(clean_name)
+        if "airport" in name_lower and "airport" not in self.aliases:
+            self.aliases.append("airport")
+            
     def get_best_entry(self):
         if self.entrances and len(self.entrances) > 0:
             return self.entrances[0], "station_entry"
@@ -39,13 +71,6 @@ class TransportNode:
         if self.exits and len(self.exits) > 0:
             return self.exits[0], "station_exit"
         return [self.latitude, self.longitude], "station_centroid"
-
-        
-        self.aliases = [self.name.lower()]
-        if "metro" in self.name.lower():
-            self.aliases.append(self.name.lower().replace("metro", "").strip())
-        if "railway" in self.name.lower():
-            self.aliases.append(self.name.lower().replace("railway station", "").strip())
             
     def is_operational(self) -> bool:
         return self.operational_status.upper() == "OPERATIONAL"
@@ -77,7 +102,6 @@ class TransportIndex:
 
     def find_nearest_station(self, lat: float, lon: float, mode: str = None) -> Optional[TransportNode]:
         if not self.kd_tree:
-            # Fallback linear scan
             best_node = None
             best_dist = float('inf')
             for node in self.nodes:
@@ -112,6 +136,9 @@ class EntityResolver:
                 self.all_aliases[alias.lower()] = node
                 
     def resolve(self, gemini_name: str) -> dict:
+        if not gemini_name:
+            return {"resolved": False, "reason": "EMPTY_NAME"}
+            
         gemini_name_lower = gemini_name.lower().strip()
         gemini_name_lower = gemini_name_lower.replace('railway station', '').replace('metro station', '').replace('station', '').strip()
         
@@ -143,21 +170,8 @@ class EntityResolver:
             "reason": "NO_VERIFIED_MATCH"
         }
 
-
-# =========================================================
-# TRANSFER THRESHOLD CONFIGURATION
-# =========================================================
-# TRANSFER_WALK_THRESHOLD_M: If a transfer distance exceeds this (100m),
-# we explicitly inject a 'walk' segment into the route to represent
-# the physical act of walking between platforms/stations.
 TRANSFER_WALK_THRESHOLD_M = 100
-
-# TRANSFER_MAX_DISTANCE_M: The absolute maximum allowable distance (2000m)
-# for a transfer. If exceeded, the route is rejected entirely as it is
-# physically impractical to walk between these transit nodes as a single
-# journey transfer step.
 TRANSFER_MAX_DISTANCE_M = 2000
-# =========================================================
 
 class TransitValidator:
     def __init__(self, index: TransportIndex, resolver: EntityResolver):
@@ -179,24 +193,42 @@ class TransitValidator:
         diagnostics = []
         is_valid = True
         rejection_reason = None
-        segments = []
+        raw_segments = []
         
-        diagnostics.append(f"[TRANSIT] Gemini proposed: {strategy.get('strategy_name')}")
+        s_lat, s_lon = ensure_lat_lon(source_coords)
+        d_lat, d_lon = ensure_lat_lon(dest_coords)
+        trip_sl_dist_m = haversine_m(s_lat, s_lon, d_lat, d_lon)
         
-        for step in strategy.get("steps", []):
-            mode = step.get("mode", "").lower()
+        steps = strategy.get("steps", [])
+        if not steps:
+            return {
+                "strategy_name": strategy.get("strategy_name", "Unknown"),
+                "validation": {"status": "REJECTED", "rejection_reason": "NO_STEPS", "diagnostics": ["Empty steps"]},
+                "segments": [],
+                "geometry_complete": False
+            }
             
-            # Normalize Gemini hallucinated mode strings
+        diagnostics.append(f"[TRANSIT] Evaluating strategy: {strategy.get('strategy_name')} ({len(steps)} steps)")
+        
+        for step_idx, step in enumerate(steps):
+            mode = step.get("mode", "").lower().strip()
+            
+            # Normalize mode string
             if "suburban" in mode or "local train" in mode: mode = "suburban"
             elif "metro" in mode: mode = "metro"
             elif "mrts" in mode: mode = "mrts"
             elif "bus" in mode: mode = "bus"
-            elif "train" in mode: mode = "train"
+            elif "train" in mode: mode = "suburban"
+            elif "auto" in mode: mode = "auto"
+            elif "cab" in mode: mode = "cab"
+            elif "walk" in mode: mode = "walk"
+            elif "two_wheeler" in mode or "bike" in mode: mode = "two_wheeler"
+            else: mode = "auto"
             
-            if mode in ["metro", "suburban", "mrts", "bus", "train"]:
-                entry_name = step.get("entry")
-                exit_name = step.get("exit")
-                
+            entry_name = (step.get("entry") or "").strip()
+            exit_name = (step.get("exit") or "").strip()
+            
+            if mode in ["metro", "suburban", "mrts", "bus"]:
                 if not entry_name or not exit_name:
                     diagnostics.append(f"[{mode.upper()}] Missing entry/exit stations.")
                     is_valid = False
@@ -220,9 +252,13 @@ class TransitValidator:
                     
                 entry_node = res_entry["node"]
                 exit_node = res_exit["node"]
-                diagnostics.append(f"[RESOLVE] '{entry_name}' -> verified {entry_node.name} ({entry_node.type})")
-                diagnostics.append(f"[RESOLVE] '{exit_name}' -> verified {exit_node.name} ({exit_node.type})")
                 
+                if entry_node.name == exit_node.name:
+                    diagnostics.append(f"[{mode.upper()}] Same entry and exit station ({entry_node.name}).")
+                    is_valid = False
+                    rejection_reason = "IDENTICAL_STATIONS"
+                    break
+                    
                 avail_entry = self.check_service_availability(entry_node, req_time)
                 if not avail_entry["available"]:
                     diagnostics.append(f"[SERVICE] {entry_node.name} operational={avail_entry['available']}")
@@ -230,111 +266,190 @@ class TransitValidator:
                     rejection_reason = avail_entry.get("reason")
                     break
                     
-                geom_coords = None
-                geom_dist = 0
-                geom_status = "UNAVAILABLE"
-                
-                # 1. Check Schedule Engine
+                # Schedule window check in IST (UTC+5:30)
                 req_dt = None
                 if req_time:
                     try:
                         req_dt = datetime.datetime.fromisoformat(req_time.replace("Z", "+00:00"))
                     except:
-                        req_dt = datetime.datetime.now()
+                        req_dt = None
+                        
+                if req_dt is not None:
+                    if req_dt.tzinfo is not None:
+                        ist_offset = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+                        ist_dt = req_dt.astimezone(ist_offset)
+                    else:
+                        ist_dt = req_dt + datetime.timedelta(hours=5, minutes=30)
                 else:
-                    req_dt = datetime.datetime.now()
+                    # Default daytime window (09:00 AM IST) for preview when no explicit time requested
+                    now_utc = datetime.datetime.utcnow()
+                    now_ist = now_utc + datetime.timedelta(hours=5, minutes=30)
+                    if now_ist.hour < 5 or now_ist.hour >= 23:
+                        ist_dt = now_ist.replace(hour=9, minute=0, second=0)
+                    else:
+                        ist_dt = now_ist
                     
-                avail_status, avail_meta = global_schedule_engine.get_service_availability(mode, f"{entry_name} to {exit_name}", req_dt)
-                
+                avail_status, avail_meta = global_schedule_engine.get_service_availability(mode, f"{entry_name} to {exit_name}", ist_dt)
                 if avail_status == "UNAVAILABLE":
-                    diagnostics.append(f"[{mode.upper()}] Service unavailable at requested time ({req_dt.time()}).")
+                    diagnostics.append(f"[{mode.upper()}] Service unavailable at requested time ({ist_dt.time()}).")
                     is_valid = False
                     rejection_reason = "SERVICE_UNAVAILABLE_AT_REQUESTED_TIME"
                     break
                     
-                
-                # Extract precise coordinates
                 entry_coords, entry_precision = entry_node.get_best_entry()
                 exit_coords, exit_precision = exit_node.get_best_exit()
                 
-                # 2. Build Transit Segment Geometry
-                if mode in ["metro", "suburban", "mrts", "train", "suburban_rail"] and global_transit_graph:
-                    geom_coords, geom_dist, geom_status = global_transit_graph.build_transit_segment(
+                # Progress Invariant: Transit MUST bring user closer to destination!
+                dist_entry_to_dest = haversine_m(entry_coords[0], entry_coords[1], d_lat, d_lon)
+                dist_exit_to_dest = haversine_m(exit_coords[0], exit_coords[1], d_lat, d_lon)
+                if dist_exit_to_dest >= dist_entry_to_dest:
+                    diagnostics.append(f"[{mode.upper()}] Transit leg moves away from destination (entry->dest {dist_entry_to_dest:.0f}m, exit->dest {dist_exit_to_dest:.0f}m).")
+                    is_valid = False
+                    rejection_reason = "BACKTRACKING_TRANSIT_ROUTE"
+                    break
+                    
+                # Build Transit Segment Geometry using mode subgraph
+                graph = get_graph_for_mode(mode)
+                geom_coords = None
+                geom_dist = 0
+                geom_status = "UNAVAILABLE"
+                
+                if graph:
+                    geom_coords, geom_dist, geom_status = graph.build_transit_segment(
                         mode, entry_coords[0], entry_coords[1], exit_coords[0], exit_coords[1]
                     )
                 elif mode == "bus":
-                    bus_valid, bus_reason, bus_meta = global_bus_validator.validate_bus_segment(entry_name, exit_name, "any", req_dt)
+                    bus_valid, bus_reason, bus_meta = global_bus_validator.validate_bus_segment(entry_name, exit_name, "any", ist_dt)
                     if not bus_valid:
                         diagnostics.append(f"[BUS] Rejected: {bus_reason}")
                         is_valid = False
                         rejection_reason = bus_reason
-                        geom_status = bus_reason
                         break
-                
-                if geom_status == "NO_NETWORK_CONNECTION":
-                    diagnostics.append(f"[{mode.upper()}] No network connection found in graph.")
+                        
+                if geom_status == "NO_NETWORK_CONNECTION" or not geom_coords:
+                    diagnostics.append(f"[{mode.upper()}] No network connection between {entry_node.name} and {exit_node.name}.")
                     is_valid = False
                     rejection_reason = "NO_NETWORK_CONNECTION"
                     break
                     
-                geometry_complete = geom_coords is not None
-                segment_geom = {"type": "LineString", "coordinates": geom_coords} if geometry_complete else None
+                # Waiting & Transfer Times
+                wait_sec = avail_meta.get("waiting_time", 8) * 60
+                transit_speed_mps = 11.1 if mode == "suburban" else 9.7 # ~40km/h suburban, ~35km/h metro
+                dur_s = (geom_dist / transit_speed_mps) + wait_sec + 180 # 3 min station exit
                 
-                # Transfer Penalty Validation
-                if len(segments) > 0:
-                    prev_end = segments[-1].get("end_coordinates")
-                    if prev_end and isinstance(prev_end, list) and len(prev_end) == 2:
-                        prev_end_lat, prev_end_lon = prev_end
-                        from app.intelligence.journey.deduplication import haversine
-                        transfer_dist_m = haversine(prev_end_lat, prev_end_lon, entry_coords[0], entry_coords[1]) * 1000
-                        if transfer_dist_m > TRANSFER_MAX_DISTANCE_M:
-                            diagnostics.append(f"[{mode.upper()}] Transfer distance too high ({int(transfer_dist_m)}m).")
-                            is_valid = False
-                            rejection_reason = "EXCESSIVE_TRANSFER_DISTANCE"
-                            break
-                        elif transfer_dist_m > TRANSFER_WALK_THRESHOLD_M:
-                            segments.append({
-                                "mode": "walk",
-                                "start_name": "Transfer",
-                                "end_name": entry_node.name,
-                                "waiting_time_s": 0,
-                                "start_coordinates": [prev_end_lat, prev_end_lon],
-                                "end_coordinates": entry_coords,
-                                "distance_m": transfer_dist_m,
-                                "duration_s": transfer_dist_m / 1.4,
-                                "geometry_complete": False
-                            })
-                
-                segments.append({
+                raw_segments.append({
                     "mode": mode,
                     "start_name": entry_node.name,
                     "end_name": exit_node.name,
-                    "waiting_time_s": avail_meta.get("waiting_time", 0) * 60,
-                    "start_coordinates": entry_coords,
-                    "end_coordinates": exit_coords,
+                    "waiting_time_s": wait_sec,
+                    "start_coordinates": [entry_coords[0], entry_coords[1]], # [lat, lon]
+                    "end_coordinates": [exit_coords[0], exit_coords[1]],     # [lat, lon]
                     "distance_m": geom_dist,
-                    "duration_s": geom_dist / 11.0, # ~40km/h
-                    "geometry": segment_geom,
-                    "geometry_source": "VERIFIED_TRANSIT_NETWORK" if geometry_complete else "NONE",
-                    "validation_status": "VALID" if geometry_complete else "MISSING_GEOMETRY",
-                    "geometry_complete": geometry_complete,
+                    "duration_s": dur_s,
+                    "geometry": {"type": "LineString", "coordinates": geom_coords},
+                    "geometry_source": "VERIFIED_TRANSIT_NETWORK",
+                    "validation_status": "VALID",
+                    "geometry_complete": True,
                     "precision_level": f"start:{entry_precision}_end:{exit_precision}"
                 })
                 
-            elif mode in ["auto", "cab", "walk"]:
-                segments.append({
+            elif mode in ["auto", "cab", "walk", "two_wheeler"]:
+                # Resolve access or egress coordinates
+                if entry_name.lower() in ["source", "origin", "start", "point", ""] and step_idx == 0:
+                    start_lat_lon = [s_lat, s_lon]
+                    start_label = "Origin"
+                else:
+                    res_entry = self.resolver.resolve(entry_name)
+                    if res_entry["resolved"]:
+                        start_lat_lon = [res_entry["node"].latitude, res_entry["node"].longitude]
+                        start_label = res_entry["node"].name
+                    else:
+                        start_lat_lon = [s_lat, s_lon]
+                        start_label = entry_name or "Point"
+                        
+                if exit_name.lower() in ["destination", "dest", "end", "point", ""] and step_idx == len(steps) - 1:
+                    end_lat_lon = [d_lat, d_lon]
+                    end_label = "Destination"
+                else:
+                    res_exit = self.resolver.resolve(exit_name)
+                    if res_exit["resolved"]:
+                        end_lat_lon = [res_exit["node"].latitude, res_exit["node"].longitude]
+                        end_label = res_exit["node"].name
+                    else:
+                        end_lat_lon = [d_lat, d_lon]
+                        end_label = exit_name or "Point"
+                        
+                leg_sl_dist = haversine_m(start_lat_lon[0], start_lat_lon[1], end_lat_lon[0], end_lat_lon[1])
+                
+                # Check for excessive access detour
+                if step_idx == 0 and len(steps) > 1:
+                    # Access leg must not exceed 50% of direct trip distance or 12 km
+                    if trip_sl_dist_m < 20000 and leg_sl_dist > max(6000, 0.45 * trip_sl_dist_m * 1.3):
+                        diagnostics.append(f"[{mode.upper()}] Access leg to {end_label} is excessive detour ({leg_sl_dist:.0f}m vs direct {trip_sl_dist_m:.0f}m).")
+                        is_valid = False
+                        rejection_reason = "EXCESSIVE_STATION_ACCESS_DETOUR"
+                        break
+                elif step_idx == len(steps) - 1 and len(steps) > 1:
+                    if trip_sl_dist_m < 20000 and leg_sl_dist > max(6000, 0.45 * trip_sl_dist_m * 1.3):
+                        diagnostics.append(f"[{mode.upper()}] Egress leg from {start_label} is excessive detour ({leg_sl_dist:.0f}m vs direct {trip_sl_dist_m:.0f}m).")
+                        is_valid = False
+                        rejection_reason = "EXCESSIVE_STATION_EGRESS_DETOUR"
+                        break
+                        
+                raw_segments.append({
                     "mode": mode,
-                    "start_name": step.get("start_name", "Point"),
-                    "end_name": step.get("end_name", "Point"),
+                    "start_name": start_label,
+                    "end_name": end_label,
+                    "start_coordinates": start_lat_lon, # [lat, lon]
+                    "end_coordinates": end_lat_lon,     # [lat, lon]
                     "validation_status": "PENDING_GEOMETRY",
                     "geometry_complete": False
                 })
-        
+
+        # STRICT CONTINUITY & TRANSFER GAP CHECK
+        final_segments = []
+        if is_valid and raw_segments:
+            for i in range(len(raw_segments)):
+                final_segments.append(raw_segments[i])
+                if i < len(raw_segments) - 1:
+                    cur_end = raw_segments[i].get("end_coordinates")
+                    next_start = raw_segments[i+1].get("start_coordinates")
+                    
+                    if cur_end and next_start:
+                        transfer_dist = haversine_m(cur_end[0], cur_end[1], next_start[0], next_start[1])
+                        if transfer_dist > TRANSFER_MAX_DISTANCE_M:
+                            diagnostics.append(f"[CONTINUITY] Disconnected gap between leg {i+1} and leg {i+2} ({int(transfer_dist)}m > {TRANSFER_MAX_DISTANCE_M}m).")
+                            is_valid = False
+                            rejection_reason = "DISCONNECTED_NETWORK_LEGS"
+                            break
+                        elif transfer_dist > TRANSFER_WALK_THRESHOLD_M:
+                            # Inject explicit pedestrian transfer
+                            final_segments.append({
+                                "mode": "walk",
+                                "start_name": f"Transfer from {raw_segments[i]['end_name']}",
+                                "end_name": raw_segments[i+1]['start_name'],
+                                "waiting_time_s": 0,
+                                "start_coordinates": cur_end,
+                                "end_coordinates": next_start,
+                                "distance_m": transfer_dist,
+                                "duration_s": transfer_dist / 1.3,
+                                "validation_status": "PENDING_GEOMETRY",
+                                "geometry_complete": False
+                            })
+                            
+        # DETOUR RATIO SANITY CHECK
+        if is_valid and final_segments and len(final_segments) > 1:
+            total_est_dist = sum(s.get("distance_m", haversine_m(s["start_coordinates"][0], s["start_coordinates"][1], s["end_coordinates"][0], s["end_coordinates"][1])) for s in final_segments)
+            if trip_sl_dist_m > 0 and total_est_dist > trip_sl_dist_m * 2.2:
+                diagnostics.append(f"[DETOUR] Total multimodal distance ({total_est_dist/1000:.1f}km) exceeds 2.2x straight-line ({trip_sl_dist_m/1000:.1f}km).")
+                is_valid = False
+                rejection_reason = "EXCESSIVE_TOTAL_DETOUR"
+
         status = "VALID" if is_valid else "REJECTED"
         if status == "VALID":
-            diagnostics.append("[VALIDATOR] strategy VALID (Pending Geometry)")
+            diagnostics.append("[VALIDATOR] Strategy validated with strict geographic continuity.")
         else:
-            diagnostics.append(f"[VALIDATOR] strategy REJECTED - {rejection_reason}")
+            diagnostics.append(f"[VALIDATOR] Strategy REJECTED: {rejection_reason}")
             
         return {
             "strategy_name": strategy.get("strategy_name", "Unknown"),
@@ -343,7 +458,7 @@ class TransitValidator:
                 "rejection_reason": rejection_reason,
                 "diagnostics": diagnostics
             },
-            "segments": segments,
+            "segments": final_segments if is_valid else [],
             "geometry_complete": False
         }
 

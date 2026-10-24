@@ -17,7 +17,7 @@ class OSRMRoutingProvider(RoutingProvider):
     """
     def __init__(self):
         # Using SafeShe's existing configuration system
-        self.base_url = settings.osrm_base_url or "http://router.project-osrm.org"
+        self.base_url = settings.osrm_base_url or "https://router.project-osrm.org"
         self.http = SharedHTTPClient(timeout_ms=5000)
 
     @staticmethod
@@ -37,13 +37,35 @@ class OSRMRoutingProvider(RoutingProvider):
         except Exception as e:
             raise ProviderResponseMappingError(f"Failed to map route: {str(e)}")
 
-    # Property allows the decorator to dynamically read from settings during class load if needed,
-    # but since it's a decorator, we evaluate settings.routing_cache_ttl right now.
     @ProviderCache.cached(ttl_seconds=settings.routing_cache_ttl)
-    @with_retry(max_retries=3, base_delay_ms=200)
-    async def get_routes(self, source: Location, destination: Location, mode: str, alternatives: int = 3) -> List[CandidateRoute]:
-        url = f"{self.base_url}/route/v1/{mode}/{source.coordinates[0]},{source.coordinates[1]};{destination.coordinates[0]},{destination.coordinates[1]}"
-        params = {"overview": "full", "geometries": "geojson", "alternatives": str(alternatives)}
+    @with_retry(max_retries=1, base_delay_ms=100)
+    async def get_routes(self, source: Location, destination: Location, mode: str, alternatives: Any = 3, waypoints: List[Location] = None) -> List[CandidateRoute]:
+        # Normalize routing mode for OSRM profiles (only driving, foot, bike supported)
+        normalized_mode = str(mode).lower()
+        if normalized_mode in ["walk", "walking", "pedestrian", "foot"]:
+            osrm_mode = "foot"
+        elif normalized_mode in ["bike", "bicycle", "two_wheeler", "cycle"]:
+            osrm_mode = "bike"
+        else:
+            osrm_mode = "driving"
+
+        # Format alternatives parameter cleanly for OSRM URL query
+        if alternatives is True or str(alternatives).lower() == "true":
+            alt_val = "true"
+        elif alternatives is False or str(alternatives).lower() == "false":
+            alt_val = "false"
+        else:
+            alt_val = str(alternatives)
+
+        # Build coordinate path: source -> waypoints -> destination
+        coord_points = [f"{source.coordinates[0]},{source.coordinates[1]}"]
+        if waypoints:
+            for wp in waypoints:
+                coord_points.append(f"{wp.coordinates[0]},{wp.coordinates[1]}")
+        coord_points.append(f"{destination.coordinates[0]},{destination.coordinates[1]}")
+
+        url = f"{self.base_url}/route/v1/{osrm_mode}/{';'.join(coord_points)}"
+        params = {"overview": "full", "geometries": "geojson", "alternatives": alt_val}
         
         try:
             raw_response = await self.http.get(url, params=params)

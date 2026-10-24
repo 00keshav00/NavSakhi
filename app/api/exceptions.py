@@ -37,3 +37,36 @@ class InvalidStateTransitionError(SafeSheException):
             status_code=409,
             error_code="INVALID_STATE_TRANSITION"
         )
+
+class UnauthorizedException(SafeSheException):
+    def __init__(self, message: str = "Invalid credentials or missing token."):
+        super().__init__(
+            message=message,
+            status_code=401,
+            error_code="UNAUTHORIZED"
+        )
+
+class ForbiddenException(SafeSheException):
+    def __init__(self, message: str = "You do not have permission to access this resource."):
+        super().__init__(
+            message=message,
+            status_code=403,
+            error_code="FORBIDDEN"
+        )
+
+class ConflictException(SafeSheException):
+    def __init__(self, message: str = "Resource already exists."):
+        super().__init__(
+            message=message,
+            status_code=409,
+            error_code="CONFLICT"
+        )
+
+class DatabaseUnavailableException(SafeSheException):
+    def __init__(self, message: str = "Database configuration unavailable. Account creation requires a configured database. Please continue exploring as a guest."):
+        super().__init__(
+            message=message,
+            status_code=503,
+            error_code="DATABASE_UNAVAILABLE"
+        )
+

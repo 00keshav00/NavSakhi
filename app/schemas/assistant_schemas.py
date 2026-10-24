@@ -7,7 +7,7 @@ class AgentStatus(BaseModel):
 
 class ReasoningContext(BaseModel):
     summary: List[str]
-    confidence: float
+    confidence: Optional[float] = None
     decision_source: str
     provider_summary: str
 

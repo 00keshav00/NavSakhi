@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from app.api.exceptions import SafeSheException
 from app.schemas.responses import ErrorResponse, ErrorDetails
@@ -9,28 +10,32 @@ def register_exception_handlers(app: FastAPI):
     async def safeshe_exception_handler(request: Request, exc: SafeSheException):
         return JSONResponse(
             status_code=exc.status_code,
-            content=ErrorResponse(
-                success=False,
-                error=ErrorDetails(
-                    code=exc.error_code,
-                    message=exc.message,
-                    details=exc.details
-                )
-            ).model_dump(exclude_none=True),
+            content=jsonable_encoder(
+                ErrorResponse(
+                    success=False,
+                    error=ErrorDetails(
+                        code=exc.error_code,
+                        message=exc.message,
+                        details=exc.details
+                    )
+                ).model_dump(exclude_none=True)
+            ),
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
         return JSONResponse(
             status_code=422,
-            content=ErrorResponse(
-                success=False,
-                error=ErrorDetails(
-                    code="UNPROCESSABLE_ENTITY",
-                    message="Request validation failed.",
-                    details=exc.errors()
-                )
-            ).model_dump(exclude_none=True),
+            content=jsonable_encoder(
+                ErrorResponse(
+                    success=False,
+                    error=ErrorDetails(
+                        code="UNPROCESSABLE_ENTITY",
+                        message="Request validation failed.",
+                        details=exc.errors()
+                    )
+                ).model_dump(exclude_none=True)
+            ),
         )
 
     @app.exception_handler(Exception)

@@ -9,7 +9,7 @@ class BaseRepository(Generic[ModelType]):
     _global_store: dict[str, dict] = {} # Class-level in-memory store
 
     def __init__(self, db: AsyncIOMotorDatabase, collection_name: str, model: Type[ModelType]):
-        self.collection = db[collection_name]
+        self.collection = db[collection_name] if db is not None else None
         self.model = model
         self.collection_name = collection_name
         
@@ -24,6 +24,14 @@ class BaseRepository(Generic[ModelType]):
         doc = self._store.get(str(id))
         if doc:
             return self.model(**doc)
+        if self.collection is not None and ObjectId.is_valid(id):
+            try:
+                db_doc = await self.collection.find_one({"_id": ObjectId(id)})
+                if db_doc:
+                    self._store[str(db_doc["_id"])] = db_doc.copy()
+                    return self.model(**db_doc)
+            except Exception:
+                pass
         return None
 
     async def create(self, obj_in: ModelType) -> ModelType:
@@ -33,19 +41,37 @@ class BaseRepository(Generic[ModelType]):
         elif isinstance(doc["_id"], str):
              doc["_id"] = ObjectId(doc["_id"])
              
+        # If MongoDB collection is present, persist document to MongoDB
+        if self.collection is not None:
+            await self.collection.insert_one(doc)
+
         # Save to in-memory store
         self._store[str(doc["_id"])] = doc.copy()
         return self.model(**doc)
 
     async def update(self, id: str, update_data: dict) -> Optional[ModelType]:
         doc = self._store.get(str(id))
+        if not doc and self.collection is not None and ObjectId.is_valid(id):
+            try:
+                db_doc = await self.collection.find_one({"_id": ObjectId(id)})
+                if db_doc:
+                    doc = db_doc.copy()
+                    self._store[str(id)] = doc
+            except Exception:
+                pass
+
         if not doc:
             return None
             
-        # Very simple mock $set implementation
+        # Update MongoDB if collection exists
+        if self.collection is not None and ObjectId.is_valid(id):
+            try:
+                await self.collection.update_one({"_id": ObjectId(id)}, update_data)
+            except Exception:
+                pass
+
+        # In-memory update
         if "$set" in update_data:
-            # Note: in a real implementation we'd do deep merge for nested fields
-            # but for this mock, a simple update works enough.
             for k, v in update_data["$set"].items():
                 if "." in k:
                     parts = k.split(".")
@@ -58,14 +84,21 @@ class BaseRepository(Generic[ModelType]):
                 else:
                     doc[k] = v
         else:
-            # Full replace
             doc.update(update_data)
             
         self._store[str(id)] = doc
         return self.model(**doc)
 
     async def delete(self, id: str) -> bool:
+        deleted = False
+        if self.collection is not None and ObjectId.is_valid(id):
+            try:
+                res = await self.collection.delete_one({"_id": ObjectId(id)})
+                deleted = res.deleted_count > 0
+            except Exception:
+                pass
         if str(id) in self._store:
             del self._store[str(id)]
-            return True
-        return False
+            deleted = True
+        return deleted
+

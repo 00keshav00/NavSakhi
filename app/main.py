@@ -7,16 +7,29 @@ from app.db.init_db import initialize_database
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup actions
     logger.info(f"Starting {settings.app_name}...")
     await connect_to_mongo()
     await initialize_database()
     
-    # from app.auto_audit import trigger_audit
-    # trigger_audit()
-    
-    # from app.doc_generator import trigger_doc_gen
-    # trigger_doc_gen()
+    # Ensure default local development test account exists strictly in non-production environments
+    if settings.environment.lower() in ["development", "dev", "local", "test"]:
+        try:
+            from app.db.connection import get_database
+            from app.repositories.user_repository import UserRepository
+            from app.services.user_service import UserService
+            from app.schemas.user_schemas import UserCreate
+            user_repo = UserRepository(get_database())
+            existing = await user_repo.get_by_email("testuser@example.com")
+            if not existing:
+                user_service = UserService(user_repo)
+                await user_service.register_user(UserCreate(
+                    username="testuser",
+                    email="testuser@example.com",
+                    password="password123"
+                ))
+                logger.info("Seeded default local test account: testuser@example.com")
+        except Exception as e:
+            logger.warning(f"Could not seed local test user: {e}")
     
     yield
     # Shutdown actions
@@ -37,7 +50,7 @@ app = FastAPI(
 # Enable CORS for frontend connectivity
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],    
@@ -56,8 +69,16 @@ app.include_router(emergency_ws_router, prefix="/api/v1/ws")
 app.include_router(journey_ws_router, prefix="/api/v1/ws/journey")
 
 @app.get("/health", tags=["Health"])
+@app.get("/api/v1/health", tags=["Health"])
 async def health_check():
     """
-    Backend health check endpoint.
+    Authoritative backend health check endpoint.
+    Serves both /health and /api/v1/health for compatibility with all monitor types.
     """
-    return {"status": "ok", "app": settings.app_name, "version": settings.app_version}
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "version": settings.app_version,
+        "environment": settings.environment
+    }
+

@@ -12,7 +12,11 @@ class JourneyRepository(BaseRepository[Journey]):
         for doc in self._store.values():
             uid = str(doc.get("user_id"))
             state = doc.get("state", {}).get("current_state")
-            if uid == str(user_id) and state in [JourneyStateEnum.ACTIVE.value, JourneyStateEnum.MONITORING.value]:
+            if uid == str(user_id) and state in [
+                JourneyStateEnum.ACTIVE.value,
+                JourneyStateEnum.MONITORING.value,
+                JourneyStateEnum.PAUSED.value,
+            ]:
                 return self.model(**doc)
         return None
 

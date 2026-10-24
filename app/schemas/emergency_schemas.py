@@ -45,7 +45,7 @@ class JourneyStatus(BaseModel):
     active_journey: bool
     destination: str
     distance_remaining: str
-    safety_score: int
+    safety_score: Optional[int] = None
 
 class EmergencyResponse(BaseModel):
     session_id: str

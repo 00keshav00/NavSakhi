@@ -13,9 +13,38 @@ from app.services.community_service import CommunityService
 from app.services.emergency_service import EmergencyService
 from app.services.chat_service import ChatService
 
-# Currently mocked for simplicity, replace with real auth
-async def get_current_user_id() -> str:
-    return "650c1f1e1c9d440000000000" # Dummy ObjectId
+from typing import Optional
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from app.services.auth_service import AuthService
+from app.api.exceptions import UnauthorizedException
+from app.models.user import User
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+async def get_current_user_id(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)
+) -> str:
+    if not credentials or not credentials.credentials:
+        raise UnauthorizedException("Authentication token is missing.")
+    payload = AuthService.decode_access_token(credentials.credentials)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise UnauthorizedException("Invalid token payload: missing user identity.")
+    return str(user_id)
+
+
+async def get_optional_user_id(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)
+) -> Optional[str]:
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        payload = AuthService.decode_access_token(credentials.credentials)
+        user_id = payload.get("sub")
+        return str(user_id) if user_id else None
+    except Exception:
+        return None
+
 
 def get_user_repository(db: AsyncIOMotorDatabase = Depends(get_database)) -> UserRepository:
     return UserRepository(db)
@@ -32,6 +61,11 @@ def get_chat_repository(db: AsyncIOMotorDatabase = Depends(get_database)) -> Cha
 def get_user_service(repo: UserRepository = Depends(get_user_repository)) -> UserService:
     return UserService(repo)
 
+async def get_current_user(
+    user_id: str = Depends(get_current_user_id),
+    user_service: UserService = Depends(get_user_service)
+) -> User:
+    return await user_service.get_user_profile(user_id)
 
 def get_community_service(repo: CommunityRepository = Depends(get_community_repository)) -> CommunityService:
     return CommunityService(repo)
@@ -71,9 +105,14 @@ def get_reports_provider(db: AsyncIOMotorDatabase = Depends(get_database)) -> Re
 
 from app.intelligence.journey.coordinator import JourneyIntelligenceCoordinator
 
+_global_journey_coordinator: Optional[JourneyIntelligenceCoordinator] = None
+
 def get_journey_coordinator() -> JourneyIntelligenceCoordinator:
-    """Instantiate and return the Journey Intelligence Coordinator."""
-    return JourneyIntelligenceCoordinator()
+    """Return the shared Journey Intelligence Coordinator singleton."""
+    global _global_journey_coordinator
+    if _global_journey_coordinator is None:
+        _global_journey_coordinator = JourneyIntelligenceCoordinator()
+    return _global_journey_coordinator
 
 def get_journey_service(
     repo: JourneyRepository = Depends(get_journey_repository),

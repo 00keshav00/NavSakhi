@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
 from app.api.v1.journeys import router as journeys_router
 from app.api.v1.community import router as community_router
@@ -10,9 +11,11 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.assistant import router as assistant_router
 from app.api.v1.profile import router as profile_router
 from app.api.v1.settings import router as settings_router
+from app.api.v1.weather import router as weather_router
 
 api_router = APIRouter()
 
+api_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 api_router.include_router(users_router, prefix="/users", tags=["Users"])
 api_router.include_router(journeys_router, prefix="/journeys", tags=["Journeys"])
 
@@ -24,3 +27,4 @@ api_router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboar
 api_router.include_router(assistant_router, prefix="/assistant", tags=["Assistant"])
 api_router.include_router(profile_router, prefix="/profile", tags=["Profile"])
 api_router.include_router(settings_router, prefix="/settings", tags=["Settings"])
+api_router.include_router(weather_router, prefix="/weather", tags=["Weather"])

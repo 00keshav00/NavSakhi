@@ -19,6 +19,15 @@ class WeatherStatus(BaseModel):
     visibility: int
     humidity: int
     rain_probability: int
+    apparent_temperature: Optional[float] = None
+    wind_speed: Optional[float] = None
+    precipitation_mm: Optional[float] = None
+    uv_index: Optional[float] = None
+    location_name: Optional[str] = "Chennai, Tamil Nadu"
+    provider: Optional[str] = "Open-Meteo"
+    observation_timestamp: Optional[str] = None
+    status: Optional[str] = "AVAILABLE"
+    available: Optional[bool] = True
 
 class CommunityStatus(BaseModel):
     nearby_reports: int

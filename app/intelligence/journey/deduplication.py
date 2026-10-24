@@ -47,12 +47,49 @@ def calculate_asymmetric_overlap(reference_set: set, other_set: set) -> float:
     intersection = len(reference_set.intersection(other_set))
     return intersection / len(reference_set)
 
+def _get_mode_category(cand: Any) -> str:
+    """Extract a normalized transport mode category from CandidateRoute or dict."""
+    mode = ""
+    route_name = ""
+    if hasattr(cand, "route_metadata") and isinstance(cand.route_metadata, dict):
+        mode = cand.route_metadata.get("travel_mode", "") or cand.route_metadata.get("mode", "")
+        route_name = cand.route_metadata.get("route_name", "")
+        dyn_segs = cand.route_metadata.get("dynamic_segments", [])
+        for s in dyn_segs:
+            s_m = s.get("mode", "").lower()
+            if "bus" in s_m: return "bus"
+            if "metro" in s_m: return "metro"
+            if "suburban" in s_m or "rail" in s_m or "train" in s_m: return "suburban"
+            if "mrts" in s_m: return "mrts"
+    if not mode and hasattr(cand, "mode"):
+        mode = getattr(cand, "mode", "")
+    full_str = f"{mode} {route_name}".lower().strip().replace("-", "_").replace(" ", "_")
+    if any(k in full_str for k in ["walk", "foot", "pedestrian"]):
+        return "walking"
+    if any(k in full_str for k in ["bike", "bicycle", "two_wheeler", "scooter", "motorcycle"]):
+        return "two_wheeler"
+    if any(k in full_str for k in ["bus"]):
+        return "bus"
+    if any(k in full_str for k in ["metro"]):
+        return "metro"
+    if any(k in full_str for k in ["suburban", "rail", "train"]):
+        return "suburban"
+    if any(k in full_str for k in ["mrts"]):
+        return "mrts"
+    if any(k in full_str for k in ["multimodal", "transit"]):
+        return "transit"
+    if any(k in full_str for k in ["cab", "taxi"]):
+        return "cab"
+    return "driving"
+
 def deduplicate_routes(candidates: List[Any], 
                        jaccard_threshold=ROUTE_DEDUP_JACCARD_THRESHOLD,
                        overlap_threshold=ROUTE_DEDUP_OVERLAP_THRESHOLD) -> List[Any]:
     """
-    Filters out near-duplicate routes using spatial normalization and overlap metrics.
-    Retains the first encountered route among duplicates (assumed to be ranked higher by OSRM).
+    Filters out near-duplicate routes using mode-aware spatial normalization and overlap metrics.
+    Routes with genuinely different transport modes (e.g. Walking vs Two Wheeler vs Driving vs Transit)
+    are preserved as distinct mobility choices. Within the same mode, routes are only considered duplicates
+    if both their spatial overlap exceeds thresholds and their durations/distances closely match.
     """
     if not candidates:
         return []
@@ -60,17 +97,35 @@ def deduplicate_routes(candidates: List[Any],
     distinct_routes = []
     
     for cand in candidates:
+        cand_mode = _get_mode_category(cand)
+        cand_dist = getattr(cand, "distance", 0.0) or 0.0
+        cand_dur = getattr(cand, "duration", 0.0) or 0.0
+
         # Extract coordinates. Assumes CandidateRoute has geometry or coordinates accessible.
         coords = []
-        if hasattr(cand, "geometry") and cand.geometry and "coordinates" in cand.geometry:
-            coords = cand.geometry["coordinates"]
-        elif hasattr(cand, "route_metadata") and "geometry" in cand.route_metadata:
-            coords = cand.route_metadata["geometry"].get("coordinates", [])
+        if hasattr(cand, "geometry") and cand.geometry:
+            if isinstance(cand.geometry, dict) and "coordinates" in cand.geometry:
+                coords = cand.geometry["coordinates"]
+            elif isinstance(cand.geometry, list):
+                coords = cand.geometry
+        elif hasattr(cand, "route_metadata") and isinstance(cand.route_metadata, dict) and "geometry" in cand.route_metadata:
+            geom = cand.route_metadata["geometry"]
+            if isinstance(geom, dict):
+                coords = geom.get("coordinates", [])
+            elif isinstance(geom, list):
+                coords = geom
             
         if not coords:
             # If we can't extract geometry, we keep it safely.
-            cand.distinctness_status = "DISTINCT"
-            cand.overlap_metrics = {"jaccard": 0.0, "reason": "NO_GEOMETRY"}
+            if hasattr(cand, "route_metadata") and isinstance(cand.route_metadata, dict):
+                cand.route_metadata["distinctness_status"] = "DISTINCT"
+                cand.route_metadata["overlap_metrics"] = {"jaccard": 0.0, "reason": "NO_GEOMETRY"}
+            else:
+                try:
+                    setattr(cand, "distinctness_status", "DISTINCT")
+                    setattr(cand, "overlap_metrics", {"jaccard": 0.0, "reason": "NO_GEOMETRY"})
+                except Exception:
+                    pass
             distinct_routes.append(cand)
             continue
             
@@ -81,16 +136,29 @@ def deduplicate_routes(candidates: List[Any],
         max_jaccard = 0.0
         
         for accepted in distinct_routes:
+            accepted_mode = _get_mode_category(accepted)
+            
+            # Different travel modes represent fundamentally different journey options for the user
+            if cand_mode != accepted_mode:
+                continue
+                
             accepted_cells = getattr(accepted, "_normalized_cells", set())
             
             jaccard = calculate_jaccard_similarity(cells, accepted_cells)
             max_jaccard = max(max_jaccard, jaccard)
             
             overlap_of_cand = calculate_asymmetric_overlap(cells, accepted_cells)
+
+            # Within the same mode, check duration & distance similarity
+            accepted_dur = getattr(accepted, "duration", 0.0) or 0.0
+            accepted_dist = getattr(accepted, "distance", 0.0) or 0.0
+            dur_diff_ratio = abs(cand_dur - accepted_dur) / max(accepted_dur, 1.0)
+            dist_diff_ratio = abs(cand_dist - accepted_dist) / max(accepted_dist, 1.0)
             
-            if jaccard > jaccard_threshold or overlap_of_cand > overlap_threshold:
+            # Only consider duplicate if spatial overlap is high AND duration/distance are nearly identical
+            if (jaccard > jaccard_threshold or overlap_of_cand > overlap_threshold) and (dur_diff_ratio < 0.15 and dist_diff_ratio < 0.15):
                 is_duplicate = True
-                duplicate_reason = f"Jaccard {jaccard:.2f}, Overlap {overlap_of_cand:.2f}"
+                duplicate_reason = f"Mode '{cand_mode}' duplicate: Jaccard {jaccard:.2f}, Overlap {overlap_of_cand:.2f}, DurDiff {dur_diff_ratio:.2f}"
                 break
                 
         if not is_duplicate:

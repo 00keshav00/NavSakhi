@@ -5,94 +5,108 @@ class SafeSheRecommender:
     """
     Evaluates validated CandidateRoutes and computes objective rankings 
     (SAFEST, FASTEST, BALANCED, LOWEST_COST) purely based on verifiable backend data.
+    Enforces practicality: does not recommend journeys with >2x duration or severe detours
+    just because of a minor safety proxy difference.
     """
-    # Configurables for Balanced Ranking
-    BALANCED_SAFETY_WEIGHT = 0.6  # SafeShe prioritizes safety first
-    BALANCED_TIME_WEIGHT = 0.4    # Time remains a strong secondary practicality factor
-    # Allowed range for weights: [0.0 - 1.0], must sum to 1.0.
+    BALANCED_SAFETY_WEIGHT = 0.55
+    BALANCED_TIME_WEIGHT = 0.45
 
-    def generate_recommendation(self, candidates: List[CandidateRoute], user_preference: str) -> JourneyRecommendation:
+    def generate_recommendation(self, candidates: List[CandidateRoute], user_preference: str = "ANY") -> JourneyRecommendation:
         if not candidates:
             return JourneyRecommendation()
             
-        # 1. Filter Eligibility
-        # Only routes that are geometry_complete and not explicitly REJECTED/UNAVAILABLE.
+        # 1. Filter Eligibility: Only routes with complete geometry and not rejected
         eligible = [c for c in candidates if c.recommendation_status not in ["REJECTED", "UNAVAILABLE", "NO_VERIFIED_STATION"]]
-        
         if not eligible:
             return JourneyRecommendation()
 
-        # 2. Objective Ranking (Safest)
-        # Sort by safety score descending. Missing safety_score falls to 0 to prevent UNKNOWNs winning.
-        safest_route = sorted(eligible, key=lambda r: r.route_metadata.get("safety_score") or 0, reverse=True)[0]
-        
-        # 3. Objective Ranking (Fastest)
-        # Sort by duration ascending. Missing duration is penalized.
+        # 2. Objective Ranking (Fastest): Minimum valid duration
         fastest_route = sorted(eligible, key=lambda r: r.duration if r.duration > 0 else float('inf'))[0]
-        
-        # 4. Objective Ranking (Balanced)
-        # Normalization: safety is [0-100]. duration is scaled relative to the fastest route.
-        # Score = (Safety / 100) * 0.6 + (Fastest_Dur / Route_Dur) * 0.4
-        fastest_dur = fastest_route.duration
+        fastest_dur = fastest_route.duration if fastest_route.duration > 0 else 1.0
+
+        # 3. Objective Ranking (Safest): Verified LightGBM road safety scores only
+        scored_routes = [r for r in eligible if r.route_metadata.get("safety_score") is not None]
+        safest_route = sorted(scored_routes, key=lambda r: float(r.route_metadata.get("safety_score", 0.0)), reverse=True)[0] if scored_routes else None
+
+        # 4. Objective Ranking (Balanced): Multi-attribute trade-off
         def balanced_score(r):
-            safety_norm = (r.route_metadata.get("safety_score") or 0) / 100.0
-            time_norm = (fastest_dur / r.duration) if r.duration > 0 else 0
-            return (safety_norm * self.BALANCED_SAFETY_WEIGHT) + (time_norm * self.BALANCED_TIME_WEIGHT)
+            s = r.route_metadata.get("safety_score")
+            # If safety score is unrated (e.g. transit leg), use neutral 0.50
+            safety_norm = (float(s) / 100.0) if s is not None else 0.50
+            time_norm = (fastest_dur / r.duration) if r.duration > 0 else 0.0
+            
+            # Penalize severe detours (> 1.6x duration of fastest)
+            detour_penalty = 0.0
+            if r.duration > fastest_dur * 1.6:
+                detour_penalty = 0.15
+            if r.duration > fastest_dur * 2.0:
+                detour_penalty = 0.30
+                
+            score = (safety_norm * self.BALANCED_SAFETY_WEIGHT) + (time_norm * self.BALANCED_TIME_WEIGHT) - detour_penalty
+            return max(0.0, score)
             
         balanced_route = sorted(eligible, key=balanced_score, reverse=True)[0]
-        
-        # 5. Objective Ranking (Lowest Cost)
-        # Cost is frequently UNKNOWN or ESTIMATED. We only rank if cost is explicitly populated and > 0.
-        cost_eligible = [c for c in eligible if c.route_metadata.get("estimated_fare") is not None]
-        lowest_cost_route = None
-        if cost_eligible:
-            lowest_cost_route = sorted(cost_eligible, key=lambda r: r.route_metadata.get("estimated_fare"))[0]
 
-        # 6. Primary Recommendation Selection
-        # Primary defaults to BALANCED unless user explicitly requested PUBLIC_TRANSPORT or PERSONAL_VEHICLE
-        # If transport preferences conflict, we filter for preference first. For ANY, we just use BALANCED.
-        primary = balanced_route
+        # 5. Objective Ranking (Lowest Cost)
+        cost_eligible = [c for c in eligible if c.route_metadata.get("estimated_fare") is not None]
+        lowest_cost_route = sorted(cost_eligible, key=lambda r: r.route_metadata.get("estimated_fare"))[0] if cost_eligible else None
+
+        # 6. Primary Recommendation Selection based on user preference and practicality
+        pref_lower = (user_preference or "ANY").lower()
+        if "fast" in pref_lower:
+            primary = fastest_route
+        elif "safe" in pref_lower and safest_route:
+            # If safest route takes more than 1.7x the fastest route's duration, recommend balanced route
+            # to prevent severe detours while still highlighting safest
+            if safest_route.duration <= fastest_dur * 1.7:
+                primary = safest_route
+            else:
+                primary = balanced_route
+        elif "cost" in pref_lower and lowest_cost_route:
+            primary = lowest_cost_route
+        else:
+            primary = balanced_route
 
         # 7. Generate Factual Explanation
         explanation = self._build_explanation(primary, safest_route, fastest_route)
 
         return JourneyRecommendation(
             primary_route_id=primary.route_identifier,
-            safest_route_id=safest_route.route_identifier,
+            safest_route_id=safest_route.route_identifier if safest_route else None,
             fastest_route_id=fastest_route.route_identifier,
             balanced_route_id=balanced_route.route_identifier,
             lowest_cost_route_id=lowest_cost_route.route_identifier if lowest_cost_route else None,
             explanation=explanation
         )
 
-    def _build_explanation(self, primary: CandidateRoute, safest: CandidateRoute, fastest: CandidateRoute) -> RecommendationExplanation:
+    def _build_explanation(self, primary: CandidateRoute, safest: Optional[CandidateRoute], fastest: CandidateRoute) -> RecommendationExplanation:
         adv = []
         limit = []
         tradeoffs = []
         
-        primary_safety = primary.route_metadata.get("safety_score") or 0
-        safest_safety = safest.route_metadata.get("safety_score") or 0
+        primary_safety = primary.route_metadata.get("safety_score")
+        safest_safety = safest.route_metadata.get("safety_score") if safest else None
         
-        if primary.route_identifier == safest.route_identifier:
-            primary_reason = "Recommended because it has the strongest validated safety score."
-            adv.append("Highest predictive safety.")
+        if safest and primary.route_identifier == safest.route_identifier:
+            primary_reason = "Recommended because it has the strongest validated safety score among practical alternatives."
+            adv.append("Highest predictive road safety score.")
         elif primary.route_identifier == fastest.route_identifier:
-            primary_reason = "Recommended for optimal speed while maintaining acceptable safety thresholds."
+            primary_reason = "Recommended for optimal speed and direct door-to-door transit time."
             adv.append("Fastest travel time.")
         else:
-            primary_reason = "Recommended because it offers the most balanced trade-off between travel time and safety."
-            adv.append("Balanced time and risk.")
+            primary_reason = "Recommended because it provides the most balanced combination of travel time, distance, and environmental safety."
+            adv.append("Balanced time and infrastructure safety rating.")
             
         if primary.duration > fastest.duration:
             delta_mins = int((primary.duration - fastest.duration) / 60)
-            if delta_mins > 2:
-                tradeoffs.append(f"Takes {delta_mins} minutes longer than the fastest alternative.")
+            if delta_mins >= 3:
+                tradeoffs.append(f"Takes ~{delta_mins} minutes longer than the fastest direct route.")
                 
-        if primary_safety < safest_safety:
-            tradeoffs.append("Has a slightly lower safety rating compared to the safest available route.")
+        if primary_safety is not None and safest_safety is not None and primary_safety < safest_safety:
+            tradeoffs.append("Has a slightly lower road safety score than the highest-rated alternative.")
 
-        if primary.route_metadata.get("live_status") == "UNKNOWN":
-            limit.append("Live service status unavailable.")
+        if primary.route_metadata.get("travel_mode") == "Multimodal":
+            limit.append("Public transit track safety is not scored by the road LightGBM pipeline.")
             
         return RecommendationExplanation(
             primary_reason=primary_reason,

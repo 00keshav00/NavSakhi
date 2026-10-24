@@ -5,7 +5,7 @@ from app.models.community import CommunityReport, ReportCollection
 
 class RoutingProvider(ABC):
     @abstractmethod
-    def get_routes(self, source: Location, destination: Location, mode: str, alternatives: int = 3) -> List[CandidateRoute]:
+    def get_routes(self, source: Location, destination: Location, mode: str, alternatives: int = 3, waypoints: List[Location] = None) -> List[CandidateRoute]:
         raise NotImplementedError
 
 class WeatherProvider(ABC):

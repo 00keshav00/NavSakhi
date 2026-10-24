@@ -139,9 +139,16 @@ class JourneyPlan(BaseModel):
 class JourneyProgress(BaseModel):
     current_segment: Optional[str] = None
     current_location: Optional[Location] = None
+    distance_covered: float = 0.0
     distance_remaining: float = 0.0
     eta_remaining: float = 0.0
+    updated_eta: float = 0.0
     progress_percentage: float = 0.0
+    distance_from_route: Optional[float] = None
+    is_on_route: bool = True
+    status: str = "unavailable"
+    last_updated: Optional[datetime] = None
+    accuracy: Optional[float] = None
 
 class ActiveAlert(BaseModel):
     alert_identifier: str
@@ -172,6 +179,9 @@ class Journey(MongoBaseModel):
     progress: Optional[JourneyProgress] = None
     alerts: List[ActiveAlert] = []
     metadata: JourneyMetadata = Field(default_factory=JourneyMetadata)
+    planned_routes: Optional[List[Dict[str, Any]]] = None
+    selected_route_id: Optional[str] = None
+    last_telemetry_timestamp: Optional[float] = None
 
 class RecommendationExplanation(BaseModel):
     primary_reason: str

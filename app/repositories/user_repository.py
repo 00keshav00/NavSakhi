@@ -9,9 +9,15 @@ class UserRepository(BaseRepository[User]):
         super().__init__(db, "users", User)
 
     async def get_by_email(self, email: str) -> Optional[User]:
-        doc = await self.collection.find_one({"email": email})
-        if doc:
-            return self.model(**doc)
+        for doc in self._store.values():
+            if doc.get("email", "").lower() == email.lower():
+                return self.model(**doc)
+        try:
+            doc = await self.collection.find_one({"email": email})
+            if doc:
+                return self.model(**doc)
+        except Exception:
+            pass
         return None
         
     async def get_emergency_contacts(self, user_id: str) -> List[EmergencyContact]:
