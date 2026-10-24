@@ -9,7 +9,57 @@ from app.intelligence.decision.engine import DecisionEngine
 from app.tools.specialized.reasoning_tool import ReasoningTool
 from app.intelligence.response.builder import ResponseBuilder
 
+from typing import Dict, Any, Optional, Tuple
+
 logger = logging.getLogger(__name__)
+
+
+def parse_coordinate_pair(text: str) -> Optional[Tuple[float, float]]:
+    """
+    Parses an input string to check if it represents an explicit coordinate pair.
+    Returns canonical (longitude, latitude) if valid, None otherwise.
+
+    Requirements:
+    - Exactly two comma-separated values.
+    - Both values must be valid numeric floats (supporting signs and decimals).
+    - Latitude must be in [-90.0, 90.0], Longitude must be in [-180.0, 180.0].
+    - Handles India/Chennai lon/lat ordering properly.
+    """
+    if not text or not isinstance(text, str):
+        return None
+    cleaned = text.strip()
+    parts = cleaned.split(",")
+    if len(parts) != 2:
+        return None
+    try:
+        v0 = float(parts[0].strip())
+        v1 = float(parts[1].strip())
+    except (ValueError, TypeError):
+        return None
+
+    # Check geographic range validity
+    # In India (lat ~8-38, lon ~68-98):
+    if 68.0 <= v0 <= 98.0 and 8.0 <= v1 <= 38.0:
+        lon, lat = v0, v1
+    elif 8.0 <= v0 <= 38.0 and 68.0 <= v1 <= 98.0:
+        lat, lon = v0, v1
+    elif -90.0 <= v0 <= 90.0 and -180.0 <= v1 <= 180.0:
+        lat, lon = v0, v1
+    elif -180.0 <= v0 <= 180.0 and -90.0 <= v1 <= 90.0:
+        lon, lat = v0, v1
+    else:
+        return None
+
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return None
+
+    return (lon, lat)
+
+
+def is_coordinate_pair(text: str) -> bool:
+    """Returns True if text represents a valid numerical coordinate pair."""
+    return parse_coordinate_pair(text) is not None
+
 
 class JourneyIntelligenceCoordinator:
     """
@@ -119,57 +169,96 @@ class JourneyIntelligenceCoordinator:
         import datetime
         ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
         ist_dt = datetime.datetime.now(ist_tz)
-        try:
-            parts = request.source.split(",") if "," in request.source else []
-            if len(parts) == 2:
-                try:
-                    lat, lon = float(parts[0].strip()), float(parts[1].strip())
-                    source_loc = Location(type="Point", coordinates=[lon, lat])
-                except ValueError:
-                    source_loc = await loc_provider.forward_geocode(request.source)
-            elif "Detecting" in request.source or "Current" in request.source:
-                source_loc = Location(type="Point", coordinates=[77.5946, 12.9716])
-            else:
-                source_loc = await loc_provider.forward_geocode(request.source)
-        except Exception as e:
-            logger.error(f"Geocoding source failed: {str(e)}")
-            source_loc = Location(type="Point", coordinates=[77.5946, 12.9716])
+        from app.providers.shared.exceptions import (
+            ProviderRateLimitError,
+            ProviderTimeoutError,
+            ProviderUnavailableError,
+            LocationNotFoundError,
+        )
+
+        async def _resolve_location_param(raw_input: str, role: str) -> Location:
+            cleaned = (raw_input or "").strip()
+            if not cleaned:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{role.capitalize()} location cannot be empty."
+                )
+
+            # Check if input is a valid coordinate pair
+            coords = parse_coordinate_pair(cleaned)
+            if coords is not None:
+                lon, lat = coords
+                return Location(type="Point", coordinates=[lon, lat])
+
+            if "detecting" in cleaned.lower() or "current" in cleaned.lower():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Cannot determine {role} location from '{cleaned}'. Please provide coordinates (latitude, longitude) or select a verified place."
+                )
+
+            try:
+                return await loc_provider.forward_geocode(cleaned)
+            except ProviderRateLimitError as e:
+                logger.warning(f"Nominatim rate limit during {role} geocoding: retry_after={e.retry_after}")
+                headers = {"Retry-After": str(e.retry_after)} if e.retry_after else None
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions.",
+                    headers=headers
+                )
+            except (ProviderTimeoutError, ProviderUnavailableError) as e:
+                logger.warning(f"Geocoding provider unavailable during {role} geocoding: {e}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions."
+                )
+            except LocationNotFoundError:
+                sanitized_query = cleaned[:80].replace("\n", " ")
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Could not find {role} location '{sanitized_query}'. Please verify the place name or select a verified place from suggestions."
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.exception(f"Unexpected error resolving {role} location '{cleaned}': {e}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions."
+                )
+
+        source_loc = await _resolve_location_param(request.source, "source")
+        dest_loc = await _resolve_location_param(request.destination, "destination")
             
-        # Parse Destination
-        try:
-            if "," in request.destination:
-                parts = request.destination.split(",")
-                try:
-                    lat, lon = float(parts[0].strip()), float(parts[1].strip())
-                    dest_loc = Location(type="Point", coordinates=[lon, lat])
-                except ValueError:
-                    dest_loc = await loc_provider.forward_geocode(request.destination)
-            else:
-                dest_loc = await loc_provider.forward_geocode(request.destination)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Could not find destination: {str(e)}")
-            
-        # Optional: reverse geocode for display names (avoid slow lookups when names are already text)
+        # Reverse geocode display name ONLY for genuine coordinate strings or current location placeholders
         import asyncio
-        source_name = request.source if ("," not in request.source and "Detecting" not in request.source and "Current" not in request.source) else "Current Location"
-        source_full = source_name.lower()
-        if "," in request.source or "Detecting" in request.source or "Current" in request.source:
+        source_is_coords = is_coordinate_pair(request.source)
+        source_is_detecting = "detecting" in request.source.lower() or "current" in request.source.lower()
+
+        if source_is_coords or source_is_detecting:
+            source_name = "Current Location"
             try:
                 source_addr = await asyncio.wait_for(loc_provider.reverse_geocode(source_loc), timeout=2.0)
                 source_name = source_addr.display_name.split(",")[0]
-                source_full = source_addr.display_name.lower()
             except Exception:
                 pass
-            
-        dest_name = request.destination if "," not in request.destination else "Destination"
-        dest_full = dest_name.lower()
-        if "," in request.destination:
+        else:
+            source_name = request.source
+
+        source_full = source_name.lower()
+
+        dest_is_coords = is_coordinate_pair(request.destination)
+        if dest_is_coords:
+            dest_name = "Destination"
             try:
                 dest_addr = await asyncio.wait_for(loc_provider.reverse_geocode(dest_loc), timeout=2.0)
                 dest_name = dest_addr.display_name.split(",")[0]
-                dest_full = dest_addr.display_name.lower()
             except Exception:
                 pass
+        else:
+            dest_name = request.destination
+
+        dest_full = dest_name.lower()
 
         # Determine if context is a campus/university
         is_campus = any(keyword in source_full or keyword in dest_full for keyword in ["university", "college", "campus", "institute"])

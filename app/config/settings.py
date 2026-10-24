@@ -113,6 +113,8 @@ class Settings(BaseSettings):
     transit_cache_ttl: int = 7200
     reports_cache_ttl: int = 60
     nominatim_base_url: str = "https://nominatim.openstreetmap.org"
+    nominatim_user_agent: str = "NavSakhi/2.0 (+https://github.com/00keshav00/NavSakhi)"
+    nominatim_email: Optional[str] = None
     overpass_base_url: str = "https://overpass-api.de/api/interpreter"
 
     # ML Configuration

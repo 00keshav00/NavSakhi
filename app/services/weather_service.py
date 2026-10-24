@@ -67,12 +67,15 @@ class WeatherService:
                 return cached_res
 
         try:
-            url = f"https://nominatim.openstreetmap.org/reverse?lat={lat:.5f}&lon={lon:.5f}&format=json"
-            headers = {"User-Agent": "NavSakhi/1.0 (WeatherReverseGeocode)"}
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                resp = await client.get(url, headers=headers)
-                if resp.status_code == 200:
-                    d = resp.json()
+            from app.providers.shared.nominatim_coordinator import get_nominatim_coordinator
+            coordinator = get_nominatim_coordinator()
+            params = {
+                "lat": f"{lat:.5f}",
+                "lon": f"{lon:.5f}",
+                "format": "json"
+            }
+            d = await coordinator.execute_request("reverse", params=params)
+            if isinstance(d, dict):
                     addr = d.get("address", {})
                     city = (
                         addr.get("city")

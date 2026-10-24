@@ -216,7 +216,7 @@ class AutocompleteService:
 
         # Sort local matches by score
         local_matches.sort(key=lambda x: -x[0])
-        for _, p in local_matches[:3]:
+        for _, p in local_matches[:limit]:
             coord_key = (round(p["latitude"], 4), round(p["longitude"], 4))
             if coord_key not in seen_coords:
                 seen_coords.add(coord_key)
@@ -232,64 +232,7 @@ class AutocompleteService:
                     source=p["source"]
                 ))
 
-        # 4. Live Nominatim Query (Biased towards Chennai Metropolitan Region)
-        try:
-            async with httpx.AsyncClient(timeout=2.8) as client:
-                params = {
-                    "q": clean_q,
-                    "format": "json",
-                    "limit": limit,
-                    "addressdetails": 1,
-                    "countrycodes": "in",
-                    # Bounding box for Chennai Metropolitan Area and immediate surroundings
-                    "viewbox": "79.90,13.35,80.35,12.70",
-                    "bounded": 0
-                }
-                headers = {"User-Agent": "NavSakhi/1.0 (LocationSearch)"}
-                resp = await client.get(f"{self.nominatim_url}/search", params=params, headers=headers)
-                
-                if resp.status_code == 200:
-                    data = resp.json()
-                    for item in data:
-                        try:
-                            lat = float(item.get("lat"))
-                            lon = float(item.get("lon"))
-                            coord_key = (round(lat, 4), round(lon, 4))
-                            if coord_key in seen_coords:
-                                continue
-                            seen_coords.add(coord_key)
-
-                            raw_display = item.get("display_name", "")
-                            parts = [p.strip() for p in raw_display.split(",") if p.strip()]
-                            name = parts[0] if parts else clean_q
-                            
-                            # Build secondary text from locality, neighborhood, suburb
-                            addr = item.get("address", {})
-                            locality_parts = []
-                            for k in ["suburb", "neighbourhood", "city_district", "road", "city"]:
-                                if k in addr and addr[k] not in locality_parts and addr[k] != name:
-                                    locality_parts.append(addr[k])
-                            
-                            secondary_text = ", ".join(locality_parts[:3]) if locality_parts else (", ".join(parts[1:4]) if len(parts) > 1 else "Chennai Region")
-                            pt_type, pt_label = self._classify_osm_type(item)
-
-                            suggestions.append(LocationSuggestion(
-                                id=f"nom_{item.get('osm_type', 'node')}_{item.get('osm_id', int(time.time()))}",
-                                name=name,
-                                secondary_text=secondary_text,
-                                place_type=pt_type,
-                                place_type_label=pt_label,
-                                latitude=lat,
-                                longitude=lon,
-                                formatted_coords=f"{lat:.5f}, {lon:.5f}",
-                                source="NOMINATIM"
-                            ))
-                        except (ValueError, TypeError) as parse_err:
-                            continue
-        except Exception as net_err:
-            logger.warning(f"Nominatim autocomplete request failed: {net_err}")
-
-        # Cache valid results
+        # Cache valid local results
         self._cache[cache_key] = (now, suggestions)
         return suggestions[:limit]
 

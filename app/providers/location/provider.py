@@ -45,88 +45,82 @@ class NominatimLocationProvider(LocationProvider):
         except Exception as e:
             raise ProviderResponseMappingError(f"Failed to map address: {str(e)}")
 
-    @ProviderCache.cached(ttl_seconds=settings.location_cache_ttl)
-    @with_retry(max_retries=1, base_delay_ms=100)
     async def reverse_geocode(self, location: Location) -> Address:
-        url = f"{self.base_url}/reverse"
         params = {
             "lat": location.coordinates[1],
             "lon": location.coordinates[0],
             "format": "json"
         }
-        headers = {"User-Agent": "SafeShe/1.0"}
         
         try:
-            raw_response = await self.http.get(url, params=params, headers=headers)
+            from app.providers.shared.nominatim_coordinator import get_nominatim_coordinator
+            raw_response = await get_nominatim_coordinator().execute_request(
+                "reverse",
+                params=params,
+                custom_base_url=self.base_url,
+                ttl_seconds=settings.location_cache_ttl
+            )
             return self._map_to_address(raw_response)
         except Exception as e:
-            logger.error(f"NominatimLocationProvider Error: {str(e)}")
+            logger.error(f"NominatimLocationProvider Reverse Geocode Error: {str(e)}")
             raise
 
-    @ProviderCache.cached(ttl_seconds=settings.location_cache_ttl)
-    @with_retry(max_retries=1, base_delay_ms=100)
     async def forward_geocode(self, address: str) -> Location:
-        addr_clean = address.strip().lower()
+        """
+        Resolves location offline-first using verified Chennai datasets.
+        Falls back to coordinated, rate-limited Nominatim lookup only if not found locally.
+        """
+        # 1. Offline-First Resolution: Check local verified Chennai datasets
+        from app.services.local_location_resolver import get_local_location_resolver
+        local_resolver = get_local_location_resolver()
+        local_match = local_resolver.resolve(address)
+        if local_match:
+            logger.info(f"Resolved '{address}' offline via verified Chennai dataset: {local_match.coordinates}")
+            return local_match
 
-        url = f"{self.base_url}/search"
-        headers = {"User-Agent": "SafeShe/1.0"}
-        
-        # Primary search: Bias to India (countrycodes='in') and Chennai region viewbox
+        # 2. Coordinated Network Geocoding via Shared Nominatim Coordinator
+        from app.providers.shared.nominatim_coordinator import get_nominatim_coordinator
+        from app.providers.shared.exceptions import LocationNotFoundError
+        coordinator = get_nominatim_coordinator()
+
         params = {
-            "q": address,
+            "q": address.strip(),
             "format": "json",
             "limit": 3,
             "countrycodes": "in",
             "viewbox": "79.8,12.6,80.5,13.4",
             "bounded": 0
         }
-        
+
         try:
-            raw_response = await self.http.get(url, params=params, headers=headers)
-            
-            # If nothing found or outside India bounds, retry with Chennai qualifier
+            raw_response = await coordinator.execute_request(
+                "search",
+                params=params,
+                custom_base_url=self.base_url,
+                ttl_seconds=settings.location_cache_ttl
+            )
+
             if not raw_response or not isinstance(raw_response, list) or len(raw_response) == 0:
-                retry_params = {
-                    "q": f"{address}, Chennai, Tamil Nadu, India",
-                    "format": "json",
-                    "limit": 3,
-                    "countrycodes": "in"
-                }
-                raw_response = await self.http.get(url, params=retry_params, headers=headers)
-                
-            if not raw_response or not isinstance(raw_response, list) or len(raw_response) == 0:
-                for k, coords in LOCAL_CHENNAI_LANDMARKS.items():
-                    if k in addr_clean or addr_clean in k:
-                        logger.info(f"Resolved '{address}' via local Chennai landmark registry: ({coords[0]}, {coords[1]})")
-                        return Location(coordinates=[coords[0], coords[1]])
-                raise ProviderResponseMappingError(f"No results found for address: {address}")
-                
+                raise LocationNotFoundError(f"Could not find location '{address}'")
+
             # Pick first result and validate coordinates
             first_result = raw_response[0]
             lat = float(first_result.get("lat"))
             lon = float(first_result.get("lon"))
-            
+
             # Sanity check: India bounds approx lat 8-38, lon 68-98
             if not (8.0 <= lat <= 38.0 and 68.0 <= lon <= 98.0):
-                logger.warning(f"Nominatim returned out-of-bounds coordinates ({lat}, {lon}) for '{address}'. Retrying with Chennai explicit.")
-                retry_params = {
-                    "q": f"{address}, Chennai, India",
-                    "format": "json",
-                    "limit": 1,
-                    "countrycodes": "in"
-                }
-                retry_res = await self.http.get(url, params=retry_params, headers=headers)
-                if retry_res and isinstance(retry_res, list) and len(retry_res) > 0:
-                    lat = float(retry_res[0].get("lat"))
-                    lon = float(retry_res[0].get("lon"))
+                raise LocationNotFoundError(f"Out-of-bounds coordinates returned for '{address}'")
 
             return Location(coordinates=[lon, lat])
+
         except Exception as e:
-            logger.warning(f"NominatimLocationProvider Forward Geocode Error ({str(e)}), checking local landmark fallback for '{address}'")
-            for k, coords in LOCAL_CHENNAI_LANDMARKS.items():
-                if k in addr_clean or addr_clean in k:
-                    logger.info(f"Resolved '{address}' via local fallback: ({coords[0]}, {coords[1]})")
-                    return Location(coordinates=[coords[0], coords[1]])
+            # Re-check local resolver in case of network/rate-limit failure
+            emergency_local = local_resolver.resolve(address)
+            if emergency_local:
+                logger.info(f"Resolved '{address}' via emergency local fallback: {emergency_local.coordinates}")
+                return emergency_local
+            logger.warning(f"NominatimLocationProvider Forward Geocode Error ({str(e)}) for '{address}'")
             raise
 
     @ProviderCache.cached(ttl_seconds=settings.location_cache_ttl)
