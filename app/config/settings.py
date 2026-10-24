@@ -38,6 +38,26 @@ class Settings(BaseSettings):
     # CORS & Frontend Origins
     frontend_url: Optional[str] = None
     allowed_origins: Optional[str] = None
+    cors_origin_regex: Optional[str] = None
+
+    DEFAULT_CORS_ORIGIN_REGEX: str = (
+        r"^https:\/\/nav-sakhi(-[a-zA-Z0-9_-]+)?-00keshav00s-projects\.vercel\.app$"
+    )
+
+    @property
+    def effective_cors_origin_regex(self) -> Optional[str]:
+        """
+        Returns the regex pattern for dynamic frontend preview origins.
+        Allows custom regex via CORS_ORIGIN_REGEX environment variable,
+        defaulting to the verified NavSakhi Vercel preview deployment pattern.
+        Can be disabled by setting CORS_ORIGIN_REGEX to 'none' or 'disabled'.
+        """
+        if self.cors_origin_regex is not None:
+            raw = self.cors_origin_regex.strip()
+            if raw.lower() in ["none", "disabled", "false", ""]:
+                return None
+            return raw
+        return self.DEFAULT_CORS_ORIGIN_REGEX
 
     @property
     def cors_origins(self) -> List[str]:
@@ -50,6 +70,7 @@ class Settings(BaseSettings):
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "https://nav-sakhi.vercel.app",
+            "https://nav-sakhi-00keshav00s-projects.vercel.app",
         ]
         if self.environment.lower() not in ["production", "prod"]:
             origins.extend(["http://localhost:3001", "http://127.0.0.1:3001"])
