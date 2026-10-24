@@ -1,45 +1,66 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { liveMonitorService } from "../api/services/liveMonitorService";
 import { LiveMonitorResponse } from "../types/liveMonitor";
 
 export const useLiveMonitor = (journeyId: string | null) => {
   const [data, setData] = useState<LiveMonitorResponse | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(Boolean(journeyId));
   const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
 
   const fetchStatus = useCallback(async () => {
-    if (!journeyId) return;
+    if (!journeyId) {
+      if (isMountedRef.current) {
+        setData(null);
+        setError(null);
+        setIsLoading(false);
+      }
+      return;
+    }
     try {
       const responseData = await liveMonitorService.getMonitorStatus(journeyId);
-      setData(responseData);
-      setError(null);
+      if (isMountedRef.current) {
+        setData(responseData);
+        setError(null);
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to sync live monitor.");
+      if (isMountedRef.current) {
+        setError(err.response?.data?.message || err.message || "Failed to load live monitor data.");
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [journeyId]);
 
-  // Initial fetch and WebSocket placeholder
   useEffect(() => {
+    isMountedRef.current = true;
+
     if (!journeyId) {
+      setData(null);
+      setError(null);
       setIsLoading(false);
       return;
     }
-    
-    // Initial fetch
+
+    setIsLoading(true);
     fetchStatus();
 
-    // In the future, this is where the WebSocket /api/v1/ws/journey/{journey_id} connection goes.
-    // For now, we simulate real-time updates via a 3-second polling interval.
-    const interval = setInterval(fetchStatus, 3000);
-    
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      fetchStatus();
+    }, 5000);
+
+    return () => {
+      isMountedRef.current = false;
+      clearInterval(interval);
+    };
   }, [journeyId, fetchStatus]);
 
   return {
     data,
     isLoading,
     error,
+    refetch: fetchStatus,
   };
 };

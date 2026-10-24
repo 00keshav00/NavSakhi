@@ -3,24 +3,34 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
-  Home, Map as MapIcon, Radio, AlertOctagon, Users, Settings, User, Bot
+  Home, Map as MapIcon, Radio, AlertOctagon, Users, Settings, User, Bot, LogOut
 } from "lucide-react";
+import { useAuthStore } from "@/store/authStore";
+import { toast } from "sonner";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [width, setWidth] = useState(280);
+  const router = useRouter();
+  const [width, setWidth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const savedWidth = localStorage.getItem("sidebarWidth");
+      if (savedWidth) return Number(savedWidth);
+    }
+    return 280;
+  });
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
   const isCollapsed = width < 120;
 
-  useEffect(() => {
-    const savedWidth = localStorage.getItem("sidebarWidth");
-    if (savedWidth) setWidth(Number(savedWidth));
-  }, []);
+  const handleLogout = () => {
+    useAuthStore.getState().logout();
+    toast.info("Signed out", { description: "Session ended. Please sign in to continue." });
+    router.push("/login");
+  };
 
   useEffect(() => {
     if (!isResizing) {
@@ -71,13 +81,28 @@ export function Sidebar() {
       transition={{ duration: isResizing ? 0 : 0.3, ease: "easeInOut" }}
       className="relative z-40 hidden h-full flex-col border-r border-border bg-card/80 backdrop-blur-3xl md:flex shrink-0"
     >
-      <div className={`flex h-24 items-center border-b border-border/50 ${isCollapsed ? 'justify-center' : 'px-8'}`}>
+      <div className={`flex h-20 items-center border-b border-border/50 ${isCollapsed ? 'justify-center px-2' : 'px-6'}`}>
         <Link href="/home" className="flex items-center gap-3 transition-transform active:scale-95">
-          <Image src="/logo.png" alt="Logo" width={isCollapsed ? 36 : 40} height={isCollapsed ? 36 : 40} className="shrink-0" />
-          {!isCollapsed && (
-            <span className="font-[family-name:var(--font-jakarta)] text-2xl font-extrabold tracking-tight text-foreground">
-              SafeShe
-            </span>
+          {isCollapsed ? (
+            <div className="relative w-10 h-10 flex items-center justify-center">
+              <Image 
+                src="/images/navsakhi/navsakhi_emblem.png" 
+                alt="NavSakhi Emblem" 
+                width={38} 
+                height={38} 
+                className="object-contain" 
+              />
+            </div>
+          ) : (
+            <div className="relative h-10 w-44 flex items-center">
+              <Image 
+                src="/images/navsakhi/navsakhi_logo_official.png" 
+                alt="NavSakhi" 
+                width={175} 
+                height={56} 
+                className="h-10 w-auto object-contain" 
+              />
+            </div>
           )}
         </Link>
       </div>
@@ -117,6 +142,15 @@ export function Sidebar() {
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={handleLogout}
+          title={isCollapsed ? "Sign Out" : ""}
+          className="w-full text-left group flex items-center gap-4 rounded-xl px-4 py-3 font-medium text-muted-foreground hover:bg-danger/10 hover:text-danger transition-all duration-200"
+        >
+          <LogOut size={22} className="shrink-0 transition-transform group-hover:-translate-x-0.5" />
+          {!isCollapsed && <span className="truncate">Sign Out</span>}
+        </button>
       </div>
 
       <div 

@@ -26,9 +26,9 @@ const aiHistory = [
     id: 2,
     date: "Yesterday",
     events: [
-      { time: "6:00 PM", title: "Weather Checked", desc: "Detected heavy rain. Suggested well-lit indoor transit route.", icon: CloudRain, color: "text-info", bg: "bg-blue-500/10", ai: true },
-      { time: "5:55 PM", title: "Safety Calculated", desc: "Analyzed historical crime data for the downtown sector. Score: 88/100.", icon: ShieldAlert, color: "text-warning", bg: "bg-warning/10", ai: true },
-      { time: "5:50 PM", title: "Journey Planned", desc: "User initiated route to Downtown Station.", icon: Activity, color: "text-muted-foreground", bg: "bg-secondary", ai: false },
+      { time: "6:00 PM", title: "Weather Checked", desc: "Checked Open-Meteo observations for journey segment.", icon: CloudRain, color: "text-info", bg: "bg-blue-500/10", ai: true },
+      { time: "5:55 PM", title: "Safety Calculated", desc: "Evaluated environmental proxy indicators (lighting & infrastructure proximity). Score: 88/100.", icon: ShieldAlert, color: "text-warning", bg: "bg-warning/10", ai: true },
+      { time: "5:50 PM", title: "Journey Planned", desc: "User initiated route search for transit corridor.", icon: Activity, color: "text-muted-foreground", bg: "bg-secondary", ai: false },
     ]
   }
 ];
@@ -38,14 +38,17 @@ export default function ActivityCenterPage() {
     <div className="flex h-full w-full flex-col items-center overflow-y-auto px-6 py-12 scroll-smooth">
       
       {/* Header Section */}
-      <div className="mb-16 flex w-full max-w-3xl flex-col items-center text-center animate-slide-up" style={{ animationDelay: "0.1s" }}>
+      <div className="mb-12 flex w-full max-w-3xl flex-col items-center text-center animate-slide-up" style={{ animationDelay: "0.1s" }}>
         <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-iris/20 text-primary border border-primary/20 shadow-lg shadow-primary/5">
           <Bot size={32} />
         </div>
         <h1 className="text-4xl font-[family-name:var(--font-jakarta)] font-extrabold text-foreground tracking-tight">AI Audit Log</h1>
-        <p className="mt-4 text-muted-foreground max-w-lg text-lg font-light leading-relaxed">
-          A transparent, cryptographically secure timeline of every calculation, check, and decision your SafeShe agent has executed.
+        <p className="mt-3 text-muted-foreground max-w-lg text-base font-light leading-relaxed">
+          A transparent timeline of environmental safety evaluations, weather observations, and routing telemetry executed by your NavSakhi coordinator.
         </p>
+        <span className="mt-2 text-xs font-semibold text-primary/80 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+          Demonstration Log &bull; Illustrates decision transparency
+        </span>
       </div>
 
       {/* Timeline Section */}

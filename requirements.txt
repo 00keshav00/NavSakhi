@@ -8,3 +8,5 @@ pydantic-settings
 email-validator
 motor
 python-dotenv
+pyjwt
+bcrypt

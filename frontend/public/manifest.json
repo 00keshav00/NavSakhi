@@ -1,0 +1,21 @@
+{
+  "name": "NavSakhi - Women's Safety Architecture",
+  "short_name": "NavSakhi",
+  "description": "Proactive safety companion for women with data-driven transit corridors, live telemetry tracking, and emergency support.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF7FA",
+  "theme_color": "#FFF7FA",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

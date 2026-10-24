@@ -108,7 +108,7 @@ export default function SettingsPage() {
              >
                
                {activeTab === 'notifications' && (
-                 <SettingsGroup title="Alert Preferences" desc="Control how SafeShe Agent communicates with you.">
+                 <SettingsGroup title="Alert Preferences" desc="Control how NavSakhi Agent communicates with you.">
                    <ToggleRow label="Journey Alerts" desc="Receive updates regarding route safety variations." checked={localSettings.notifications.journey_alerts} onChange={(v) => updateNestedSetting('notifications', 'journey_alerts', v)} />
                    <ToggleRow label="Community Incident Alerts" desc="Ping when a high-severity incident is verified nearby." checked={localSettings.notifications.community_alerts} onChange={(v) => updateNestedSetting('notifications', 'community_alerts', v)} />
                    <ToggleRow label="Weather Warnings" desc="Notifications for sudden rain or hazardous conditions." checked={localSettings.notifications.weather_alerts} onChange={(v) => updateNestedSetting('notifications', 'weather_alerts', v)} />

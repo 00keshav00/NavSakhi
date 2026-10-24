@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { assistantService } from "../api/services/assistantService";
 import { AssistantResponse } from "../types/assistant";
+import { useAuthStore } from "../store/authStore";
 import { toast } from "sonner";
 
 export interface ChatMessage {
@@ -15,27 +16,49 @@ export const useAssistant = () => {
   const [latestContext, setLatestContext] = useState<AssistantResponse | null>(null);
   const [isTyping, setIsTyping] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const accessToken = useAuthStore((state) => state.accessToken);
 
   // Load initial greeting and context
   useEffect(() => {
+    let isCancelled = false;
+
     const init = async () => {
+      setIsTyping(true);
+      setError(null);
       try {
         const response = await assistantService.getInitialContext();
-        setLatestContext(response);
-        setMessages([{
-          id: response.message_id,
-          role: response.role,
-          content: response.content,
-          timestamp: response.timestamp
-        }]);
-      } catch (err: any) {
-        setError(err.message || "Failed to connect to Intelligence Coordinator.");
+        if (!isCancelled) {
+          setLatestContext(response);
+          setMessages([{
+            id: response.message_id,
+            role: response.role,
+            content: response.content,
+            timestamp: response.timestamp
+          }]);
+        }
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          setMessages([{
+            id: "msg_guest",
+            role: "assistant",
+            content: "Welcome to NavSakhi Intelligence Assistant! Ask any transit or safety questions about Chennai.",
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
+        }
       } finally {
-        setIsTyping(false);
+        if (!isCancelled) {
+          setIsTyping(false);
+        }
       }
     };
+
     init();
-  }, []);
+    return () => {
+      isCancelled = true;
+    };
+  }, [isAuthenticated, accessToken]);
 
   const sendMessage = useCallback(async (query: string) => {
     if (!query.trim()) return;
@@ -61,8 +84,8 @@ export const useAssistant = () => {
         content: response.content,
         timestamp: response.timestamp
       }]);
-    } catch (err: any) {
-      toast.error("Coordinator Unavailable", { description: err.message });
+    } catch (err: unknown) {
+      toast.error("Coordinator Unavailable", { description: (err as Error).message });
       setMessages(prev => [...prev, {
         id: "err_" + Math.random(),
         role: 'assistant',

@@ -9,7 +9,7 @@ export interface AssistantResponse {
   };
   reasoning: {
     summary: string[];
-    confidence: number;
+    confidence?: number | null;
     decision_source: string;
     provider_summary: string;
   };
@@ -17,7 +17,7 @@ export interface AssistantResponse {
     active_journey: boolean;
     source?: string;
     destination?: string;
-    safety_score?: number;
+    safety_score?: number | null;
     eta?: string;
     weather?: string;
     community_alerts?: number;

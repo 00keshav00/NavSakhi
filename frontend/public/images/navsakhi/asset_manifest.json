@@ -1,0 +1,145 @@
+[
+  {
+    "filename": "navsakhi_logo_official.png",
+    "url": "local://official_brand/navsakhi_logo.png",
+    "title": "NavSakhi Official Brandmark & Emblem",
+    "photographer": "Official NavSakhi Brand Identity",
+    "source": "Provided by Product Leadership",
+    "license": "Proprietary NavSakhi Brand Asset",
+    "intended_use": "Header, Landing Navigation, Sidebar, Login Brand Identity",
+    "size_bytes": 264620,
+    "local_path": "/images/navsakhi/navsakhi_logo_official.png"
+  },
+  {
+    "filename": "navsakhi_emblem.png",
+    "url": "local://official_brand/navsakhi_emblem.png",
+    "title": "NavSakhi Shield Emblem Icon",
+    "photographer": "Official NavSakhi Brand Identity",
+    "source": "Extracted from Official Logo",
+    "license": "Proprietary NavSakhi Brand Asset",
+    "intended_use": "Collapsed Sidebar, Favicon, Square App Badges",
+    "size_bytes": 105420,
+    "local_path": "/images/navsakhi/navsakhi_emblem.png"
+  },
+  {
+    "filename": "transit_women_platform.jpg",
+    "url": "local://official_assets/transit_women_platform.jpg",
+    "title": "Two Women Commuters Traveling at Railway Platform",
+    "photographer": "Official Transit Reference Asset",
+    "source": "Provided by Product Leadership",
+    "license": "Verified Educational & Operational Use",
+    "intended_use": "Resources Safe Urban Travel & Landing Transit Corridor Feature",
+    "size_bytes": 182530,
+    "local_path": "/images/navsakhi/transit_women_platform.jpg"
+  },
+  {
+    "filename": "metro_commuter_transit.jpg",
+    "url": "local://official_assets/metro_commuter_transit.jpg",
+    "title": "Woman Passenger Navigating Evening Metro Station Platform",
+    "photographer": "Official Transit Reference Asset",
+    "source": "Provided by Product Leadership",
+    "license": "Verified Educational & Operational Use",
+    "intended_use": "Resources Station Awareness & Landing Public Transit Feature",
+    "size_bytes": 163500,
+    "local_path": "/images/navsakhi/metro_commuter_transit.jpg"
+  },
+  {
+    "filename": "hero_women_transit.jpg",
+    "url": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1400&q=85",
+    "title": "Confident Woman Urban Traveler",
+    "photographer": "Christina @ wocintechchat.com",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Public Landing Page Hero Composition",
+    "size_bytes": 425933,
+    "local_path": "/images/navsakhi/hero_women_transit.jpg"
+  },
+  {
+    "filename": "transit_station_corridor.jpg",
+    "url": "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=85",
+    "title": "Modern Illuminated City Transit Corridor",
+    "photographer": "Denys Nevozhai",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Landing Page Feature - Multimodal Transit Security",
+    "size_bytes": 366886,
+    "local_path": "/images/navsakhi/transit_station_corridor.jpg"
+  },
+  {
+    "filename": "community_solidarity.jpg",
+    "url": "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=1200&q=85",
+    "title": "Supportive Women Community",
+    "photographer": "Christina @ wocintechchat.com",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Landing Page & Community Feature",
+    "size_bytes": 434271,
+    "local_path": "/images/navsakhi/community_solidarity.jpg"
+  },
+  {
+    "filename": "travel_preparedness.jpg",
+    "url": "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=1000&q=85",
+    "title": "Travel Preparedness & Route Confidence",
+    "photographer": "Jurica Koletic",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Resources - Safety Planning & Travel Guides",
+    "size_bytes": 110932,
+    "local_path": "/images/navsakhi/travel_preparedness.jpg"
+  },
+  {
+    "filename": "station_awareness.jpg",
+    "url": "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1000&q=85",
+    "title": "Public Transit Station & Platform Safety",
+    "photographer": "Scott Webb",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Resources - Station Awareness & First-Mile Guidance",
+    "size_bytes": 104421,
+    "local_path": "/images/navsakhi/station_awareness.jpg"
+  },
+  {
+    "filename": "support_helplines.jpg",
+    "url": "https://images.unsplash.com/photo-1573497491765-dccce02b29df?auto=format&fit=crop&w=1000&q=85",
+    "title": "Emergency Support & Legal Advisory",
+    "photographer": "Christina @ wocintechchat.com",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Resources - Legal Rights & Helplines Guide",
+    "size_bytes": 374251,
+    "local_path": "/images/navsakhi/support_helplines.jpg"
+  },
+  {
+    "filename": "dashboard_accent.jpg",
+    "url": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=85",
+    "title": "Empowered Traveler Accent",
+    "photographer": "Aiony Haust",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Historical reference (replaced by official NavSakhi emblem)",
+    "size_bytes": 74746,
+    "local_path": "/images/navsakhi/dashboard_accent.jpg"
+  },
+  {
+    "filename": "transit_commuter_navigating.jpg",
+    "url": "https://images.unsplash.com/photo-1581049617505-8c371caed308",
+    "title": "Woman Commuter Navigating Transit with Smartphone",
+    "photographer": "Jacob Boavista",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Landing Page Hero Split Composition (Authentic transit passenger route navigation)",
+    "size_bytes": 462887,
+    "local_path": "/images/navsakhi/transit_commuter_navigating.jpg"
+  },
+  {
+    "filename": "legal_aid_support.jpg",
+    "url": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f",
+    "title": "Legal Aid Consultation & Rights Advisory",
+    "photographer": "Giammarco Boscaro",
+    "source": "Unsplash",
+    "license": "Unsplash License (Free commercial & personal use)",
+    "intended_use": "Resources - Legal Rights & Helplines Guide",
+    "size_bytes": 134267,
+    "local_path": "/images/navsakhi/legal_aid_support.jpg"
+  }
+]
