@@ -23,7 +23,7 @@ const reportSchema = z.object({
   report_type: z.enum(["Harassment", "Dark Area", "Heavy Crowd", "Construction"]),
   severity: z.enum(["High", "Medium", "Low"]),
   description: z.string().min(5, "Description must be at least 5 characters.").max(500),
-  is_anonymous: z.boolean().default(false),
+  is_anonymous: z.boolean(),
 });
 
 type ReportFormValues = z.infer<typeof reportSchema>;
@@ -48,9 +48,9 @@ export default function CommunityPage() {
   });
 
   const onSubmit = (values: ReportFormValues) => {
-    // Generate slight offset around Bangalore for demo purposes since we don't have a map picker
-    const offsetLon = 77.5946 + (Math.random() * 0.02 - 0.01);
-    const offsetLat = 12.9716 + (Math.random() * 0.02 - 0.01);
+    // Generate slight offset around regional coordinates for demo submission when map point is unpicked
+    const offsetLon = 80.2707 + (Math.random() * 0.02 - 0.01);
+    const offsetLat = 13.0827 + (Math.random() * 0.02 - 0.01);
     
     submitReport({
       location: { type: "Point", coordinates: [offsetLon, offsetLat] },
