@@ -276,17 +276,21 @@ class WeatherService:
                     return response
                 elif resp.status_code == 429:
                     logger.warning("Open-Meteo API rate limit reached.")
-                    return self._build_unavailable_response(
+                    unavail = self._build_unavailable_response(
                         lat, lon, resolved_name, status="RATE_LIMITED",
                         warning="Open-Meteo API rate limit reached. Please retry in a few moments."
                     )
+                    self._weather_cache[cache_key] = (now, unavail)
+                    return unavail
         except Exception as e:
             logger.warning(f"Failed to fetch live weather from Open-Meteo for ({lat}, {lon}): {e}")
 
-        return self._build_unavailable_response(
+        unavail = self._build_unavailable_response(
             lat, lon, resolved_name, status="UNAVAILABLE",
             warning="Live weather provider is temporarily unreachable."
         )
+        self._weather_cache[cache_key] = (now, unavail)
+        return unavail
 
     def _build_unavailable_response(
         self,

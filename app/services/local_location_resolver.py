@@ -35,8 +35,14 @@ CHENNAI_LON_MAX = 80.50
 # Canonical Curated Chennai Landmarks (Longitude, Latitude)
 CANONICAL_CHENNAI_LANDMARKS: Dict[str, Tuple[float, float, str]] = {
     # Educational & Campuses
+    "vit": (80.1554, 12.8406, "VIT Chennai Campus, Vandalur-Kelambakkam Road"),
     "vit chennai": (80.1554, 12.8406, "VIT Chennai Campus, Vandalur-Kelambakkam Road"),
+    "vit chennai campus": (80.1554, 12.8406, "VIT Chennai Campus, Vandalur-Kelambakkam Road"),
+    "vit campus": (80.1554, 12.8406, "VIT Chennai Campus, Vandalur-Kelambakkam Road"),
+    "vit university": (80.1554, 12.8406, "VIT Chennai Campus, Vandalur-Kelambakkam Road"),
+    "vit university chennai": (80.1554, 12.8406, "VIT Chennai Campus, Vandalur-Kelambakkam Road"),
     "vellore institute of technology chennai": (80.1554, 12.8406, "VIT Chennai Campus"),
+    "vellore institute of technology": (80.1554, 12.8406, "VIT Chennai Campus"),
     "iit madras": (80.2337, 12.9915, "IIT Madras, Sardar Patel Road, Adyar"),
     "anna university": (80.2354, 13.0109, "Anna University, Guindy"),
     "loyola college": (80.2350, 13.0645, "Loyola College, Nungambakkam"),

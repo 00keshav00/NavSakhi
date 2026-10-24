@@ -214,15 +214,20 @@ export function RealWeatherCard() {
   }
 
   // 4. Data-Driven Weather Card
-  const tempVal = weather?.temperature ? Math.round(weather.temperature) : 26;
-  const apparentVal = weather?.apparent_temperature ? Math.round(weather.apparent_temperature) : tempVal;
-  const conditionLabel = weather?.condition || "Clear";
-  const humidityVal = weather?.humidity ?? 65;
-  const windVal = weather?.wind_speed ? Math.round(weather.wind_speed) : 12;
-  const rainVal = weather?.precipitation ?? 0;
-  const uvVal = typeof weather?.uv_index === "number" ? Math.round(weather.uv_index) : 0;
-  const uvMaxVal = typeof weather?.uv_index_max === "number" ? Math.round(weather.uv_index_max) : null;
-  const uvDescriptor = uvVal >= 8 ? "Very High" : uvVal >= 6 ? "High" : uvVal >= 3 ? "Moderate" : uvVal > 0 ? "Low" : "Minimal / Night";
+  const isAvailable = weather?.available !== false && weather?.status !== "UNAVAILABLE" && weather?.status !== "RATE_LIMITED";
+  const tempVal = isAvailable && typeof weather?.temperature === "number" ? Math.round(weather.temperature) : null;
+  const apparentVal = isAvailable && typeof weather?.apparent_temperature === "number" ? Math.round(weather.apparent_temperature) : tempVal;
+  const conditionLabel = isAvailable
+    ? (weather?.condition || "Clear")
+    : (weather?.status === "RATE_LIMITED" ? "Provider Rate Limited" : "Weather Unavailable");
+  const humidityVal = isAvailable && typeof weather?.humidity === "number" ? weather.humidity : null;
+  const windVal = isAvailable && typeof weather?.wind_speed === "number" ? Math.round(weather.wind_speed) : null;
+  const rainVal = isAvailable && typeof weather?.precipitation === "number" ? weather.precipitation : null;
+  const uvVal = isAvailable && typeof weather?.uv_index === "number" ? Math.round(weather.uv_index) : null;
+  const uvMaxVal = isAvailable && typeof weather?.uv_index_max === "number" ? Math.round(weather.uv_index_max) : null;
+  const uvDescriptor = uvVal !== null
+    ? (uvVal >= 8 ? "Very High" : uvVal >= 6 ? "High" : uvVal >= 3 ? "Moderate" : uvVal > 0 ? "Low" : "Minimal / Night")
+    : "--";
 
   return (
     <div className="glass-card rounded-3xl p-4.5 sm:p-6 md:p-7 flex flex-col justify-between border border-border/80 shadow-sm relative overflow-hidden group">
@@ -244,6 +249,11 @@ export function RealWeatherCard() {
             <span className="text-primary/90 font-semibold">{weather?.provider || "Open-Meteo"}</span>
             {weather?.cached && (
               <span className="px-1.5 py-0.5 rounded bg-secondary/80 text-[10px] text-muted-foreground border border-border/40 font-medium">Cached</span>
+            )}
+            {!isAvailable && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] border border-amber-500/20 font-medium">
+                {weather?.status === "RATE_LIMITED" ? "Rate Limited" : "Offline"}
+              </span>
             )}
           </div>
         </div>
@@ -305,17 +315,17 @@ export function RealWeatherCard() {
         {/* Left: Big Temp & Condition (Spans 5 cols) */}
         <div className="md:col-span-5 flex items-center gap-4">
           <div className="p-3 rounded-2xl bg-secondary/60 border border-border/40 shrink-0">
-            {getWeatherIcon(weather?.condition_icon, 44)}
+            {getWeatherIcon(isAvailable ? weather?.condition_icon : "cloudy", 44)}
           </div>
           <div>
             <div className="text-4xl md:text-5xl font-black font-[family-name:var(--font-jakarta)] text-foreground tracking-tight">
-              {tempVal}°C
+              {tempVal !== null ? `${tempVal}°C` : "--"}
             </div>
             <div className="text-xs md:text-sm font-semibold text-foreground/90 mt-0.5">
               {conditionLabel}
             </div>
             <div className="text-[11px] text-muted-foreground font-medium">
-              Feels like {apparentVal}°C
+              {apparentVal !== null ? `Feels like ${apparentVal}°C` : "Atmospheric telemetry offline"}
             </div>
           </div>
         </div>
@@ -331,7 +341,9 @@ export function RealWeatherCard() {
               <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block truncate">
                 Humidity
               </span>
-              <span className="text-sm font-black text-foreground">{humidityVal}%</span>
+              <span className="text-sm font-black text-foreground">
+                {humidityVal !== null ? `${humidityVal}%` : "--"}
+              </span>
             </div>
           </div>
 
@@ -344,7 +356,9 @@ export function RealWeatherCard() {
               <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block truncate">
                 Wind
               </span>
-              <span className="text-sm font-black text-foreground">{windVal} km/h</span>
+              <span className="text-sm font-black text-foreground">
+                {windVal !== null ? `${windVal} km/h` : "--"}
+              </span>
             </div>
           </div>
 
@@ -357,7 +371,9 @@ export function RealWeatherCard() {
               <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block truncate">
                 Rain
               </span>
-              <span className="text-sm font-black text-foreground">{rainVal} mm</span>
+              <span className="text-sm font-black text-foreground">
+                {rainVal !== null ? `${rainVal} mm` : "--"}
+              </span>
             </div>
           </div>
 
@@ -371,7 +387,7 @@ export function RealWeatherCard() {
                 UV Index
               </span>
               <span className="text-sm font-black text-foreground">
-                {uvVal}{" "}
+                {uvVal !== null ? uvVal : "--"}{" "}
                 <span className="text-[10px] font-normal text-muted-foreground">
                   ({uvDescriptor}{uvMaxVal !== null ? ` · Peak ${uvMaxVal}` : ""})
                 </span>
@@ -380,6 +396,15 @@ export function RealWeatherCard() {
           </div>
         </div>
       </div>
+
+      {!isAvailable && (
+        <div className="mt-3.5 pt-2.5 border-t border-border/50 text-[11px] text-muted-foreground flex items-center gap-2">
+          <AlertCircle size={13} className="text-amber-500 shrink-0" />
+          <span>
+            Weather provider is temporarily offline or rate-limited. Journey routing and safety scoring operate independently.
+          </span>
+        </div>
+      )}
     </div>
   );
 }

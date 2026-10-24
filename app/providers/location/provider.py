@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 LOCAL_CHENNAI_LANDMARKS = {
     "vr mall": (80.2014, 13.0844),
     "marina mall": (80.2267, 12.8228),
+    "vit": (80.1554, 12.8406),
     "vit chennai": (80.1554, 12.8406),
     "kandigai": (80.1402, 12.8495),
     "chennai central": (80.2755, 13.0827),

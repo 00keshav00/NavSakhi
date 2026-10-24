@@ -1,4 +1,4 @@
-import { apiClient, StandardResponse } from "../client";
+import { apiClient, StandardResponse, extractApiErrorMessage } from "../client";
 import { AuthResponse, LoginCredentials } from "../../types/auth";
 
 export interface RegisterCredentials {
@@ -24,11 +24,8 @@ export const authService = {
       if (error.response?.status === 401) {
         throw new Error("Invalid email or password.");
       }
-      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message;
-      if (apiMessage) {
-        throw new Error(apiMessage);
-      }
-      throw new Error(error.message || "An unexpected network error occurred during login.");
+      const apiMessage = extractApiErrorMessage(error, "An unexpected network error occurred during login.");
+      throw new Error(apiMessage);
     }
   },
 
@@ -53,11 +50,8 @@ export const authService = {
       if (error.response?.status === 503) {
         throw new Error("Database configuration unavailable. Account creation requires a configured database. Please continue exploring as a guest.");
       }
-      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message;
-      if (apiMessage) {
-        throw new Error(apiMessage);
-      }
-      throw new Error(error.message || "An unexpected network error occurred during registration.");
+      const apiMessage = extractApiErrorMessage(error, "An unexpected network error occurred during registration.");
+      throw new Error(apiMessage);
     }
   },
 
@@ -69,11 +63,8 @@ export const authService = {
       if (error.response?.status === 403) {
         throw new Error("Test user login is disabled in production environments.");
       }
-      const apiMessage = error.response?.data?.error?.message || error.response?.data?.message;
-      if (apiMessage) {
-        throw new Error(apiMessage);
-      }
-      throw new Error(error.message || "Unable to complete development test-user login.");
+      const apiMessage = extractApiErrorMessage(error, "Unable to complete development test-user login.");
+      throw new Error(apiMessage);
     }
   },
 };

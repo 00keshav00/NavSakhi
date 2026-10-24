@@ -126,6 +126,24 @@ Return JSON only in this exact format:
     return {"contents": [{"parts": [{"text": prompt}]}]}
 
 
+import time
+from app.services.assistant_intent_service import global_intent_classifier, IntentCategory
+
+_last_gemini_429_timestamp: float = 0.0
+GEMINI_429_COOLDOWN_SECONDS: float = 60.0
+
+
+def is_gemini_in_rate_limit_cooldown() -> bool:
+    global _last_gemini_429_timestamp
+    return (time.time() - _last_gemini_429_timestamp) < GEMINI_429_COOLDOWN_SECONDS
+
+
+def record_gemini_429_event() -> None:
+    global _last_gemini_429_timestamp
+    _last_gemini_429_timestamp = time.time()
+    logger.warning("Gemini 429 rate limit recorded. Cooldown activated for 60s.")
+
+
 def get_gemini_api_key() -> str:
     return os.getenv("GEMINI_API_KEY", "") or getattr(settings, "gemini_api_key", "") or ""
 
@@ -159,13 +177,30 @@ class ReasoningTool(BaseTool):
         """
         Calls the Gemini API for conversational assistance or route reasoning,
         with strict deterministic fallback when offline or rate-limited.
+        Integrates intent classification to handle small talk and off-topic queries locally.
         """
         context = params.get("context", {})
         query = context.get("query")
         decision = context.get("decision", {})
         active_journey = context.get("active_journey")
 
-        # Determine fallback summary
+        # Intent classification & local travel-companion handling
+        intent_category = IntentCategory.JOURNEY_TRANSIT
+        if query:
+            intent_result = global_intent_classifier.classify(query)
+            intent_category = intent_result.intent
+
+            # Small talk or off-topic with deterministic companion response
+            if not intent_result.requires_external_llm and intent_result.direct_response:
+                return {
+                    "summary": intent_result.direct_response,
+                    "reasoning": [f"Handled deterministically by NavSakhi Travel Companion ({intent_category.value})."],
+                    "provider": "local_companion",
+                    "intent": intent_category.value,
+                    "ai_status": "OFFLINE_DETERMINISTIC"
+                }
+
+        # Determine fallback summary for safety, transit, or app support
         if query:
             q_lower = query.lower()
             if any(w in q_lower for w in ["unsafe", "scared", "alone", "nervous", "anxious", "fear", "uncomfortable", "following me", "follow me"]):
@@ -229,12 +264,27 @@ class ReasoningTool(BaseTool):
             "Evaluations bounded to synthetic environmental proxy indicators without unsupported claims."
         ]
 
+        # Rate-limit cooldown guard: do not repeat requests during active HTTP 429 cooldown
+        if is_gemini_in_rate_limit_cooldown():
+            logger.info("Gemini 429 cooldown active; returning honest rate-limited fallback.")
+            rate_limit_note = "\n\n*(Note: Live AI reasoning is temporarily paused due to upstream provider rate limits. NavSakhi verified local travel guidance is active.)*"
+            return {
+                "summary": fallback_summary + rate_limit_note,
+                "reasoning": fallback_reasoning,
+                "provider": "local_fallback",
+                "intent": intent_category.value,
+                "ai_status": "RATE_LIMITED_FALLBACK"
+            }
+
         api_key = get_gemini_api_key()
         if not api_key or not api_key.strip():
             logger.info("GEMINI_API_KEY not configured; using verified conversational/infrastructure fallback.")
             return {
                 "summary": fallback_summary,
-                "reasoning": fallback_reasoning
+                "reasoning": fallback_reasoning,
+                "provider": "local_fallback",
+                "intent": intent_category.value,
+                "ai_status": "CONFIG_MISSING_FALLBACK"
             }
 
         try:
@@ -257,21 +307,36 @@ class ReasoningTool(BaseTool):
                 "X-goog-api-key": api_key
             }
 
-            async with httpx.AsyncClient(timeout=8.0) as client:
+            async with httpx.AsyncClient(timeout=6.0) as client:
                 response = await client.post(url, json=payload, headers=headers)
+                if response.status_code == 429:
+                    record_gemini_429_event()
+                    return {
+                        "summary": fallback_summary,
+                        "reasoning": fallback_reasoning,
+                        "provider": "local_fallback",
+                        "intent": intent_category.value,
+                        "ai_status": "RATE_LIMITED_FALLBACK"
+                    }
                 response.raise_for_status()
                 res_data = response.json()
 
             text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
             return {
                 "summary": text,
-                "reasoning": fallback_reasoning
+                "reasoning": fallback_reasoning,
+                "provider": "gemini",
+                "intent": intent_category.value,
+                "ai_status": "LIVE_SUCCESS"
             }
         except Exception as e:
             logger.warning(f"Gemini execute error, using fallback: {e}")
             return {
                 "summary": fallback_summary,
-                "reasoning": fallback_reasoning
+                "reasoning": fallback_reasoning,
+                "provider": "local_fallback",
+                "intent": intent_category.value,
+                "ai_status": "UNAVAILABLE_FALLBACK"
             }
 
     async def explain_journey_recommendations(
@@ -291,6 +356,18 @@ class ReasoningTool(BaseTool):
         if not api_key or not api_key.strip() or not verified_routes:
             return None
 
+        if is_gemini_in_rate_limit_cooldown():
+            logger.info("Gemini 429 cooldown active; using local route explanation fallback.")
+            top_route = verified_routes[0] if verified_routes else {}
+            top_name = top_route.get("route_name", "Primary Option")
+            return {
+                "title": "Objective AI Recommendation",
+                "summary": f"Recommended {top_name} based on verified routing topology.",
+                "reasoning": "Route evaluated using verified network topology and model-ready road infrastructure data.",
+                "tradeoff_explanation": f"Evaluated {len(verified_routes)} verified routing alternatives.",
+                "tradeoffs": ["Direct road transit prioritizes door-to-door speed."]
+            }
+
         try:
             model_name = get_gemini_model()
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
@@ -303,8 +380,11 @@ class ReasoningTool(BaseTool):
             )
             headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
 
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.post(url, json=payload, headers=headers)
+                if response.status_code == 429:
+                    record_gemini_429_event()
+                    raise httpx.HTTPStatusError("HTTP 429 Rate Limited", request=response.request, response=response)
                 response.raise_for_status()
                 res_data = response.json()
 

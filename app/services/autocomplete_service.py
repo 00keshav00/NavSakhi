@@ -44,6 +44,34 @@ class AutocompleteService:
 
         try:
             from app.intelligence.journey.multimodal_router import global_multimodal_router
+            from app.services.local_location_resolver import CANONICAL_CHENNAI_LANDMARKS
+
+            # 0. Canonical Curated Chennai Landmarks (Campuses, Transport Hubs, Key Junctions)
+            for alias, (lon, lat, desc) in CANONICAL_CHENNAI_LANDMARKS.items():
+                p_name = desc.split(",")[0].strip() if "," in desc else alias.title()
+                p_type = "LANDMARK"
+                p_label = "Campus / Landmark"
+                if "metro" in alias or "metro" in desc.lower():
+                    p_type = "METRO_STATION"
+                    p_label = "Metro Station"
+                elif "railway" in alias or "rail" in desc.lower() or "central" in alias or "egmore" in alias:
+                    p_type = "RAILWAY_STATION"
+                    p_label = "Railway Station"
+                elif "bus" in alias or "bus" in desc.lower():
+                    p_type = "BUS_STOP"
+                    p_label = "Bus Station"
+
+                self._local_places.append({
+                    "id": f"local_landmark_{alias.replace(' ', '_')}",
+                    "name": p_name,
+                    "secondary_text": desc,
+                    "place_type": p_type,
+                    "place_type_label": p_label,
+                    "latitude": float(lat),
+                    "longitude": float(lon),
+                    "search_terms": f"{alias} {desc} {p_name}".lower(),
+                    "source": "VERIFIED_DATA"
+                })
 
             # 1. Metro stations
             for st in getattr(global_multimodal_router, "metro_stations", []):
@@ -202,13 +230,23 @@ class AutocompleteService:
         for p in self._local_places:
             score = 0
             name_lower = p["name"].lower()
+            terms_lower = p["search_terms"].lower()
+            name_words = re.findall(r"\b\w+\b", name_lower)
+            terms_words = re.findall(r"\b\w+\b", terms_lower)
+
             if cache_key == name_lower:
                 score += 100
+            elif cache_key in terms_words:
+                score += 85
             elif name_lower.startswith(cache_key):
+                score += 65
+            elif terms_lower.startswith(cache_key):
                 score += 50
-            elif cache_key in name_lower:
-                score += 30
-            elif all(token in p["search_terms"] for token in q_tokens):
+            elif any(w.startswith(cache_key) for w in name_words):
+                score += 40
+            elif len(cache_key) >= 4 and cache_key in name_lower:
+                score += 25
+            elif len(cache_key) >= 4 and all(token in terms_lower for token in q_tokens):
                 score += 15
 
             if score > 0:

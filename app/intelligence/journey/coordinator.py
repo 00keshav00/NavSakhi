@@ -197,7 +197,13 @@ class JourneyIntelligenceCoordinator:
                 )
 
             try:
-                return await loc_provider.forward_geocode(cleaned)
+                return await asyncio.wait_for(loc_provider.forward_geocode(cleaned), timeout=4.0)
+            except asyncio.TimeoutError:
+                logger.warning(f"Geocoding provider timed out for {role} '{cleaned}'")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions."
+                )
             except ProviderRateLimitError as e:
                 logger.warning(f"Nominatim rate limit during {role} geocoding: retry_after={e.retry_after}")
                 headers = {"Retry-After": str(e.retry_after)} if e.retry_after else None
@@ -227,37 +233,28 @@ class JourneyIntelligenceCoordinator:
                     detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions."
                 )
 
-        source_loc = await _resolve_location_param(request.source, "source")
-        dest_loc = await _resolve_location_param(request.destination, "destination")
-            
-        # Reverse geocode display name ONLY for genuine coordinate strings or current location placeholders
         import asyncio
-        source_is_coords = is_coordinate_pair(request.source)
-        source_is_detecting = "detecting" in request.source.lower() or "current" in request.source.lower()
+        source_loc, dest_loc = await asyncio.gather(
+            _resolve_location_param(request.source, "source"),
+            _resolve_location_param(request.destination, "destination")
+        )
 
-        if source_is_coords or source_is_detecting:
-            source_name = "Current Location"
+        async def _resolve_display_name(loc: Location, raw_text: str, default_label: str) -> str:
+            is_coords = is_coordinate_pair(raw_text)
+            is_detecting = "detecting" in raw_text.lower() or "current" in raw_text.lower()
+            if not (is_coords or is_detecting):
+                return raw_text
             try:
-                source_addr = await asyncio.wait_for(loc_provider.reverse_geocode(source_loc), timeout=2.0)
-                source_name = source_addr.display_name.split(",")[0]
+                addr = await asyncio.wait_for(loc_provider.reverse_geocode(loc), timeout=1.5)
+                return addr.display_name.split(",")[0]
             except Exception:
-                pass
-        else:
-            source_name = request.source
+                return default_label
 
+        source_name, dest_name = await asyncio.gather(
+            _resolve_display_name(source_loc, request.source, "Current Location"),
+            _resolve_display_name(dest_loc, request.destination, "Destination")
+        )
         source_full = source_name.lower()
-
-        dest_is_coords = is_coordinate_pair(request.destination)
-        if dest_is_coords:
-            dest_name = "Destination"
-            try:
-                dest_addr = await asyncio.wait_for(loc_provider.reverse_geocode(dest_loc), timeout=2.0)
-                dest_name = dest_addr.display_name.split(",")[0]
-            except Exception:
-                pass
-        else:
-            dest_name = request.destination
-
         dest_full = dest_name.lower()
 
         # Determine if context is a campus/university
@@ -303,7 +300,12 @@ class JourneyIntelligenceCoordinator:
             warnings = []
 
             # --- LIVE WEATHER INTEGRATION (Open-Meteo Verified Live Provider) ---
-            weather_data = await global_weather_provider.get_live_weather(s_lat, s_lon)
+            try:
+                weather_data = await asyncio.wait_for(global_weather_provider.get_live_weather(s_lat, s_lon), timeout=2.0)
+            except Exception as e:
+                logger.warning(f"Live weather lookup skipped or timed out: {e}")
+                weather_data = {"available": False, "status": "UNAVAILABLE", "hazards": []}
+
             if not weather_data.get("available"):
                 warnings.append("Live weather data is currently unavailable from provider.")
             if weather_data.get("hazards"):
@@ -479,19 +481,22 @@ class JourneyIntelligenceCoordinator:
                 # Query generic data-driven multimodal routing engine across Bus, Metro, Suburban, and MRTS
                 if wants_public:
                     try:
-                        data_driven_cands = await global_multimodal_router.search_candidates(
-                            source_loc=source_loc,
-                            dest_loc=dest_loc,
-                            direct_road_dist_m=direct_road_dist_m,
-                            direct_road_dur_s=direct_road_dur_s,
-                            route_provider=route_provider,
-                            ist_dt=ist_dt,
-                            preferences=pref_list
+                        data_driven_cands = await asyncio.wait_for(
+                            global_multimodal_router.search_candidates(
+                                source_loc=source_loc,
+                                dest_loc=dest_loc,
+                                direct_road_dist_m=direct_road_dist_m,
+                                direct_road_dur_s=direct_road_dur_s,
+                                route_provider=route_provider,
+                                ist_dt=ist_dt,
+                                preferences=pref_list
+                            ),
+                            timeout=6.0
                         )
                         for ddc in data_driven_cands:
                             fully_validated_routes.append(ddc)
                     except Exception as e:
-                        logger.warning(f"Generic multimodal router error: {e}")
+                        logger.warning(f"Generic multimodal router error or timeout: {e}")
 
                 has_transit_candidate = any(
                     any(s.get("mode") in ["metro", "suburban", "train", "mrts", "bus"] for s in c.route_metadata.get("dynamic_segments", []))
@@ -751,7 +756,9 @@ class JourneyIntelligenceCoordinator:
 
             if not candidates:
                 from fastapi import HTTPException
-                raise HTTPException(status_code=400, detail="Invalid route: Source and Destination are too close or unroutable.")
+                if dist_km < 0.5:
+                    raise HTTPException(status_code=400, detail="Invalid route: Source and Destination are too close or unroutable.")
+                raise HTTPException(status_code=503, detail="Routing provider is temporarily unavailable. Please retry shortly.")
 
             # Genuine ML inference and length-weighted aggregation (No synthetic variance or heuristics)
             self.ml_route_scorer.score_candidate_routes(candidates)
@@ -828,6 +835,8 @@ class JourneyIntelligenceCoordinator:
                 "preference": pref_list[0] if pref_list else "ANY"
             }
             return self.response_builder.build_journey_plan(final_context, user_id, journey_id)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Routing failed: {e}")
             from fastapi import HTTPException

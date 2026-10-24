@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { assistantService } from "../api/services/assistantService";
 import { AssistantResponse } from "../types/assistant";
 import { useAuthStore } from "../store/authStore";
@@ -14,18 +14,19 @@ export interface ChatMessage {
 export const useAssistant = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [latestContext, setLatestContext] = useState<AssistantResponse | null>(null);
-  const [isTyping, setIsTyping] = useState<boolean>(true);
+  const [isTyping, setIsTyping] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
+  const requestSeqRef = useRef<number>(0);
+
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const accessToken = useAuthStore((state) => state.accessToken);
 
-  // Load initial greeting and context
+  // Load initial greeting and context without freezing user input
   useEffect(() => {
     let isCancelled = false;
 
     const init = async () => {
-      setIsTyping(true);
       setError(null);
       try {
         const response = await assistantService.getInitialContext();
@@ -47,21 +48,26 @@ export const useAssistant = () => {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }]);
         }
-      } finally {
-        if (!isCancelled) {
-          setIsTyping(false);
-        }
       }
     };
 
     init();
     return () => {
       isCancelled = true;
+      requestSeqRef.current++;
+      setIsTyping(false);
     };
   }, [isAuthenticated, accessToken]);
 
+  const cancelRequest = useCallback(() => {
+    requestSeqRef.current++;
+    setIsTyping(false);
+  }, []);
+
   const sendMessage = useCallback(async (query: string) => {
     if (!query.trim()) return;
+
+    const currentSeq = ++requestSeqRef.current;
 
     // Optimistically add user message
     const userMsg: ChatMessage = {
@@ -76,6 +82,10 @@ export const useAssistant = () => {
 
     try {
       const response = await assistantService.sendMessage(query);
+      if (currentSeq !== requestSeqRef.current) {
+        // Discard stale response from older request to prevent overwriting newer state
+        return;
+      }
       setLatestContext(response); // Update the right/left sidebars with new DTO context
       
       setMessages(prev => [...prev, {
@@ -85,6 +95,9 @@ export const useAssistant = () => {
         timestamp: response.timestamp
       }]);
     } catch (err: unknown) {
+      if (currentSeq !== requestSeqRef.current) {
+        return;
+      }
       toast.error("Coordinator Unavailable", { description: (err as Error).message });
       setMessages(prev => [...prev, {
         id: "err_" + Math.random(),
@@ -93,9 +106,11 @@ export const useAssistant = () => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
     } finally {
-      setIsTyping(false);
+      if (currentSeq === requestSeqRef.current) {
+        setIsTyping(false);
+      }
     }
   }, []);
 
-  return { messages, latestContext, isTyping, error, sendMessage };
+  return { messages, latestContext, isTyping, error, sendMessage, cancelRequest };
 };
