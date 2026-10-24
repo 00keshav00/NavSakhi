@@ -265,6 +265,8 @@ def test_validate_redirect_url_destination_policy():
     # Legitimate destinations
     validate_redirect_url("https://objects.githubusercontent.com/some/path?sig=abc")
     validate_redirect_url("https://objects.githubusercontent.com:443/some/path?sig=abc")
+    validate_redirect_url("https://release-assets.githubusercontent.com/some/path?sig=abc")
+    validate_redirect_url("https://release-assets.githubusercontent.com:443/some/path?sig=abc")
     validate_redirect_url("https://github-production-release-asset-2e65be.s3.amazonaws.com/asset.tar.gz")
     validate_redirect_url("https://github-production-release-asset-2e65be.s3.us-east-1.amazonaws.com/asset.tar.gz")
     validate_redirect_url("https://api.github.com/repos/00keshav00/NavSakhi/releases/assets/123")
@@ -273,13 +275,22 @@ def test_validate_redirect_url_destination_policy():
     with pytest.raises(ValueError, match="Insecure redirect URL scheme 'http'"):
         validate_redirect_url("http://objects.githubusercontent.com/asset.tar.gz")
 
+    with pytest.raises(ValueError, match="Insecure redirect URL scheme 'http'"):
+        validate_redirect_url("http://release-assets.githubusercontent.com/asset.tar.gz")
+
     # Embedded credentials
     with pytest.raises(ValueError, match="embedded user credentials"):
         validate_redirect_url("https://user:pass@objects.githubusercontent.com/asset.tar.gz")
 
+    with pytest.raises(ValueError, match="embedded user credentials"):
+        validate_redirect_url("https://user:pass@release-assets.githubusercontent.com/asset.tar.gz")
+
     # Non-standard ports
     with pytest.raises(ValueError, match="Non-standard port '8443'"):
         validate_redirect_url("https://objects.githubusercontent.com:8443/asset.tar.gz")
+
+    with pytest.raises(ValueError, match="Non-standard port '8443'"):
+        validate_redirect_url("https://release-assets.githubusercontent.com:8443/asset.tar.gz")
 
     # Unexpected or unapproved hosts
     with pytest.raises(ValueError, match="not in the approved GitHub storage host allowlist"):
@@ -290,6 +301,15 @@ def test_validate_redirect_url_destination_policy():
 
     with pytest.raises(ValueError, match="not in the approved GitHub storage host allowlist"):
         validate_redirect_url("https://github-production-release-asset-2e65be.s3.amazonaws.com.evil.com/asset.tar.gz")
+
+    with pytest.raises(ValueError, match="not in the approved GitHub storage host allowlist"):
+        validate_redirect_url("https://release-assets.githubusercontent.com.attacker.example/asset.tar.gz")
+
+    with pytest.raises(ValueError, match="not in the approved GitHub storage host allowlist"):
+        validate_redirect_url("https://attacker.release-assets.githubusercontent.com/asset.tar.gz")
+
+    with pytest.raises(ValueError, match="not in the approved GitHub storage host allowlist"):
+        validate_redirect_url("https://githubusercontent.com/asset.tar.gz")
 
     # Localhost, loopback, link-local metadata
     with pytest.raises(ValueError, match="not in the approved GitHub storage host allowlist"):
@@ -574,6 +594,163 @@ def test_redirect_chain_revalidated_at_every_hop(tmp_path):
                     token="valid_token",
                     dest_path=dest,
                 )
+
+
+def test_authenticated_redirect_to_release_assets_host(tmp_path):
+    """
+    Proves that an authenticated GitHub API request can redirect to
+    https://release-assets.githubusercontent.com/... and stream binary data
+    while strictly stripping the Authorization header.
+    """
+    dest = tmp_path / "downloaded.tar.gz"
+    fake_binary = b"NAVSAKHI_RELEASE_ASSETS_BINARY_PAYLOAD"
+    signed_release_assets_url = (
+        "https://release-assets.githubusercontent.com/12345/assets/"
+        "navsakhi-runtime-assets-v2.0.0.tar.gz?jwt=fake_signed_token_123"
+    )
+
+    mock_release = {
+        "assets": [
+            {
+                "id": 999,
+                "name": "assets.tar.gz",
+                "url": "https://api.github.com/repos/00keshav00/NavSakhi/releases/assets/999",
+            }
+        ]
+    }
+
+    # API returns 302 redirect to release-assets.githubusercontent.com
+    redirect_err = urllib.error.HTTPError(
+        url="https://api.github.com/repos/00keshav00/NavSakhi/releases/assets/999",
+        code=302,
+        msg="Found",
+        hdrs={"Location": signed_release_assets_url},
+        fp=io.BytesIO(b""),
+    )
+
+    # Asset host returns binary stream
+    mock_final_resp = MagicMock()
+    mock_final_resp.getheader.return_value = str(len(fake_binary))
+    mock_final_resp.read.side_effect = [fake_binary, b""]
+    mock_final_resp.__enter__.return_value = mock_final_resp
+    mock_final_resp.__exit__.return_value = None
+
+    with patch("scripts.download_production_assets.fetch_github_release_metadata", return_value=mock_release):
+        with patch("urllib.request.OpenerDirector.open", side_effect=[redirect_err, mock_final_resp]) as mock_open:
+            download_authenticated_github_release_asset(
+                owner="00keshav00",
+                repo="NavSakhi",
+                tag="v2.0.0",
+                filename="assets.tar.gz",
+                token="CANARY_GITHUB_TOKEN_DO_NOT_LEAK",
+                dest_path=dest,
+            )
+
+            assert mock_open.call_count == 2
+
+            # Request 1: To GitHub API with Authorization header
+            req1 = mock_open.call_args_list[0][0][0]
+            assert req1.full_url == "https://api.github.com/repos/00keshav00/NavSakhi/releases/assets/999"
+            assert req1.get_header("Authorization") == "Bearer CANARY_GITHUB_TOKEN_DO_NOT_LEAK"
+
+            # Request 2: To release-assets.githubusercontent.com WITHOUT Authorization header
+            req2 = mock_open.call_args_list[1][0][0]
+            assert req2.full_url == signed_release_assets_url
+            assert req2.get_header("Authorization") is None
+            assert "CANARY_GITHUB_TOKEN_DO_NOT_LEAK" not in str(req2.headers)
+
+            assert dest.read_bytes() == fake_binary
+
+
+def test_release_assets_multi_hop_and_loop_safety(tmp_path):
+    """
+    Proves that redirect hop limits, loop detection, and per-hop validation
+    remain strictly enforced when release-assets.githubusercontent.com is involved.
+    """
+    dest = tmp_path / "downloaded.tar.gz"
+    mock_release = {"assets": [{"id": 999, "name": "assets.tar.gz", "url": "https://api.github.com/assets/999"}]}
+
+    # 1. Loop detection involving release-assets.githubusercontent.com
+    loop_url = "https://release-assets.githubusercontent.com/loop"
+    loop_err1 = urllib.error.HTTPError(
+        url="https://api.github.com/assets/999", code=302, msg="Found", hdrs={"Location": loop_url}, fp=io.BytesIO(b"")
+    )
+    loop_err2 = urllib.error.HTTPError(
+        url=loop_url, code=302, msg="Found", hdrs={"Location": loop_url}, fp=io.BytesIO(b"")
+    )
+
+    with patch("scripts.download_production_assets.fetch_github_release_metadata", return_value=mock_release):
+        with patch("urllib.request.OpenerDirector.open", side_effect=[loop_err1, loop_err2]):
+            with pytest.raises(RuntimeError, match="Redirect loop detected"):
+                download_authenticated_github_release_asset(
+                    owner="00keshav00", repo="NavSakhi", tag="v2.0.0", filename="assets.tar.gz", token="token", dest_path=dest
+                )
+
+    # 2. Per-hop validation: hop 1 is release-assets, hop 2 attempts unapproved destination
+    hop1 = urllib.error.HTTPError(
+        url="https://api.github.com/assets/999", code=302, msg="Found",
+        hdrs={"Location": "https://release-assets.githubusercontent.com/hop1"}, fp=io.BytesIO(b"")
+    )
+    hop2 = urllib.error.HTTPError(
+        url="https://release-assets.githubusercontent.com/hop1", code=302, msg="Found",
+        hdrs={"Location": "https://attacker.example/asset.tar.gz"}, fp=io.BytesIO(b"")
+    )
+
+    with patch("scripts.download_production_assets.fetch_github_release_metadata", return_value=mock_release):
+        with patch("urllib.request.OpenerDirector.open", side_effect=[hop1, hop2]):
+            with pytest.raises(ValueError, match="not in the approved GitHub storage host allowlist"):
+                download_authenticated_github_release_asset(
+                    owner="00keshav00", repo="NavSakhi", tag="v2.0.0", filename="assets.tar.gz", token="token", dest_path=dest
+                )
+
+
+def test_download_via_release_assets_verifies_checksum_before_extraction(tmp_path):
+    """
+    Proves that a payload downloaded from release-assets.githubusercontent.com
+    must match the expected SHA-256 before extraction.
+    """
+    dest = tmp_path / "downloaded.tar.gz"
+    payload = b"MOCK_ARCHIVE_CONTENT_FOR_CHECKSUM_VALIDATION"
+    expected_sha256 = compute_sha256_bytes(payload)
+
+    mock_release = {"assets": [{"id": 999, "name": "assets.tar.gz", "url": "https://api.github.com/assets/999"}]}
+    redirect_err = urllib.error.HTTPError(
+        url="https://api.github.com/assets/999",
+        code=302,
+        msg="Found",
+        hdrs={"Location": "https://release-assets.githubusercontent.com/archive.tar.gz"},
+        fp=io.BytesIO(b""),
+    )
+
+    mock_resp = MagicMock()
+    mock_resp.getheader.return_value = str(len(payload))
+    mock_resp.read.side_effect = [payload, b""]
+    mock_resp.__enter__.return_value = mock_resp
+    mock_resp.__exit__.return_value = None
+
+    with patch("scripts.download_production_assets.fetch_github_release_metadata", return_value=mock_release):
+        with patch("urllib.request.OpenerDirector.open", side_effect=[redirect_err, mock_resp]):
+            download_authenticated_github_release_asset(
+                owner="00keshav00",
+                repo="NavSakhi",
+                tag="v2.0.0",
+                filename="assets.tar.gz",
+                token="token",
+                dest_path=dest,
+            )
+
+    # 1. Downloaded file matches expected hash
+    assert compute_sha256(dest) == expected_sha256
+
+    # 2. Corrupted checksum: verify_and_extract_archive fails closed before extraction
+    with pytest.raises(ValueError, match="Archive SHA-256 checksum mismatch"):
+        verify_and_extract_archive(dest, "0" * 64)
+
+    # 3. Valid checksum: verify_and_extract_archive proceeds to inspect archive
+    with patch("tarfile.open") as mock_tar:
+        mock_tar.return_value.__enter__.return_value.getmembers.return_value = []
+        with pytest.raises(ValueError, match="missing required embedded 'manifest.json'"):
+            verify_and_extract_archive(dest, expected_sha256)
 
 
 # ==============================================================================

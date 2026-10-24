@@ -103,6 +103,7 @@ class DisallowRedirectHandler(urllib.request.HTTPRedirectHandler):
 # Legitimate GitHub release asset storage host patterns
 ALLOWED_REDIRECT_HOST_REGEXES = [
     re.compile(r"^objects\.githubusercontent\.com$", re.IGNORECASE),
+    re.compile(r"^release-assets\.githubusercontent\.com$", re.IGNORECASE),
     re.compile(r"^github-production-release-asset-[a-z0-9]{4,16}\.s3(\.[a-z0-9-]+)?\.amazonaws\.com$", re.IGNORECASE),
     re.compile(r"^api\.github\.com$", re.IGNORECASE),
 ]
