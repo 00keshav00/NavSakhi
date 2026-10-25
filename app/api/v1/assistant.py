@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from app.schemas.responses import StandardResponse
@@ -8,8 +8,13 @@ from app.repositories.journey_repository import JourneyRepository
 
 router = APIRouter()
 
+class ChatMessageItem(BaseModel):
+    role: str
+    content: str
+
 class ChatRequest(BaseModel):
     query: str
+    history: Optional[List[ChatMessageItem]] = None
 
 @router.get("/context", response_model=StandardResponse[AssistantResponse])
 async def get_assistant_context(
@@ -33,6 +38,12 @@ async def send_assistant_message(
     coordinator = JourneyIntelligenceCoordinator()
     effective_user_id = user_id or "guest"
     repo = journey_repo if user_id else None
-    response = await coordinator.process_assistant_chat(effective_user_id, request.query, journey_repo=repo)
+    history_dicts = [h.dict() for h in request.history] if request.history else None
+    response = await coordinator.process_assistant_chat(
+        effective_user_id,
+        request.query,
+        journey_repo=repo,
+        history=history_dicts
+    )
     return StandardResponse(success=True, data=response)
 

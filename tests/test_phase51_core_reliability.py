@@ -199,15 +199,19 @@ async def test_reasoning_tool_rate_limit_cooldown():
     """Verifies that HTTP 429 triggers cooldown and avoids repeated hammering."""
     tool = ReasoningTool()
 
-    # Simulate a 429 event
-    record_gemini_429_event()
-    assert is_gemini_in_rate_limit_cooldown() is True
+    try:
+        # Simulate a 429 event
+        record_gemini_429_event()
+        assert is_gemini_in_rate_limit_cooldown() is True
 
-    # Calling tool during cooldown should immediately return rate-limited fallback
-    res = await tool.execute({"context": {"query": "How do I take Chennai metro to airport?"}})
-    assert res["ai_status"] == "RATE_LIMITED_FALLBACK"
-    assert res["provider"] == "local_fallback"
-    assert "rate-limited" in res["summary"].lower() or "verified" in res["summary"].lower()
+        # Calling tool during cooldown should immediately return rate-limited fallback
+        res = await tool.execute({"context": {"query": "How do I take Chennai metro to airport?"}})
+        assert res["ai_status"] == "RATE_LIMITED_FALLBACK"
+        assert res["provider"] == "local_fallback"
+        assert "rate-limited" in res["summary"].lower() or "verified" in res["summary"].lower()
+    finally:
+        from app.tools.specialized.reasoning_tool import reset_gemini_cooldowns
+        reset_gemini_cooldowns()
 
 
 @pytest.mark.asyncio
@@ -481,6 +485,7 @@ async def test_journey_slow_gemini_explanation_does_not_block():
         return Address(display_name="Mocked Place, Chennai")
 
     with patch("app.providers.location.provider.NominatimLocationProvider.reverse_geocode", side_effect=mock_rev_geo), \
+         patch("app.providers.live.weather.global_weather_provider.get_live_weather", return_value={"available": True, "condition": "Clear", "temperature": 28, "hazards": []}), \
          patch("app.tools.specialized.reasoning_tool.ReasoningTool.explain_journey_recommendations", side_effect=slow_explanation), \
          patch("app.providers.routing.provider.OSRMRoutingProvider.get_routes", return_value=[sample_road]), \
          patch("app.intelligence.journey.multimodal_router.global_multimodal_router.search_candidates", return_value=[]):

@@ -767,7 +767,11 @@ class SpatialMatchingService:
         total_length_m = metric_line.length
 
         # Generate dense metric evaluation points along the route polyline
-        sample_distances = np.arange(0.0, total_length_m, self.sample_interval_m).tolist()
+        # For long journeys (>15km), adaptively scale step to bound point count while preserving high resolution
+        effective_interval_m = self.sample_interval_m
+        if total_length_m > 15000.0:
+            effective_interval_m = min(60.0, max(self.sample_interval_m, total_length_m / 600.0))
+        sample_distances = np.arange(0.0, total_length_m, effective_interval_m).tolist()
         if not sample_distances or sample_distances[-1] < total_length_m:
             sample_distances.append(total_length_m)
 

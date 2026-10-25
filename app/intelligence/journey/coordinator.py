@@ -234,6 +234,13 @@ class JourneyIntelligenceCoordinator:
                 )
 
         import asyncio
+        import time
+        import uuid
+        correlation_id = f"corr_{uuid.uuid4().hex[:12]}"
+        t_pipeline_start = time.perf_counter()
+        stage_timings: Dict[str, float] = {}
+
+        t_loc_0 = time.perf_counter()
         source_loc, dest_loc = await asyncio.gather(
             _resolve_location_param(request.source, "source"),
             _resolve_location_param(request.destination, "destination")
@@ -254,6 +261,7 @@ class JourneyIntelligenceCoordinator:
             _resolve_display_name(source_loc, request.source, "Current Location"),
             _resolve_display_name(dest_loc, request.destination, "Destination")
         )
+        stage_timings["location_resolution_ms"] = round((time.perf_counter() - t_loc_0) * 1000, 2)
         source_full = source_name.lower()
         dest_full = dest_name.lower()
 
@@ -299,19 +307,12 @@ class JourneyIntelligenceCoordinator:
 
             warnings = []
 
-            # --- LIVE WEATHER INTEGRATION (Open-Meteo Verified Live Provider) ---
-            try:
-                weather_data = await asyncio.wait_for(global_weather_provider.get_live_weather(s_lat, s_lon), timeout=2.0)
-            except Exception as e:
-                logger.warning(f"Live weather lookup skipped or timed out: {e}")
-                weather_data = {"available": False, "status": "UNAVAILABLE", "hazards": []}
-
-            if not weather_data.get("available"):
-                warnings.append("Live weather data is currently unavailable from provider.")
-            if weather_data.get("hazards"):
-                warnings.extend(weather_data["hazards"])
+            # --- CONCURRENT WEATHER ENRICHMENT TASK ---
+            # Launched in background to prevent external weather delay from blocking critical routing path
+            weather_task = asyncio.create_task(global_weather_provider.get_live_weather(s_lat, s_lon))
 
             # --- PHASE 1: DIVERSE VERIFIED ROAD CANDIDATES VIA OSRM ---
+            t_road_0 = time.perf_counter()
             road_cands = []
             direct_road_dist_m = dist_m * 1.3
             direct_road_dur_s = (dist_m * 1.3) / 10.0
@@ -388,6 +389,9 @@ class JourneyIntelligenceCoordinator:
                 except Exception as e:
                     logger.debug(f"OSRM foot route query failed: {e}")
 
+            stage_timings["road_routing_ms"] = round((time.perf_counter() - t_road_0) * 1000, 2)
+
+            t_transit_0 = time.perf_counter()
             fully_validated_routes = []
             can_attempt_transit = wants_public and (direct_road_dist_m > 0)
 
@@ -491,7 +495,7 @@ class JourneyIntelligenceCoordinator:
                                 ist_dt=ist_dt,
                                 preferences=pref_list
                             ),
-                            timeout=6.0
+                            timeout=4.5
                         )
                         for ddc in data_driven_cands:
                             fully_validated_routes.append(ddc)
@@ -723,7 +727,10 @@ class JourneyIntelligenceCoordinator:
             if not fully_validated_routes and wants_public:
                 warnings.append("No practical direct public transit route is available between these locations without excessive detours. Showing verified road alternatives.")
 
+            stage_timings["transit_discovery_ms"] = round((time.perf_counter() - t_transit_0) * 1000, 2)
+
             # --- DEDUPLICATION ACROSS ALL CANDIDATES ---
+            t_dedup_0 = time.perf_counter()
             all_raw_candidates = fully_validated_routes + road_cands
             all_raw_candidates = deduplicate_routes(all_raw_candidates)
 
@@ -754,6 +761,8 @@ class JourneyIntelligenceCoordinator:
                 })
                 candidates.append(cand)
 
+            stage_timings["candidate_creation_ms"] = round((time.perf_counter() - t_dedup_0) * 1000, 2)
+
             if not candidates:
                 from fastapi import HTTPException
                 if dist_km < 0.5:
@@ -761,7 +770,9 @@ class JourneyIntelligenceCoordinator:
                 raise HTTPException(status_code=503, detail="Routing provider is temporarily unavailable. Please retry shortly.")
 
             # Genuine ML inference and length-weighted aggregation (No synthetic variance or heuristics)
+            t_scoring_0 = time.perf_counter()
             self.ml_route_scorer.score_candidate_routes(candidates)
+            stage_timings["lightgbm_scoring_ms"] = round((time.perf_counter() - t_scoring_0) * 1000, 2)
 
             # Strategy Resolution: Production Lock-In -> STRATEGY_A (Deterministic)
             # Strategy B is experimental only and strictly disabled unless enable_experimental_strategy_b is True.
@@ -792,7 +803,22 @@ class JourneyIntelligenceCoordinator:
                     "fallback_used": False
                 }
 
+            # --- AWAIT CONCURRENT WEATHER ENRICHMENT ---
+            t_weather_0 = time.perf_counter()
+            try:
+                weather_data = await asyncio.wait_for(weather_task, timeout=0.5)
+            except Exception as e:
+                logger.warning(f"Live weather lookup skipped or timed out: {e}")
+                weather_data = {"available": False, "status": "UNAVAILABLE", "hazards": []}
+
+            if not weather_data.get("available"):
+                warnings.append("Live weather data is currently unavailable from provider.")
+            if weather_data.get("hazards"):
+                warnings.extend(weather_data["hazards"])
+            stage_timings["weather_enrichment_ms"] = round((time.perf_counter() - t_weather_0) * 1000, 2)
+
             # --- PHASE 4: GEMINI OBJECTIVE EXPLANATION (Ground Truth Context Only) ---
+            t_gemini_0 = time.perf_counter()
             ai_explanation = None
             try:
                 from app.tools.specialized.reasoning_tool import sanitize_privacy_context
@@ -819,8 +845,12 @@ class JourneyIntelligenceCoordinator:
                 )
             except Exception as e:
                 logger.info(f"Gemini route explanation generation skipped or timed out: {e}")
+            stage_timings["gemini_generation_ms"] = round((time.perf_counter() - t_gemini_0) * 1000, 2)
 
             user_id = getattr(request, 'user_id', "u_1")
+            strategy_metrics["stage_timings_ms"] = stage_timings
+            strategy_metrics["correlation_id"] = correlation_id
+
             final_context = {
                 "source_name": source_name,
                 "dest_name": dest_name,
@@ -834,7 +864,23 @@ class JourneyIntelligenceCoordinator:
                 "strategy_metrics": strategy_metrics,
                 "preference": pref_list[0] if pref_list else "ANY"
             }
-            return self.response_builder.build_journey_plan(final_context, user_id, journey_id)
+            t_resp_0 = time.perf_counter()
+            resp = self.response_builder.build_journey_plan(final_context, user_id, journey_id)
+            stage_timings["response_construction_ms"] = round((time.perf_counter() - t_resp_0) * 1000, 2)
+            stage_timings["total_duration_ms"] = round((time.perf_counter() - t_pipeline_start) * 1000, 2)
+
+            logger.info(
+                f"[{correlation_id}] Journey pipeline complete in {stage_timings['total_duration_ms']}ms: "
+                f"location={stage_timings.get('location_resolution_ms')}ms, "
+                f"road={stage_timings.get('road_routing_ms')}ms, "
+                f"transit={stage_timings.get('transit_discovery_ms')}ms, "
+                f"candidates={len(candidates)}, "
+                f"scoring={stage_timings.get('lightgbm_scoring_ms')}ms, "
+                f"weather={stage_timings.get('weather_enrichment_ms')}ms, "
+                f"gemini={stage_timings.get('gemini_generation_ms')}ms, "
+                f"resp={stage_timings.get('response_construction_ms')}ms"
+            )
+            return resp
         except HTTPException:
             raise
         except Exception as e:
@@ -879,7 +925,7 @@ class JourneyIntelligenceCoordinator:
             journey_history=journey_history
         )
 
-    async def process_assistant_chat(self, user_id: str, query: str, journey_repo: Optional[Any] = None) -> Any:
+    async def process_assistant_chat(self, user_id: str, query: str, journey_repo: Optional[Any] = None, history: Optional[Any] = None) -> Any:
         active_journey = None
         journey_history = []
         if journey_repo:
@@ -892,6 +938,7 @@ class JourneyIntelligenceCoordinator:
         context = {
             "user_id": user_id, 
             "query": query, 
+            "history": history,
             "active_journey": active_journey, 
             "journey_history": journey_history
         }

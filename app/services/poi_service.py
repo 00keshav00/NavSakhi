@@ -20,6 +20,8 @@ import datetime
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 from scipy.spatial import cKDTree
+from shapely.geometry import box as shapely_box
+from shapely.strtree import STRtree
 
 logger = logging.getLogger("SafeShePOIService")
 
@@ -184,9 +186,9 @@ class POISpatialService:
         query_pts_m.append(pts_m[-1])
 
         # Broad-phase candidate discovery via KD-Tree
-        for qx, qy in query_pts_m:
-            idxs = self.tree.query_ball_point([qx, qy], r=corridor_m + 50.0)
-            candidate_indices.update(idxs)
+        if query_pts_m:
+            raw_matches = self.tree.query_ball_point(query_pts_m, r=corridor_m + 50.0)
+            candidate_indices = set().union(*raw_matches)
 
         if not candidate_indices:
             return {
@@ -197,7 +199,15 @@ class POISpatialService:
                 "total_found": 0,
             }
 
-        # Prepare leg geometries if available
+        # Build spatial STRtree over route segments for O(log N) candidate segment queries
+        seg_boxes = []
+        for i in range(len(pts_m) - 1):
+            ax, ay = pts_m[i]
+            bx, by = pts_m[i + 1]
+            seg_boxes.append(shapely_box(min(ax, bx), min(ay, by), max(ax, bx), max(ay, by)))
+        seg_tree = STRtree(seg_boxes) if seg_boxes else None
+
+        # Prepare leg geometries if available, pre-filtering bounding boxes
         leg_data = []
         if legs:
             for l_idx, leg in enumerate(legs):
@@ -213,23 +223,37 @@ class POISpatialService:
                     leg_coords = geom
                 
                 leg_pts_m = [_to_projected_xy(c[0], c[1]) for c in leg_coords if len(c) >= 2]
-                leg_data.append((leg_id, leg_pts_m))
+                if len(leg_pts_m) >= 2:
+                    xs = [p[0] for p in leg_pts_m]
+                    ys = [p[1] for p in leg_pts_m]
+                    bbox = (min(xs) - corridor_m, min(ys) - corridor_m, max(xs) + corridor_m, max(ys) + corridor_m)
+                    leg_data.append((leg_id, leg_pts_m, bbox))
 
         EMERGENCY_CATEGORIES = {"police", "hospital", "clinic", "pharmacy", "fire_station", "fuel"}
         LANDMARK_CATEGORIES = {"mall", "university", "college", "transit_hub", "park", "landmark", "commercial_complex"}
         SHOP_CATEGORIES = {"convenience", "supermarket", "retail_shop", "food_retail", "restaurant", "cafe", "fast_food", "hotel", "bank_atm", "entertainment"}
 
-        # 3. Narrow-phase: compute exact shortest distance and route progress
+        # 3. Narrow-phase: compute exact shortest distance and route progress via STRtree
         matched_pois = []
         for idx in candidate_indices:
             poi = self.pois[idx]
             px, py = self.poi_coords_m[idx]
 
+            # Query candidate segments within corridor bounding box
+            if seg_tree is not None:
+                qbox = shapely_box(px - corridor_m, py - corridor_m, px + corridor_m, py + corridor_m)
+                candidate_seg_indices = seg_tree.query(qbox)
+            else:
+                candidate_seg_indices = range(len(pts_m) - 1)
+
+            if len(candidate_seg_indices) == 0:
+                continue
+
             min_dist_m = float("inf")
             best_progress_m = 0.0
 
-            # Calculate distance against full route segments
-            for i in range(len(pts_m) - 1):
+            # Calculate distance only against candidate route segments
+            for i in candidate_seg_indices:
                 ax, ay = pts_m[i]
                 bx, by = pts_m[i + 1]
                 dx = bx - ax
@@ -254,15 +278,16 @@ class POISpatialService:
                 nearest_leg_id = None
                 if leg_data:
                     min_leg_dist = float("inf")
-                    for leg_id, leg_pts in leg_data:
-                        if len(leg_pts) >= 2:
-                            for li in range(len(leg_pts) - 1):
-                                lax, lay = leg_pts[li]
-                                lbx, lby = leg_pts[li + 1]
-                                ld = _point_to_segment_distance(px, py, lax, lay, lbx, lby)
-                                if ld < min_leg_dist:
-                                    min_leg_dist = ld
-                                    nearest_leg_id = leg_id
+                    for leg_id, leg_pts, (l_min_x, l_min_y, l_max_x, l_max_y) in leg_data:
+                        if not (l_min_x <= px <= l_max_x and l_min_y <= py <= l_max_y):
+                            continue
+                        for li in range(len(leg_pts) - 1):
+                            lax, lay = leg_pts[li]
+                            lbx, lby = leg_pts[li + 1]
+                            ld = _point_to_segment_distance(px, py, lax, lay, lbx, lby)
+                            if ld < min_leg_dist:
+                                min_leg_dist = ld
+                                nearest_leg_id = leg_id
 
                 proximity_tier = "IMMEDIATELY_BESIDE" if min_dist_m <= 100.0 else "ALONG_CORRIDOR"
                 

@@ -26,6 +26,7 @@ class AssistantIntent(str, Enum):
     JOURNEY_TRANSIT = "JOURNEY_TRANSIT"
     NAVSAKHI_SUPPORT = "NAVSAKHI_SUPPORT"
     SMALL_TALK = "SMALL_TALK"
+    COMPANION_EMPATHY = "COMPANION_EMPATHY"
     OFF_TOPIC = "OFF_TOPIC"
 
 
@@ -44,13 +45,27 @@ class IntentClassificationResult(BaseModel):
 class AssistantIntentClassifier:
     """Lightweight, deterministic, offline intent and relevance classifier."""
 
-    # Keywords strictly prioritized for acute danger, harassment, stalking, or distress
-    ACUTE_SAFETY_KEYWORDS = [
-        "unsafe", "danger", "scared", "alone", "nervous", "anxious", "fear",
-        "uncomfortable", "following me", "follow me", "harass", "stalk", "dark",
-        "threat", "trouble", "attack", "safe haven", "safe zone",
-        "alert", "urgent", "in danger", "protect me", "screaming", "hurt",
-        "suspicious", "creepy", "trapped"
+    # Keywords strictly prioritized for acute physical danger, harassment, stalking, or distress
+    ACUTE_DANGER_KEYWORDS = [
+        "following me", "follow me", "stalk", "stalker", "danger", "attack",
+        "threat", "trouble", "screaming", "hurt", "in danger", "protect me",
+        "trapped", "harass", "harassment", "molest", "creepy", "unsafe", "dark",
+        "suspicious", "scared"
+    ]
+
+    # Travel anxiety and nervousness when traveling alone (without acute danger/stalker)
+    TRAVEL_ANXIETY_KEYWORDS = [
+        "nervous", "anxious", "travel anxiety", "uneasy", "feeling alone",
+        "scared of travelling", "scared of traveling", "nervous about"
+    ]
+
+    # Companionship, emotional presence, and journey partner requests
+    COMPANION_KEYWORDS = [
+        "companion", "partner", "be with me", "stay with me", "talk to me",
+        "keep me company", "walk with me", "accompany me", "accompany",
+        "travel partner", "journey partner", "with me through out", "with me throughout",
+        "just want a companion", "need a companion", "be my companion", "travel friend",
+        "by my side"
     ]
 
     # General emergency and helpline keywords
@@ -100,7 +115,7 @@ class AssistantIntentClassifier:
     }
 
     @classmethod
-    def classify(cls, query: str) -> IntentClassificationResult:
+    def classify(cls, query: str, history: Optional[Any] = None) -> IntentClassificationResult:
         clean_q = query.strip().lower()
         if not clean_q:
             return IntentClassificationResult(
@@ -113,19 +128,39 @@ class AssistantIntentClassifier:
 
         words = set(re.findall(r"\b\w+\b", clean_q))
 
-        # 1. ACUTE SAFETY: Highest Priority (Immediate danger, harassment, fear, feeling unsafe)
-        # Always takes precedence even if the message mentions contacts or account settings
-        if any(kw in clean_q for kw in cls.ACUTE_SAFETY_KEYWORDS):
+        # Check conversation history for prior companionship context
+        had_prior_companion_turn = False
+        if history and isinstance(history, list):
+            for h in history[-3:]:
+                h_content = str(h.get("content", "")).lower() if isinstance(h, dict) else ""
+                if any(ck in h_content for ck in cls.COMPANION_KEYWORDS):
+                    had_prior_companion_turn = True
+                    break
+
+        # 1. ACUTE SAFETY: Highest Priority (Immediate physical danger, harassment, stalking, feeling unsafe)
+        # Stalking or physical distress overrides travel anxiety or settings
+        is_stalking_or_attack = any(w in clean_q for w in ["following me", "follow me", "stalk", "stalker", "attack", "threat", "screaming", "hurt", "in danger", "protect me", "trapped"])
+        if is_stalking_or_attack or (any(kw in clean_q for kw in cls.ACUTE_DANGER_KEYWORDS) and not any(aq in clean_q for aq in cls.TRAVEL_ANXIETY_KEYWORDS)):
+            acute_response = (
+                "I hear you, and your immediate safety is the top priority. If someone is following you or you feel in danger:\n\n"
+                "1. **Move to a Staffed Safe Haven Immediately:** Walk directly into an open shop, well-lit café, metro station customer counter, or busy bus shelter nearby.\n"
+                "2. **Alert People Nearby:** Let staff or commuters know you need help or that someone is following you.\n"
+                "3. **Call Emergency Services:**\n"
+                "   - **112** (National Emergency Helpline)\n"
+                "   - **1091** (Tamil Nadu Women Helpline)\n"
+                "4. **Share Live Route:** Tap the SOS button in NavSakhi to alert your emergency contacts.\n\n"
+                "Are you in a safe, staffed area with people around you right now?"
+            )
             return IntentClassificationResult(
                 intent=AssistantIntent.SAFETY,
-                confidence=0.98,
+                confidence=0.99,
                 is_supported_domain=True,
-                requires_external_llm=True
+                requires_external_llm=True,
+                direct_response=acute_response
             )
 
         # 2. EMERGENCY CONTACTS: Distinguish account configuration from emergency distress
         if "emergency contact" in clean_q or "emergency contacts" in clean_q:
-            # If the user specifically asks how to add/edit/manage contacts in settings without distress
             if any(ind in clean_q for ind in cls.CONTACT_CONFIG_INDICATORS):
                 return IntentClassificationResult(
                     intent=AssistantIntent.NAVSAKHI_SUPPORT,
@@ -133,7 +168,6 @@ class AssistantIntentClassifier:
                     is_supported_domain=True,
                     requires_external_llm=True
                 )
-            # Otherwise, treat ambiguous requests conservatively as SAFETY
             return IntentClassificationResult(
                 intent=AssistantIntent.SAFETY,
                 confidence=0.96,
@@ -150,16 +184,66 @@ class AssistantIntentClassifier:
                 requires_external_llm=True
             )
 
-        # 4. NAVSAKHI APPLICATION SUPPORT (Features, Account, LightGBM Model, Scoring)
+        # 4. TRAVEL ANXIETY & NERVOUSNESS (Calm reassurance without false emergency alarm)
+        if any(kw in clean_q for kw in cls.TRAVEL_ANXIETY_KEYWORDS) and not is_stalking_or_attack:
+            anxiety_resp = (
+                "It is completely normal to feel nervous or uneasy when traveling alone, especially in unfamiliar or quiet areas. "
+                "Take a slow breath — you are not alone, and I am right here with you in your phone.\n\n"
+                "A reassuring practical step is to stay along major, well-lit transit corridors like the Chennai Metro or primary arterial MTC bus routes, "
+                "and choose a seat near the driver, conductor, or in the designated women's section. You can also share your live journey route with someone you trust.\n\n"
+                "Where are you traveling right now? I would be glad to check verified routes or just stay in this chat with you."
+            )
+            return IntentClassificationResult(
+                intent=AssistantIntent.COMPANION_EMPATHY,
+                confidence=0.95,
+                is_supported_domain=True,
+                requires_external_llm=True,
+                direct_response=anxiety_resp
+            )
+
+        # 5. COMPANIONSHIP & JOURNEY PARTNER (Empathetic, human-centered presence)
+        if any(kw in clean_q for kw in cls.COMPANION_KEYWORDS):
+            if had_prior_companion_turn or any(pk in clean_q for pk in ["partner", "throughout", "through out", "with me"]):
+                companion_resp = (
+                    "I would be glad to stay with you throughout your journey as your travel partner. "
+                    "While I am an AI companion in your phone rather than a person walking beside you, "
+                    "you can count on me for route reassurance, station updates, or just friendly conversation anytime you feel alone. "
+                    "You can keep this chat open and message me whenever you like as you travel. Where are you starting from today?"
+                )
+            else:
+                companion_resp = (
+                    "I am right here with you, and I would love to keep you company. "
+                    "Think of me as your NavSakhi — a dependable, friendly travel companion in your pocket whenever you are navigating Chennai. "
+                    "How is your travel going so far, or where are you heading today?"
+                )
+            return IntentClassificationResult(
+                intent=AssistantIntent.COMPANION_EMPATHY,
+                confidence=0.96,
+                is_supported_domain=True,
+                requires_external_llm=True,
+                direct_response=companion_resp
+            )
+
+        # 6. NAVSAKHI APPLICATION SUPPORT (Features, Account, LightGBM Model, Scoring)
         if any(kw in clean_q for kw in cls.SUPPORT_KEYWORDS):
+            support_resp = None
+            if any(sk in clean_q for sk in ["score", "lightgbm", "safety score", "model", "how is score", "based on"]):
+                support_resp = (
+                    "NavSakhi route safety scores are calculated using a frozen LightGBM regression model that evaluates objective "
+                    "road environmental infrastructure features (including highway classification, road width, junction complexity, "
+                    "and verified commercial service density). We also calculate an independent Night Activity Score based on confirmed "
+                    "open places, transit nodes, and surveillance cameras along your route. It represents an environmental safety proxy, "
+                    "not an empirical crime prediction or guarantee of personal safety."
+                )
             return IntentClassificationResult(
                 intent=AssistantIntent.NAVSAKHI_SUPPORT,
                 confidence=0.95,
                 is_supported_domain=True,
-                requires_external_llm=True
+                requires_external_llm=True,
+                direct_response=support_resp
             )
 
-        # 5. JOURNEY & TRANSIT: Core Mobility Purpose (Routes, Bus, Metro, Chennai Travel)
+        # 7. JOURNEY & TRANSIT: Core Mobility Purpose (Routes, Bus, Metro, Chennai Travel)
         if any(kw in clean_q for kw in cls.TRANSIT_KEYWORDS):
             return IntentClassificationResult(
                 intent=AssistantIntent.JOURNEY_TRANSIT,
@@ -168,7 +252,7 @@ class AssistantIntentClassifier:
                 requires_external_llm=True
             )
 
-        # 6. SMALL TALK
+        # 8. SMALL TALK
         if any(clean_q == kw or clean_q.startswith(kw + " ") or kw in words for kw in cls.SMALL_TALK_KEYWORDS):
             greeting_resp = (
                 "Hello! I am your NavSakhi travel companion. "
@@ -185,7 +269,7 @@ class AssistantIntentClassifier:
                 direct_response=greeting_resp
             )
 
-        # 7. OFF_TOPIC (Harmless general questions: strictly 1-2 concise sentences with gentle redirection)
+        # 9. OFF_TOPIC (Harmless general questions: strictly 1-2 concise sentences with gentle redirection)
         brief_answer = None
         for key, ans in cls.OFF_TOPIC_KNOWLEDGE.items():
             if key in clean_q:

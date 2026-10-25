@@ -59,6 +59,11 @@ export const useAssistant = () => {
     };
   }, [isAuthenticated, accessToken]);
 
+  const messagesRef = useRef<ChatMessage[]>([]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   const cancelRequest = useCallback(() => {
     requestSeqRef.current++;
     setIsTyping(false);
@@ -68,6 +73,9 @@ export const useAssistant = () => {
     if (!query.trim()) return;
 
     const currentSeq = ++requestSeqRef.current;
+
+    // Snapshot conversation history for multi-turn companion empathy
+    const history = messagesRef.current.slice(-6).map(m => ({ role: m.role, content: m.content }));
 
     // Optimistically add user message
     const userMsg: ChatMessage = {
@@ -81,7 +89,7 @@ export const useAssistant = () => {
     setIsTyping(true);
 
     try {
-      const response = await assistantService.sendMessage(query);
+      const response = await assistantService.sendMessage(query, history);
       if (currentSeq !== requestSeqRef.current) {
         // Discard stale response from older request to prevent overwriting newer state
         return;

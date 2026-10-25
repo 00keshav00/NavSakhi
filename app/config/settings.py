@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     ollama_base_url: Optional[str] = None
     llm_model_name: Optional[str] = "gemini-3.8-flash"
     gemini_api_key: Optional[str] = None
+    google_api_key: Optional[str] = None
+    gemini_api_key_backup: Optional[str] = None
 
     # CORS & Frontend Origins
     frontend_url: Optional[str] = None

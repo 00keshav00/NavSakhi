@@ -260,10 +260,7 @@ class NightActivityScorer:
         sample_pts.append(pts_xy[-1])
 
         # 3. Discover corridor POIs
-        corridor_poi_indices = set()
-        for qx, qy in sample_pts:
-            idxs = self.tree.query_ball_point([qx, qy], r=corridor_m)
-            corridor_poi_indices.update(idxs)
+        corridor_poi_indices = set().union(*self.tree.query_ball_point(sample_pts, r=corridor_m))
 
         # Categorize discovered POIs
         confirmed_open = 0
@@ -296,10 +293,7 @@ class NightActivityScorer:
         # 4. Surveillance Cameras Discovery
         surveillance_cameras_count = 0
         if self.cam_tree is not None:
-            cam_indices = set()
-            for qx, qy in sample_pts:
-                c_idxs = self.cam_tree.query_ball_point([qx, qy], r=corridor_m)
-                cam_indices.update(c_idxs)
+            cam_indices = set().union(*self.cam_tree.query_ball_point(sample_pts, r=corridor_m))
             surveillance_cameras_count = len(cam_indices)
 
         # 5. Measure Longest Dark / Inactive Gap along route
@@ -310,9 +304,9 @@ class NightActivityScorer:
             open_tree = cKDTree(np.array(corridor_open_pts, dtype=np.float64))
             curr_gap = 0.0
             step_m = total_len_m / max(1, len(sample_pts) - 1)
+            distances, _ = open_tree.query(sample_pts)
 
-            for qx, qy in sample_pts:
-                d, _ = open_tree.query([qx, qy])
+            for d in distances:
                 if d <= corridor_m:
                     active_sample_count += 1
                     curr_gap = 0.0
