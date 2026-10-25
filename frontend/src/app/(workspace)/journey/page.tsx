@@ -9,13 +9,13 @@ import { JourneySearchPanel } from "@/components/journey/JourneySearchPanel";
 import { RouteCard } from "@/components/journey/RouteCard";
 import { RouteDetailPanel } from "@/components/journey/RouteDetailPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Navigation, Shield, AlertTriangle, ChevronUp, ChevronDown, 
+import {
+  Navigation, Shield, AlertTriangle, ChevronUp, ChevronDown,
   SlidersHorizontal, CheckCircle2, PanelLeftClose, PanelLeftOpen,
   RotateCcw, SearchX, Info, X, MapPin, Phone, ExternalLink, Minimize2, Maximize2
 } from "lucide-react";
 
-import { enrichGeoJsonWithSelection } from "@/components/journey/route-sync-utils";
+import { enrichGeoJsonWithSelection, filterJourneyWarnings } from "@/components/journey/route-sync-utils";
 import { useLiveJourneyTracking } from "@/hooks/useLiveJourneyTracking";
 import { useActiveJourneyStore } from "@/store/activeJourneyStore";
 
@@ -44,7 +44,10 @@ export default function JourneyPage() {
     [data?.recommended_routes]
   );
   const zeroDistance = data?.zero_distance || false;
-  const warnings = data?.warnings || [];
+  const warnings = useMemo(
+    () => filterJourneyWarnings(data?.warnings),
+    [data?.warnings]
+  );
 
   const handlePoiSelect = (poi: RoutePOI | null) => {
     setSelectedPoi(poi);
@@ -480,7 +483,7 @@ export default function JourneyPage() {
       <div className="md:hidden">
         {/* Top Floating Origin/Dest Bar */}
         <div className="absolute top-3 inset-x-3 z-20 pointer-events-auto">
-          <div 
+          <div
             onClick={() => {
               setViewState("SEARCH");
               setMobileSheetSnap("EXPANDED");
@@ -706,7 +709,7 @@ export default function JourneyPage() {
             </div>
 
             {/* Center Drag Handle */}
-            <div 
+            <div
               onClick={() => {
                 setMobileSheetSnap(
                   mobileSheetSnap === "PEEK"
