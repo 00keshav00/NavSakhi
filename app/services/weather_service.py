@@ -48,11 +48,15 @@ WMO_INTERPRETATION = {
 class WeatherService:
     """Provides verified weather observations and reverse geocoding."""
 
-    def __init__(self):
+    def __init__(self, time_func=None):
         self._weather_cache: Dict[Tuple[float, float], Tuple[float, LiveWeatherResponse]] = {}
         self._geocode_cache: Dict[Tuple[float, float], Tuple[float, ReverseGeocodeResponse]] = {}
-        self._weather_cache_ttl = 900  # 15 minutes
+        self._weather_cache_ttl = 900  # 15 minutes (positive cache)
+        self._negative_cache_ttl = 30  # 30 seconds (negative cache / transient failure cooldown)
+        self._rate_limit_cooldown = 30  # 30 seconds (provider-wide rate-limit cooldown)
         self._geocode_cache_ttl = 86400  # 24 hours
+        self._last_rate_limit_time: float = 0.0
+        self._time_func = time_func or time.time
 
     def _interpret_wmo(self, code: int) -> Tuple[str, str]:
         return WMO_INTERPRETATION.get(code, ("Fair", "partly-cloudy"))
@@ -60,7 +64,7 @@ class WeatherService:
     async def reverse_geocode(self, lat: float, lon: float) -> ReverseGeocodeResponse:
         """Resolves GPS coordinates to clean city and locality name via Nominatim."""
         cache_key = (round(lat, 3), round(lon, 3))
-        now = time.time()
+        now = self._time_func()
         if cache_key in self._geocode_cache:
             cached_time, cached_res = self._geocode_cache[cache_key]
             if now - cached_time < self._geocode_cache_ttl:
@@ -129,14 +133,16 @@ class WeatherService:
         Fetches genuine current observations and forecasts from Open-Meteo.
         """
         cache_key = (round(lat, 2), round(lon, 2))
-        now = time.time()
+        now = self._time_func()
         if cache_key in self._weather_cache:
             cached_time, cached_res = self._weather_cache[cache_key]
-            if now - cached_time < self._weather_cache_ttl:
+            ttl = self._weather_cache_ttl if cached_res.available else self._negative_cache_ttl
+            elapsed = now - cached_time
+            if elapsed < ttl:
                 # Return cached with updated cached flag and remaining TTL
                 res = cached_res.model_copy()
                 res.cached = True
-                res.cache_expires_in_seconds = int(self._weather_cache_ttl - (now - cached_time))
+                res.cache_expires_in_seconds = max(0, int(ttl - elapsed))
                 if location_name:
                     res.location_name = location_name
                 return res
@@ -146,6 +152,19 @@ class WeatherService:
         if not resolved_name or resolved_name == "Selected Location":
             geo = await self.reverse_geocode(lat, lon)
             resolved_name = geo.display_name
+
+        # Provider-wide rate-limit cooldown: avoid retrying shared provider during active 429 cooldown
+        rate_limit_elapsed = now - self._last_rate_limit_time
+        if rate_limit_elapsed < self._rate_limit_cooldown:
+            remaining_cooldown = max(0, int(self._rate_limit_cooldown - rate_limit_elapsed))
+            unavail = self._build_unavailable_response(
+                lat, lon, resolved_name, status="RATE_LIMITED",
+                warning="Open-Meteo API rate limit reached. Please retry in a few moments.",
+                cached=True,
+                cache_expires_in_seconds=remaining_cooldown
+            )
+            self._weather_cache[cache_key] = (now, unavail)
+            return unavail
 
         try:
             url = (
@@ -276,9 +295,12 @@ class WeatherService:
                     return response
                 elif resp.status_code == 429:
                     logger.warning("Open-Meteo API rate limit reached.")
+                    self._last_rate_limit_time = now
                     unavail = self._build_unavailable_response(
                         lat, lon, resolved_name, status="RATE_LIMITED",
-                        warning="Open-Meteo API rate limit reached. Please retry in a few moments."
+                        warning="Open-Meteo API rate limit reached. Please retry in a few moments.",
+                        cached=False,
+                        cache_expires_in_seconds=self._negative_cache_ttl
                     )
                     self._weather_cache[cache_key] = (now, unavail)
                     return unavail
@@ -287,7 +309,9 @@ class WeatherService:
 
         unavail = self._build_unavailable_response(
             lat, lon, resolved_name, status="UNAVAILABLE",
-            warning="Live weather provider is temporarily unreachable."
+            warning="Live weather provider is temporarily unreachable.",
+            cached=False,
+            cache_expires_in_seconds=self._negative_cache_ttl
         )
         self._weather_cache[cache_key] = (now, unavail)
         return unavail
@@ -298,12 +322,14 @@ class WeatherService:
         lon: float,
         location_name: str,
         status: str = "UNAVAILABLE",
-        warning: str = "Live weather data currently unavailable"
+        warning: str = "Live weather data currently unavailable",
+        cached: bool = False,
+        cache_expires_in_seconds: Optional[int] = None
     ) -> LiveWeatherResponse:
         return LiveWeatherResponse(
             available=False,
             status=status,
-            provider="Open-Meteo (Offline)",
+            provider="Open-Meteo",
             provider_url="https://open-meteo.com",
             attribution="Weather data by Open-Meteo.com",
             latitude=lat,
@@ -328,7 +354,8 @@ class WeatherService:
             hourly_forecast=[],
             daily_forecast=[],
             observation_timestamp=datetime.datetime.utcnow().isoformat(),
-            cached=False,
+            cached=cached,
+            cache_expires_in_seconds=cache_expires_in_seconds,
             warnings=[warning]
         )
 
