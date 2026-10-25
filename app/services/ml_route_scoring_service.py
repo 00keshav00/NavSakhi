@@ -441,7 +441,11 @@ class MLRouteScoringService:
 
     # --- Candidate Route Scoring Boundary ---
 
-    def score_candidate_route(self, candidate_route: Any) -> RouteScoreResult:
+    def score_candidate_route(
+        self,
+        candidate_route: Any,
+        timing_sink: Optional[Dict[str, float]] = None
+    ) -> RouteScoreResult:
         """
         Evaluates and scores a single CandidateRoute instance, attaching verified ML scoring
         metadata to candidate_route.route_metadata without synthetic fallbacks.
@@ -471,6 +475,7 @@ class MLRouteScoringService:
                     # Excluded from road snapping; counted as unscored transit traversal
                     transit_unscored_len += leg_dist
 
+            t_m0 = time.perf_counter()
             if road_legs:
                 match_res = self.spatial_matcher.match_multimodal_route(road_legs, route_identifier=route_id)
             else:
@@ -494,27 +499,39 @@ class MLRouteScoringService:
                     unmatched_intervals=[],
                     diagnostics={"transit_only": True},
                 )
+            if timing_sink is not None:
+                timing_sink["spatial_matching_s"] = timing_sink.get("spatial_matching_s", 0.0) + (time.perf_counter() - t_m0)
 
+            t_s0 = time.perf_counter()
             score_res = self.score_route_match(
                 match_res,
                 travel_mode="Multimodal",
                 route_identifier=route_id,
                 transit_unscored_length_m=transit_unscored_len,
             )
+            if timing_sink is not None:
+                timing_sink["ml_inference_and_attribution_s"] = timing_sink.get("ml_inference_and_attribution_s", 0.0) + (time.perf_counter() - t_s0)
 
         else:
             # Single-road route
             geom = route_meta.get("geometry")
+            t_m0 = time.perf_counter()
             match_res = self.spatial_matcher.match_route(
                 geom,
                 route_identifier=route_id,
                 travel_mode=travel_mode,
             )
+            if timing_sink is not None:
+                timing_sink["spatial_matching_s"] = timing_sink.get("spatial_matching_s", 0.0) + (time.perf_counter() - t_m0)
+
+            t_s0 = time.perf_counter()
             score_res = self.score_route_match(
                 match_res,
                 travel_mode=travel_mode,
                 route_identifier=route_id,
             )
+            if timing_sink is not None:
+                timing_sink["ml_inference_and_attribution_s"] = timing_sink.get("ml_inference_and_attribution_s", 0.0) + (time.perf_counter() - t_s0)
 
         # Attach to route_metadata
         route_meta["ml_scoring"] = score_res.model_dump()
@@ -532,20 +549,28 @@ class MLRouteScoringService:
             for s_idx, d_seg in enumerate(dynamic_segs):
                 s_mode = str(d_seg.get("mode", "")).lower().strip()
                 s_geom = d_seg.get("geometry", {})
-                
+
                 # Check if road-compatible
                 if any(m in s_mode for m in ["auto", "cab", "walk", "bike", "two_wheeler", "driving", "personal"]):
                     try:
+                        t_m0 = time.perf_counter()
                         seg_match = leg_matches_dict.get(s_idx)
                         if seg_match is not None:
                             seg_match = seg_match.model_copy(deep=True)
                         else:
                             seg_match = self.spatial_matcher.match_route(s_geom, travel_mode=s_mode)
+                        if timing_sink is not None:
+                            timing_sink["spatial_matching_s"] = timing_sink.get("spatial_matching_s", 0.0) + (time.perf_counter() - t_m0)
+
+                        t_s0 = time.perf_counter()
                         seg_score_res = self.score_route_match(
                             seg_match,
                             travel_mode=s_mode,
                             route_identifier=f"{route_id}_leg_{s_idx+1}"
                         )
+                        if timing_sink is not None:
+                            timing_sink["ml_inference_and_attribution_s"] = timing_sink.get("ml_inference_and_attribution_s", 0.0) + (time.perf_counter() - t_s0)
+
                         d_seg["score_status"] = seg_score_res.score_status.value
                         d_seg["safety_score"] = seg_score_res.safety_score
                         d_seg["scoreable_coverage_ratio"] = seg_score_res.scoreable_coverage_ratio
@@ -570,12 +595,18 @@ class MLRouteScoringService:
         candidate_route.route_metadata = route_meta
         return score_res
 
-    def score_candidate_routes(self, candidate_routes: List[Any]) -> List[RouteScoreResult]:
+    def score_candidate_routes(
+        self,
+        candidate_routes: List[Any],
+        timing_collector: Optional[Dict[str, float]] = None
+    ) -> List[RouteScoreResult]:
         """
         Scores all candidate routes, attaching ML scores, and sorts routes deterministically:
         1. Routes with READY safety scores (descending safety score).
         2. Routes with unscored/unsupported states (sorted by duration ascending).
         """
+        t_scoring_start = time.perf_counter()
+        t_idx_0 = time.perf_counter()
         # Pre-warm spatial index for combined corridor across all candidate routes
         try:
             all_journey_coords = []
@@ -599,11 +630,20 @@ class MLRouteScoringService:
                 self.spatial_matcher._ensure_index_for_corridor(valid_coords)
         except Exception as e:
             logger.debug(f"Candidate corridor pre-warming notice: {e}")
+        t_idx_duration = time.perf_counter() - t_idx_0
+
+        timing_sink: Optional[Dict[str, float]] = {} if timing_collector is not None else None
 
         results = []
         for cand in candidate_routes:
-            res = self.score_candidate_route(cand)
+            res = self.score_candidate_route(cand, timing_sink=timing_sink)
             results.append(res)
+
+        if timing_collector is not None and timing_sink is not None:
+            timing_collector["spatial_index_construction_ms"] = round(t_idx_duration * 1000, 2)
+            timing_collector["spatial_matching_ms"] = round(timing_sink.get("spatial_matching_s", 0.0) * 1000, 2)
+            timing_collector["ml_inference_and_attribution_ms"] = round(timing_sink.get("ml_inference_and_attribution_s", 0.0) * 1000, 2)
+            timing_collector["ml_scoring_total_ms"] = round((time.perf_counter() - t_scoring_start) * 1000, 2)
 
         # Deterministic ranking policy:
         # READY routes sorted by safety_score descending.

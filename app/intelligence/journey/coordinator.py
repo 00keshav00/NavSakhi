@@ -303,7 +303,14 @@ class JourneyIntelligenceCoordinator:
                     "zero_distance": True,
                     "warnings": ["Already at destination"]
                 }
-                return self.response_builder.build_journey_plan(final_context, getattr(request, 'user_id', "u_1"), journey_id)
+                resp = self.response_builder.build_journey_plan(
+                    final_context, getattr(request, 'user_id', "u_1"), journey_id, timing_collector=stage_timings
+                )
+                from app.config.settings import settings
+                if (getattr(settings, "environment", "") or "").strip().lower() == "staging":
+                    stage_timings["total_duration_ms"] = round((time.perf_counter() - t_pipeline_start) * 1000, 2)
+                    resp.meta = {"stage_timings": dict(stage_timings)}
+                return resp
 
             warnings = []
 
@@ -769,9 +776,8 @@ class JourneyIntelligenceCoordinator:
                     raise HTTPException(status_code=400, detail="Invalid route: Source and Destination are too close or unroutable.")
                 raise HTTPException(status_code=503, detail="Routing provider is temporarily unavailable. Please retry shortly.")
 
-            # Genuine ML inference and length-weighted aggregation (No synthetic variance or heuristics)
             t_scoring_0 = time.perf_counter()
-            self.ml_route_scorer.score_candidate_routes(candidates)
+            self.ml_route_scorer.score_candidate_routes(candidates, timing_collector=stage_timings)
             stage_timings["lightgbm_scoring_ms"] = round((time.perf_counter() - t_scoring_0) * 1000, 2)
 
             # Strategy Resolution: Production Lock-In -> STRATEGY_A (Deterministic)
@@ -865,11 +871,19 @@ class JourneyIntelligenceCoordinator:
                 "preference": pref_list[0] if pref_list else "ANY"
             }
             t_resp_0 = time.perf_counter()
-            resp = self.response_builder.build_journey_plan(final_context, user_id, journey_id)
+            resp = self.response_builder.build_journey_plan(
+                final_context, user_id, journey_id, timing_collector=stage_timings
+            )
             stage_timings["response_construction_ms"] = round((time.perf_counter() - t_resp_0) * 1000, 2)
             stage_timings["total_duration_ms"] = round((time.perf_counter() - t_pipeline_start) * 1000, 2)
             self.last_stage_timings = stage_timings
             self.last_strategy_metrics = strategy_metrics
+
+            from app.config.settings import settings
+            if (getattr(settings, "environment", "") or "").strip().lower() == "staging":
+                resp.meta = {"stage_timings": dict(stage_timings)}
+            else:
+                resp.meta = None
 
             logger.info(
                 f"[{correlation_id}] Journey pipeline complete in {stage_timings['total_duration_ms']}ms: "

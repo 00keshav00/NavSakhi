@@ -228,6 +228,7 @@ class JourneyPlanResponse(BaseModel):
     dest_loc: Optional[List[float]] = None
     zero_distance: Optional[bool] = False
     warnings: Optional[List[str]] = None
+    meta: Optional[Dict[str, Any]] = None
 
 class JourneyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

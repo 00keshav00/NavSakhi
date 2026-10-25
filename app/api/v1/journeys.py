@@ -13,6 +13,25 @@ def _verify_journey_ownership(journey, user_id: str) -> None:
     if str(journey.user_id) != str(user_id):
         raise ForbiddenException("You do not have permission to access or modify this journey.")
 
+def _enrich_staging_response_telemetry(plan_response: JourneyPlanResponse) -> Optional[Dict[str, Any]]:
+    from app.config.settings import settings
+    if (getattr(settings, "environment", "") or "").strip().lower() != "staging":
+        return None
+
+    meta = getattr(plan_response, "meta", None)
+    if not meta or not isinstance(meta, dict) or "stage_timings" not in meta:
+        return None
+
+    import time
+    t_ser_0 = time.perf_counter()
+    _ = plan_response.model_dump(mode="json")
+    ser_ms = round((time.perf_counter() - t_ser_0) * 1000, 2)
+
+    meta["stage_timings"]["response_serialization_ms"] = ser_ms
+    if "total_duration_ms" in meta["stage_timings"]:
+        meta["stage_timings"]["total_duration_ms"] = round(meta["stage_timings"]["total_duration_ms"] + ser_ms, 2)
+    return meta
+
 router = APIRouter()
 
 @router.post("/", response_model=StandardResponse[JourneyPlanResponse])
@@ -25,7 +44,8 @@ async def create_journey(
         plan_response = await journey_service.create_journey(user_id, data)
     else:
         plan_response = await journey_service.plan_guest_journey(data)
-    return StandardResponse(success=True, data=plan_response)
+    meta = _enrich_staging_response_telemetry(plan_response)
+    return StandardResponse(success=True, data=plan_response, meta=meta)
 
 @router.post("/guest/plan", response_model=StandardResponse[JourneyPlanResponse])
 async def plan_guest_journey(
@@ -38,7 +58,8 @@ async def plan_guest_journey(
     Does not persist user journey documents or require session state.
     """
     plan_response = await journey_service.plan_guest_journey(data)
-    return StandardResponse(success=True, data=plan_response)
+    meta = _enrich_staging_response_telemetry(plan_response)
+    return StandardResponse(success=True, data=plan_response, meta=meta)
  
 @router.get("/active", response_model=StandardResponse[Optional[JourneyResponse]])
 async def get_active_journey(

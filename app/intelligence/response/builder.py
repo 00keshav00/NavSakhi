@@ -94,7 +94,17 @@ class ResponseBuilder:
             )
         )
 
-    def build_journey_plan(self, final_context: Dict[str, Any], user_id: str, journey_id: str) -> Any:
+    def build_journey_plan(
+        self,
+        final_context: Dict[str, Any],
+        user_id: str,
+        journey_id: str,
+        timing_collector: Optional[Dict[str, float]] = None
+    ) -> Any:
+        import time
+        t_build_start = time.perf_counter()
+        t_poi_total = 0.0
+        t_night_total = 0.0
         from app.schemas.journey_schemas import (
             JourneyPlanResponse, SessionInfo, JourneyInformation,
             MultimodalRoute, RouteSegment, WeatherSummary, CommunitySummary, AIRecommendation,
@@ -102,12 +112,16 @@ class ResponseBuilder:
         )
         import datetime
         import copy
-        
+
         candidates = final_context.get("routes", [])
         source_name = final_context.get("source_name", "Current Location")
         dest_name = final_context.get("dest_name", "Destination")
-        
+
         if final_context.get("zero_distance"):
+            if timing_collector is not None:
+                timing_collector["poi_retrieval_ms"] = 0.0
+                timing_collector["night_activity_evaluation_ms"] = 0.0
+                timing_collector["response_dto_construction_ms"] = round((time.perf_counter() - t_build_start) * 1000, 2)
             return JourneyPlanResponse(
                 journey_id=journey_id,
                 session_info=SessionInfo(created_at=datetime.datetime.utcnow().isoformat(), status="ACTIVE"),
@@ -125,7 +139,8 @@ class ResponseBuilder:
                     reasoning="The source and destination are effectively identical.",
                     warnings=[],
                     suggested_actions=[]
-                )
+                ),
+                zero_distance=True,
             )
         
         def get_color(score: int, index: int) -> str:
@@ -358,6 +373,7 @@ class ResponseBuilder:
             dur_sig = round(float(getattr(c, "duration", 0.0) or 0.0), 1)
             poi_sig = (geom_sig, corridor_m, legs_sig, dur_sig)
 
+            t_p0 = time.perf_counter()
             if poi_sig in poi_cache:
                 poi_query_res_raw, raw_pois_cached = poi_cache[poi_sig]
                 poi_query_res = dict(poi_query_res_raw)
@@ -372,8 +388,10 @@ class ResponseBuilder:
                 raw_pois = poi_query_res.get("pois", [])
                 route_pois = [RoutePOI(**p) for p in raw_pois]
                 poi_cache[poi_sig] = (dict(poi_query_res), [p.copy() if isinstance(p, dict) else p for p in raw_pois])
+            t_poi_total += (time.perf_counter() - t_p0)
 
             # Evaluate dedicated Night Activity Intelligence (v2.0)
+            t_n0 = time.perf_counter()
             pass_through_hour = int(final_context.get("pass_through_hour", 22)) if isinstance(final_context, dict) else 22
             night_sig = (geom_sig, pass_through_hour)
             if night_sig in night_cache:
@@ -381,6 +399,7 @@ class ResponseBuilder:
             else:
                 night_score = night_activity_scorer.evaluate_route(coords, pass_through_hour=pass_through_hour)
                 night_cache[night_sig] = night_score.model_copy(deep=True)
+            t_night_total += (time.perf_counter() - t_n0)
 
             # Extract genuine LightGBM TreeSHAP explainability
             raw_model_attr = c.route_metadata.get("model_explainability")
@@ -457,7 +476,13 @@ class ResponseBuilder:
             ai_title = "Objective Recommendation"
             ai_summary = rec_payload.explanation.primary_reason if rec_payload.explanation else "Analyzed verified infrastructure constraints."
             ai_reasoning = " ".join(rec_payload.explanation.tradeoffs) if rec_payload.explanation else "Determined via multi-factor backend verification."
-        
+
+        if timing_collector is not None:
+            t_dto_duration = max(0.0, (time.perf_counter() - t_build_start) - t_poi_total - t_night_total)
+            timing_collector["poi_retrieval_ms"] = round(t_poi_total * 1000, 2)
+            timing_collector["night_activity_evaluation_ms"] = round(t_night_total * 1000, 2)
+            timing_collector["response_dto_construction_ms"] = round(t_dto_duration * 1000, 2)
+
         return JourneyPlanResponse(
             journey_id=journey_id,
             session_info=SessionInfo(
