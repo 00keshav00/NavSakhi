@@ -121,6 +121,7 @@ class JourneyIntelligenceCoordinator:
             "ml_prediction": ml_prediction,
             "agent_results": agent_results,
             "query": initial_context.get("query"),
+            "history": initial_context.get("history"),
             "active_journey": initial_context.get("active_journey"),
             "workflow_type": workflow_type
         }

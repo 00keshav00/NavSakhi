@@ -73,6 +73,14 @@ class AssistantIntentClassifier:
         "emergency", "police", "sos", "helpline", "112", "1091"
     ]
 
+    # General safety awareness, considerations, and precaution inquiries
+    SAFETY_AWARENESS_KEYWORDS = [
+        "aware", "be aware", "look out", "watch out", "safety tip", "safety tips",
+        "precaution", "precautions", "stay safe", "staying safe", "keeping safe",
+        "safe travel", "safety consideration", "safety considerations", "advice",
+        "safety advice", "guidelines", "safety guidelines", "caution", "vigilant"
+    ]
+
     # Specific indicators of account / settings configuration for emergency contacts
     CONTACT_CONFIG_INDICATORS = [
         "add", "update", "edit", "delete", "remove", "change", "set up",
@@ -182,6 +190,23 @@ class AssistantIntentClassifier:
                 confidence=0.97,
                 is_supported_domain=True,
                 requires_external_llm=True
+            )
+
+        # 3b. SAFETY AWARENESS & PRECAUTIONS (Considerations, tips, what to look out for)
+        if any(kw in clean_q for kw in cls.SAFETY_AWARENESS_KEYWORDS):
+            awareness_fallback = (
+                "When traveling across Chennai, keep these practical safety considerations in mind:\n\n"
+                "1. **Use Well-Lit Primary Corridors:** Choose active transit modes like Chennai Metro or primary arterial MTC bus routes, especially during evening hours.\n"
+                "2. **Stay Near Staffed Facilities:** At stations and bus stops, wait near ticket counters, station masters, or well-populated areas.\n"
+                "3. **Share Live Trip Telemetry:** Keep your phone charged and share your active route link with family or a trusted contact.\n"
+                "4. **Emergency Helplines:** Note that **112** (National Emergency) and **1091** (Tamil Nadu Women Helpline) are available 24/7."
+            )
+            return IntentClassificationResult(
+                intent=AssistantIntent.SAFETY,
+                confidence=0.94,
+                is_supported_domain=True,
+                requires_external_llm=True,
+                direct_response=awareness_fallback
             )
 
         # 4. TRAVEL ANXIETY & NERVOUSNESS (Calm reassurance without false emergency alarm)

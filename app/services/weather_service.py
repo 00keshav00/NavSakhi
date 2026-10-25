@@ -7,6 +7,7 @@ to provide authentic, data-driven observations, hourly forecasts, and UV indicat
 import time
 import datetime
 import logging
+import asyncio
 from typing import Dict, Any, Optional, Tuple, List
 import httpx
 
@@ -57,6 +58,7 @@ class WeatherService:
         self._geocode_cache_ttl = 86400  # 24 hours
         self._last_rate_limit_time: float = 0.0
         self._time_func = time_func or time.time
+        self._in_flight: Dict[Tuple[float, float], asyncio.Future] = {}
 
     def _interpret_wmo(self, code: int) -> Tuple[str, str]:
         return WMO_INTERPRETATION.get(code, ("Fair", "partly-cloudy"))
@@ -165,6 +167,28 @@ class WeatherService:
             )
             self._weather_cache[cache_key] = (now, unavail)
             return unavail
+
+        # Single-flight coalescing: share active in-flight request for identical coordinates
+        in_flight_future = self._in_flight.get(cache_key)
+        if in_flight_future is not None:
+            try:
+                res = await in_flight_future
+                res_copy = res.model_copy()
+                res_copy.cached = True
+                if location_name:
+                    res_copy.location_name = location_name
+                return res_copy
+            except Exception:
+                pass  # Fall through to fresh fetch if previous in-flight errored
+
+        try:
+            loop = asyncio.get_running_loop()
+            my_future = loop.create_future()
+        except RuntimeError:
+            my_future = None
+
+        if my_future is not None:
+            self._in_flight[cache_key] = my_future
 
         try:
             url = (
@@ -292,6 +316,8 @@ class WeatherService:
                     )
 
                     self._weather_cache[cache_key] = (now, response)
+                    if my_future is not None and not my_future.done():
+                        my_future.set_result(response)
                     return response
                 elif resp.status_code == 429:
                     logger.warning("Open-Meteo API rate limit reached.")
@@ -303,18 +329,35 @@ class WeatherService:
                         cache_expires_in_seconds=self._negative_cache_ttl
                     )
                     self._weather_cache[cache_key] = (now, unavail)
+                    if my_future is not None and not my_future.done():
+                        my_future.set_result(unavail)
                     return unavail
+
+            # Fallback for unexpected status codes
+            unavail = self._build_unavailable_response(
+                lat, lon, resolved_name, status="UNAVAILABLE",
+                warning="Live weather provider is temporarily unreachable.",
+                cached=False,
+                cache_expires_in_seconds=self._negative_cache_ttl
+            )
+            self._weather_cache[cache_key] = (now, unavail)
+            if my_future is not None and not my_future.done():
+                my_future.set_result(unavail)
+            return unavail
         except Exception as e:
             logger.warning(f"Failed to fetch live weather from Open-Meteo for ({lat}, {lon}): {e}")
-
-        unavail = self._build_unavailable_response(
-            lat, lon, resolved_name, status="UNAVAILABLE",
-            warning="Live weather provider is temporarily unreachable.",
-            cached=False,
-            cache_expires_in_seconds=self._negative_cache_ttl
-        )
-        self._weather_cache[cache_key] = (now, unavail)
-        return unavail
+            unavail = self._build_unavailable_response(
+                lat, lon, resolved_name, status="UNAVAILABLE",
+                warning="Live weather provider is temporarily unreachable.",
+                cached=False,
+                cache_expires_in_seconds=self._negative_cache_ttl
+            )
+            self._weather_cache[cache_key] = (now, unavail)
+            if my_future is not None and not my_future.done():
+                my_future.set_result(unavail)
+            return unavail
+        finally:
+            self._in_flight.pop(cache_key, None)
 
     def _build_unavailable_response(
         self,

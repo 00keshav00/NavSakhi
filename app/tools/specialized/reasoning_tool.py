@@ -431,6 +431,14 @@ class ReasoningTool(BaseTool):
                     "NavSakhi supports Chennai Metro (Blue and Green lines), Suburban rail corridors (South, West, and North lines), "
                     "and MTC bus routes across Chennai."
                 )
+            elif any(w in q_lower for w in ["aware", "be aware", "look out", "watch out", "safety tip", "safety tips", "precaution", "precautions", "stay safe", "guidelines"]):
+                fallback_summary = (
+                    "When navigating Chennai, keep these practical safety considerations in mind:\n\n"
+                    "1. **Use Well-Lit Primary Corridors:** Choose active transit modes like Chennai Metro or primary arterial MTC bus routes, especially during evening hours.\n"
+                    "2. **Stay Near Staffed Facilities:** At stations and bus stops, wait near ticket counters, station masters, or well-populated areas.\n"
+                    "3. **Share Live Trip Telemetry:** Keep your phone charged and share your active route link with family or a trusted contact.\n"
+                    "4. **Emergency Helplines:** Note that **112** (National Emergency) and **1091** (Tamil Nadu Women Helpline) are available 24/7."
+                )
             else:
                 fallback_summary = (
                     "I am your NavSakhi travel companion. You can ask me about safe route planning in Chennai, transport options (Metro, Bus, Suburban), "
