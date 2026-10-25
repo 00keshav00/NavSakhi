@@ -528,3 +528,105 @@ def test_p3_credential_status_boolean_only_no_leak():
         assert "super_secret" not in status_str
         assert "backup_secret" not in status_str
         assert "1234567890" not in status_str
+
+
+# ============================================================================
+# Phase 51.60: Long-Route Production Investigation & Correctness Tests
+# ============================================================================
+
+def test_p0_strtree_pruning_preserves_legitimate_nearby_pois():
+    """
+    Verifies that STRtree indexed bounding-box pruning returns legitimate
+    nearby POIs without dropping genuine facilities along a route.
+    """
+    service = get_poi_service()
+    # Coordinates in Chennai central corridor
+    coords = [
+        [80.2707, 13.0827],
+        [80.2600, 13.0700],
+        [80.2500, 13.0600],
+    ]
+    results = service.query_pois_near_route(coords, corridor_m=800.0)
+    assert results["status"] == "AVAILABLE"
+    assert "pois" in results
+    assert len(results["pois"]) > 0
+    # Every returned POI must have distance <= 800.0m
+    for poi in results["pois"]:
+        assert poi["distance_to_route_m"] <= 800.0 + 1e-3
+        assert "name" in poi
+        assert "category" in poi
+
+
+@pytest.mark.asyncio
+async def test_p0_response_construction_stage_separation_and_no_rescoring():
+    """
+    Verifies that candidate scoring and response construction operate as
+    separate sequential stages and response construction does not re-invoke LightGBM scoring.
+    """
+    coordinator = JourneyIntelligenceCoordinator()
+    journey_req = JourneyCreate(
+        source="Tambaram",
+        destination="Chennai Central",
+        preferences=["FASTEST", "SAFEST"]
+    )
+
+    with patch("app.providers.live.weather.global_weather_provider.get_live_weather", new_callable=AsyncMock) as mock_weather:
+        mock_weather.return_value = {"temperature": 28.0, "condition": "Clear", "rain_mm": 0.0, "available": True}
+
+        with patch.object(
+            coordinator.ml_route_scorer,
+            "score_candidate_route",
+            wraps=coordinator.ml_route_scorer.score_candidate_route
+        ) as mock_score:
+            plan = await coordinator.build_journey_plan_response("test_journey_stage_sep", journey_req)
+            assert plan is not None
+            assert len(plan.recommended_routes) > 0
+
+            # Count calls to score_candidate_route during candidate scoring
+            scoring_call_count = mock_score.call_count
+            assert scoring_call_count > 0, "Candidate scoring must evaluate routes"
+
+            # Re-running response builder on final_context should not call scoring
+            from app.intelligence.response.builder import ResponseBuilder
+            builder = ResponseBuilder()
+            builder.build_journey_plan(
+                final_context={"recommended_routes": plan.recommended_routes, "weather_data": {"available": True}},
+                user_id="test_user",
+                journey_id="test_journey_stage_sep"
+            )
+            # Response builder should not call score_candidate_route
+            assert mock_score.call_count == scoring_call_count
+
+
+@pytest.mark.asyncio
+async def test_p0_weather_and_gemini_failure_preserves_route_validity():
+    """
+    Verifies that when both weather and Gemini fail, route scoring and response
+    construction remain valid and complete without fabricating information.
+    """
+    coordinator = JourneyIntelligenceCoordinator()
+    journey_req = JourneyCreate(
+        source="Guindy",
+        destination="Chennai Central",
+        preferences=["SAFEST"]
+    )
+
+    with patch("app.providers.live.weather.global_weather_provider.get_live_weather", new_callable=AsyncMock) as mock_weather, \
+         patch.object(coordinator.reasoning_tool, "execute", new_callable=AsyncMock) as mock_gemini:
+        # Weather raises unexpected error
+        mock_weather.side_effect = RuntimeError("Weather upstream unavailable")
+        # Gemini raises timeout
+        mock_gemini.side_effect = TimeoutError("Gemini reasoning deadline exceeded")
+
+        plan = await coordinator.build_journey_plan_response("test_resilient_journey", journey_req)
+        assert plan is not None
+        assert len(plan.recommended_routes) > 0
+
+        # Routes must retain genuine validation and coverage semantics
+        for route in plan.recommended_routes:
+            assert route.id is not None
+            assert route.distance != "0 km"
+            assert route.score_status in ("READY", "INSUFFICIENT_COVERAGE", "UNAVAILABLE")
+            if route.score_status == "READY":
+                assert route.safety_score is not None
+                assert 0 <= route.safety_score <= 100

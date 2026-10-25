@@ -1,5 +1,5 @@
-import { apiClient, StandardResponse } from "../client";
-import { JourneyCreateRequest, JourneyPlanResponse, LocationSuggestion } from "../../types/journey";
+import { apiClient, type StandardResponse } from "../client.ts";
+import type { JourneyCreateRequest, JourneyPlanResponse, LocationSuggestion } from "../../types/journey.ts";
 
 export const journeyService = {
   autocomplete: async (query: string, limit: number = 8, signal?: AbortSignal): Promise<LocationSuggestion[]> => {
@@ -12,7 +12,11 @@ export const journeyService = {
   },
 
   planJourney: async (request: JourneyCreateRequest, signal?: AbortSignal): Promise<JourneyPlanResponse> => {
-    const response = await apiClient.post<StandardResponse<JourneyPlanResponse>>("/api/v1/journeys/", request, { signal });
+    // Temporary client mitigation: extended to 120,000ms to allow long-route computation on resource-constrained deployments
+    const response = await apiClient.post<StandardResponse<JourneyPlanResponse>>("/api/v1/journeys/", request, {
+      signal,
+      timeout: 120000,
+    });
     return response.data.data;
   },
 

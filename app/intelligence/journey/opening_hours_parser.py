@@ -201,6 +201,12 @@ class ParsedSchedule:
         else:
             return OpeningStatus.CLOSED
 
+import functools
+
+@functools.lru_cache(maxsize=4096)
+def _get_parsed_schedule(raw: str) -> ParsedSchedule:
+    return ParsedSchedule(raw)
+
 def evaluate_opening_hours(raw_hours: Optional[str], check_time: Optional[datetime.datetime] = None) -> OpeningStatus:
     """
     Evaluates whether raw OSM opening_hours is OPEN, CLOSED, or UNKNOWN at check_time.
@@ -213,7 +219,7 @@ def evaluate_opening_hours(raw_hours: Optional[str], check_time: Optional[dateti
         check_time = datetime.datetime.now(datetime.timezone.utc)
 
     try:
-        schedule = ParsedSchedule(raw_hours)
+        schedule = _get_parsed_schedule(raw_hours.strip())
         return schedule.evaluate(check_time)
     except Exception:
         return OpeningStatus.UNKNOWN

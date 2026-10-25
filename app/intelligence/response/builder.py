@@ -1,7 +1,29 @@
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional, Tuple
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
+
+def compute_route_geometry_signature(coords: Any) -> str:
+    """
+    Computes a deterministic, collision-proof SHA-256 signature of a route coordinate sequence.
+    Normalizes coordinates to 6 decimal places (~0.11m precision).
+    Distinguishes distinct paths with identical endpoints, distances, or counts.
+    Distinguishes reversed routes.
+    """
+    if not coords or not isinstance(coords, (list, tuple)):
+        return "empty"
+    valid_points = []
+    for pt in coords:
+        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+            try:
+                valid_points.append(f"{float(pt[0]):.6f},{float(pt[1]):.6f}")
+            except (ValueError, TypeError):
+                continue
+    if not valid_points:
+        return "empty"
+    payload = ";".join(valid_points)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 def get_mode_color(mode: str) -> str:
     m = mode.lower().strip()
@@ -126,6 +148,12 @@ class ResponseBuilder:
         if candidates:
             pass # ranking logic removed from here, driven by rec_payload
             
+        from app.services.poi_service import get_poi_service
+        from app.intelligence.journey.night_activity_scorer import night_activity_scorer
+        poi_service = get_poi_service()
+        poi_cache: Dict[Any, Tuple[Any, List[RoutePOI]]] = {}
+        night_cache: Dict[Any, Any] = {}
+
         for i, c in enumerate(candidates):
             if not c: continue
                 
@@ -324,20 +352,35 @@ class ResponseBuilder:
                 mode_cat = "Cab"
 
             # Query verified safety facilities and commercial shops along the route corridor
-            from app.services.poi_service import get_poi_service
-            poi_service = get_poi_service()
-            poi_query_res = poi_service.query_pois_near_route(
-                coords,
-                corridor_m=800.0,
-                legs=[s.model_dump() for s in segments] if segments else None,
-                total_duration_s=float(getattr(c, "duration", 0.0) or 0.0)
-            )
-            raw_pois = poi_query_res.get("pois", [])
-            route_pois = [RoutePOI(**p) for p in raw_pois]
+            geom_sig = compute_route_geometry_signature(coords)
+            corridor_m = 800.0
+            legs_sig = tuple((getattr(s, "transport_mode", ""), round(float(getattr(s, "distance_m", 0.0) or 0.0), 1), round(float(getattr(s, "duration_s", 0.0) or 0.0), 1)) for s in segments) if segments else ()
+            dur_sig = round(float(getattr(c, "duration", 0.0) or 0.0), 1)
+            poi_sig = (geom_sig, corridor_m, legs_sig, dur_sig)
+
+            if poi_sig in poi_cache:
+                poi_query_res_raw, raw_pois_cached = poi_cache[poi_sig]
+                poi_query_res = dict(poi_query_res_raw)
+                route_pois = [RoutePOI(**p) for p in raw_pois_cached]
+            else:
+                poi_query_res = poi_service.query_pois_near_route(
+                    coords,
+                    corridor_m=corridor_m,
+                    legs=[s.model_dump() for s in segments] if segments else None,
+                    total_duration_s=float(getattr(c, "duration", 0.0) or 0.0)
+                )
+                raw_pois = poi_query_res.get("pois", [])
+                route_pois = [RoutePOI(**p) for p in raw_pois]
+                poi_cache[poi_sig] = (dict(poi_query_res), [p.copy() if isinstance(p, dict) else p for p in raw_pois])
 
             # Evaluate dedicated Night Activity Intelligence (v2.0)
-            from app.intelligence.journey.night_activity_scorer import night_activity_scorer
-            night_score = night_activity_scorer.evaluate_route(coords, pass_through_hour=22)
+            pass_through_hour = int(final_context.get("pass_through_hour", 22)) if isinstance(final_context, dict) else 22
+            night_sig = (geom_sig, pass_through_hour)
+            if night_sig in night_cache:
+                night_score = night_cache[night_sig].model_copy(deep=True)
+            else:
+                night_score = night_activity_scorer.evaluate_route(coords, pass_through_hour=pass_through_hour)
+                night_cache[night_sig] = night_score.model_copy(deep=True)
 
             # Extract genuine LightGBM TreeSHAP explainability
             raw_model_attr = c.route_metadata.get("model_explainability")
@@ -390,10 +433,11 @@ class ResponseBuilder:
                 model_version=c.route_metadata.get("model_version", "2.0.0"),
                 target_disclosure=c.route_metadata.get("target_disclosure", "Synthetic environmental safety proxy (100.0 - risk_score_raw); not verified crime or victimization ground truth.")
             ))
-            # Ensure recommended route is placed first
-            recommended_routes.sort(key=lambda r: 0 if r.is_recommended else 1)
-            for idx, r in enumerate(recommended_routes):
-                r.rank = idx + 1
+
+        # Ensure recommended route is placed first
+        recommended_routes.sort(key=lambda r: 0 if r.is_recommended else 1)
+        for idx, r in enumerate(recommended_routes):
+            r.rank = idx + 1
                 
         recommended = recommended_routes[0] if recommended_routes else None
         

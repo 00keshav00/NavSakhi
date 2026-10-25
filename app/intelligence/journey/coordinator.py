@@ -868,6 +868,8 @@ class JourneyIntelligenceCoordinator:
             resp = self.response_builder.build_journey_plan(final_context, user_id, journey_id)
             stage_timings["response_construction_ms"] = round((time.perf_counter() - t_resp_0) * 1000, 2)
             stage_timings["total_duration_ms"] = round((time.perf_counter() - t_pipeline_start) * 1000, 2)
+            self.last_stage_timings = stage_timings
+            self.last_strategy_metrics = strategy_metrics
 
             logger.info(
                 f"[{correlation_id}] Journey pipeline complete in {stage_timings['total_duration_ms']}ms: "

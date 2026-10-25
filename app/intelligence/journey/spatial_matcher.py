@@ -216,6 +216,7 @@ class SpatialMatchingService:
         self._indexed_bbox = None
         self._indexed_boxes = []
         self._indexed_bounds = None
+        self._covered_polygon = None
         self._feature_cache.clear()
 
     def _compute_corridor_boxes(
@@ -279,22 +280,23 @@ class SpatialMatchingService:
         if not corridor_boxes:
             return
 
-        # Check if corridor is already covered by active index
-        if self._index is not None and len(self._segment_records) > 0 and self._indexed_boxes:
-            all_covered = True
-            for b in corridor_boxes:
-                box_covered = False
-                for ib in self._indexed_boxes:
-                    if ib[0] <= b[0] and ib[1] <= b[1] and ib[2] >= b[2] and ib[3] >= b[3]:
-                        box_covered = True
-                        break
+        from shapely.geometry import box as shapely_box
+        from shapely.ops import unary_union
 
-                if not box_covered:
-                    all_covered = False
-                    break
-            if all_covered:
-                logger.debug("Route corridor fully covered by active spatial index; reusing index.")
-                return
+        # Check if corridor is already covered by active index
+        uncovered_boxes: List[Tuple[float, float, float, float]] = []
+        if self._index is not None and len(self._segment_records) > 0:
+            if getattr(self, "_covered_polygon", None) is not None:
+                uncovered_boxes = [b for b in corridor_boxes if not self._covered_polygon.covers(shapely_box(*b))]
+                if not uncovered_boxes:
+                    logger.debug("Route corridor fully covered by active spatial index union; reusing index.")
+                    return
+            elif self._indexed_boxes:
+                self._covered_polygon = unary_union([shapely_box(*b) for b in self._indexed_boxes])
+                uncovered_boxes = [b for b in corridor_boxes if not self._covered_polygon.covers(shapely_box(*b))]
+                if not uncovered_boxes:
+                    logger.debug("Route corridor fully covered by active spatial index union; reusing index.")
+                    return
 
         # Check for disjoint journey: if active index is far from new route, invalidate and reset
         c_min_lon = min(b[0] for b in corridor_boxes)
@@ -305,11 +307,12 @@ class SpatialMatchingService:
 
         if self._index is not None and self._indexed_bounds is not None:
             ib = self._indexed_bounds
+
             c1 = ((ib[0] + ib[2]) / 2.0, (ib[1] + ib[3]) / 2.0)
             c2 = ((new_bounds[0] + new_bounds[2]) / 2.0, (new_bounds[1] + new_bounds[3]) / 2.0)
             dist_deg = max(abs(c1[0] - c2[0]), abs(c1[1] - c2[1]))
-            # If routes are more than ~15 km apart or index has accumulated > 50k segments, invalidate
-            if dist_deg > 0.15 or len(self._segment_records) > 50000:
+            # If routes are truly disjoint (e.g. > 55 km apart) or index has accumulated > 100k segments, invalidate
+            if dist_deg > 0.50 or len(self._segment_records) > 100000:
                 logger.info("New route corridor is geographically disjoint or index is large; rebuilding bounded index.")
                 self.invalidate_index()
                 all_boxes_to_index = corridor_boxes
@@ -339,7 +342,8 @@ class SpatialMatchingService:
                 c = conn.cursor()
                 where_clauses = []
                 params = []
-                for b in corridor_boxes:
+                boxes_to_query = uncovered_boxes if (self._index is not None and getattr(self, "_covered_polygon", None) is not None and len(uncovered_boxes) > 0) else corridor_boxes
+                for b in boxes_to_query:
                     where_clauses.append("(latitude >= ? AND latitude <= ? AND longitude >= ? AND longitude <= ?)")
                     params.extend([b[1], b[3], b[0], b[2]])
 
@@ -396,9 +400,9 @@ class SpatialMatchingService:
             new_df = new_df.drop_duplicates(subset=["segment_id"])
 
         if self._index is not None and self._road_segments_df is not None:
-            # If combining with previous route exceeds 50k segments, keep new route directly to protect RAM
-            if len(self._road_segments_df) + len(new_df) > 50000:
-                logger.info("Combined route corridors exceed 50k segments; narrowing index to active corridor.")
+            # If combining with previous route exceeds 100k segments, narrow index to active corridor
+            if len(self._road_segments_df) + len(new_df) > 100000:
+                logger.info("Combined route corridors exceed 100k segments; narrowing index to active corridor.")
                 combined_df = new_df
                 all_boxes_to_index = corridor_boxes
                 new_bounds = (c_min_lon, c_min_lat, c_max_lon, c_max_lat)
@@ -408,11 +412,21 @@ class SpatialMatchingService:
         else:
             combined_df = new_df
 
+        from shapely.ops import unary_union
+        # If no new segments were added to the dataset, avoid expensive index rebuild
+        if self._index is not None and self._road_segments_df is not None and len(combined_df) == len(self._road_segments_df):
+            self._indexed_boxes = all_boxes_to_index
+            self._indexed_bounds = new_bounds
+            self._indexed_bbox = new_bounds
+            self._covered_polygon = unary_union([shapely_box(*b) for b in all_boxes_to_index])
+            return
+
         self.build_index(road_segments_df=combined_df)
         del new_df
         self._indexed_boxes = all_boxes_to_index
         self._indexed_bounds = new_bounds
         self._indexed_bbox = new_bounds
+        self._covered_polygon = unary_union([shapely_box(*b) for b in all_boxes_to_index])
 
     def _ensure_index_for_bbox(self, min_lon: float, min_lat: float, max_lon: float, max_lat: float, margin: float = 0.03) -> None:
         """
@@ -499,6 +513,7 @@ class SpatialMatchingService:
         self._indexed_bbox = target_bbox
         self._indexed_bounds = target_bbox
         self._indexed_boxes = [target_bbox]
+        self._covered_polygon = shapely_box(*target_bbox)
 
     # --- Index Management ---
 
