@@ -19,4 +19,4 @@ class EmergencyTool(BaseTool):
         )
 
     async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        return {"status": "success", "data": {"emergency_alert": "dispatched"}}
+        return {"status": "success", "data": {"emergency_state": "staged"}}

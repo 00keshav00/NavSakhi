@@ -90,6 +90,17 @@ export const useJourney = () => {
     setError(null);
   }, []);
 
+  const restoreJourney = useCallback((responseData: JourneyPlanResponse) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    requestIdRef.current += 1;
+    setData(responseData);
+    setStatus("SUCCESS");
+    setError(null);
+  }, []);
+
   return {
     data,
     status,
@@ -100,5 +111,6 @@ export const useJourney = () => {
     error,
     planJourney,
     resetJourney,
+    restoreJourney,
   };
 };

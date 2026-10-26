@@ -6,5 +6,9 @@ class ProfileAgent(BaseSpecializedAgent):
     async def execute(self, context: Dict[str, Any], **kwargs) -> Any:
         tool = ProfileTool()
         return await tool.execute({
-            "user_id": context.get("user_id")
+            "user_id": context.get("user_id"),
+            "user": context.get("user"),
+            "journey_repo": context.get("journey_repo"),
+            "community_repo": context.get("community_repo")
         })
+

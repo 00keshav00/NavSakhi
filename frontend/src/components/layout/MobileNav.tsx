@@ -6,7 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { 
   Home, Map as MapIcon, ShieldAlert, Users, MoreHorizontal,
-  Bot, BookOpen, User, Settings, LogOut, Sun, Moon, X
+  Bot, BookOpen, User, Settings, LogOut, Sun, Moon, X,
+  ShieldCheck, HelpCircle, Sparkles, Scale, Info
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -150,7 +151,7 @@ export function MobileNav() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 max-h-[50vh] overflow-y-auto pr-1">
               <Link
                 href="/assistant"
                 onClick={() => setIsMoreOpen(false)}
@@ -170,12 +171,66 @@ export function MobileNav() {
               </Link>
 
               <Link
-                href="/profile"
+                href="/safety-guidelines"
                 onClick={() => setIsMoreOpen(false)}
                 className="flex items-center gap-2.5 p-3 rounded-2xl bg-secondary/40 hover:bg-secondary text-foreground text-xs font-bold transition-colors"
               >
-                <User size={17} className="text-indigo-500" />
-                <span>Profile</span>
+                <ShieldCheck size={17} className="text-emerald-500" />
+                <span>Safety Guidelines</span>
+              </Link>
+
+              <Link
+                href="/about"
+                onClick={() => setIsMoreOpen(false)}
+                className="flex items-center gap-2.5 p-3 rounded-2xl bg-secondary/40 hover:bg-secondary text-foreground text-xs font-bold transition-colors"
+              >
+                <Info size={17} className="text-purple-500" />
+                <span>About &amp; Pillars</span>
+              </Link>
+
+              <Link
+                href="/help"
+                onClick={() => setIsMoreOpen(false)}
+                className="flex items-center gap-2.5 p-3 rounded-2xl bg-secondary/40 hover:bg-secondary text-foreground text-xs font-bold transition-colors"
+              >
+                <HelpCircle size={17} className="text-indigo-500" />
+                <span>Help &amp; FAQ</span>
+              </Link>
+
+              <Link
+                href="/limitations"
+                onClick={() => setIsMoreOpen(false)}
+                className="flex items-center gap-2.5 p-3 rounded-2xl bg-secondary/40 hover:bg-secondary text-foreground text-xs font-bold transition-colors"
+              >
+                <Sparkles size={17} className="text-amber-500" />
+                <span>AI Limitations</span>
+              </Link>
+
+              <Link
+                href="/privacy"
+                onClick={() => setIsMoreOpen(false)}
+                className="flex items-center gap-2.5 p-3 rounded-2xl bg-secondary/40 hover:bg-secondary text-foreground text-xs font-bold transition-colors"
+              >
+                <Scale size={17} className="text-purple-500" />
+                <span>Privacy Policy</span>
+              </Link>
+
+              <Link
+                href="/terms"
+                onClick={() => setIsMoreOpen(false)}
+                className="flex items-center gap-2.5 p-3 rounded-2xl bg-secondary/40 hover:bg-secondary text-foreground text-xs font-bold transition-colors"
+              >
+                <BookOpen size={17} className="text-blue-500" />
+                <span>Terms of Use</span>
+              </Link>
+
+              <Link
+                href="/accessibility"
+                onClick={() => setIsMoreOpen(false)}
+                className="flex items-center gap-2.5 p-3 rounded-2xl bg-secondary/40 hover:bg-secondary text-foreground text-xs font-bold transition-colors"
+              >
+                <ShieldAlert size={17} className="text-teal-500" />
+                <span>Accessibility</span>
               </Link>
 
               <Link

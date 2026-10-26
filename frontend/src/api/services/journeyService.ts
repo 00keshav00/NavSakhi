@@ -69,8 +69,20 @@ export const journeyService = {
       throw new Error("Unable to obtain single-use WebSocket ticket for journey connection.");
     }
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    let wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (!wsUrl) {
+      const apiBase = apiClient.defaults.baseURL || (typeof window !== "undefined" ? window.location.origin : "http://localhost:8000");
+      if (apiBase.startsWith("https://")) {
+        wsUrl = apiBase.replace(/^https:\/\//, "wss://");
+      } else if (apiBase.startsWith("http://")) {
+        wsUrl = apiBase.replace(/^http:\/\//, "ws://");
+      } else {
+        wsUrl = "ws://localhost:8000";
+      }
+    }
+    wsUrl = wsUrl.replace(/\/+$/, "");
     const ws = new WebSocket(`${wsUrl}/api/v1/ws/journey/${journeyId}?ticket=${encodeURIComponent(ticket)}`);
+
     
     ws.onmessage = (event) => {
       try {

@@ -5,7 +5,9 @@ from app.schemas.responses import StandardResponse
 from app.schemas.emergency_schemas import SOSTrigger, SOSResponse
 from app.services.emergency_service import EmergencyService
 from app.services.emergency_session_service import emergency_session_registry
-from app.api.dependencies import get_emergency_service, get_current_user_id
+from app.repositories.user_repository import UserRepository
+from app.repositories.journey_repository import JourneyRepository
+from app.api.dependencies import get_emergency_service, get_current_user_id, get_user_repository, get_journey_repository
 from app.api.exceptions import ForbiddenException
 
 router = APIRouter()
@@ -29,7 +31,8 @@ async def trigger_sos(
     emergency_session_registry.register_session(
         session_id=session_id,
         user_id=user_id,
-        journey_id=data.journey_id
+        journey_id=data.journey_id,
+        current_location=data.current_location
     )
 
     resp = SOSResponse(session_id=session_id)
@@ -38,7 +41,9 @@ async def trigger_sos(
 @router.get("/{session_id}/status", response_model=StandardResponse[Any])
 async def get_emergency_status(
     session_id: str,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
+    user_repo: UserRepository = Depends(get_user_repository),
+    journey_repo: JourneyRepository = Depends(get_journey_repository)
 ):
     session = emergency_session_registry.get_session(session_id)
     if session and not emergency_session_registry.is_authorized(session_id, user_id):
@@ -46,5 +51,10 @@ async def get_emergency_status(
 
     from app.intelligence.journey.coordinator import JourneyIntelligenceCoordinator
     coordinator = JourneyIntelligenceCoordinator()
-    response = await coordinator.build_emergency_status(session_id, user_id)
+    response = await coordinator.build_emergency_status(
+        session_id=session_id,
+        user_id=user_id,
+        user_repo=user_repo,
+        journey_repo=journey_repo
+    )
     return StandardResponse(success=True, data=response)

@@ -2,7 +2,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 class ProfileStats(BaseModel):
-    safe_journeys: int
+    completed_journeys: int = 0
+    safe_journeys: int = 0  # Backwards compatibility alias
     total_distance_km: float
     avg_safety_score: float
     sos_triggered: int

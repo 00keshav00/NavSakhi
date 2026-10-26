@@ -10,6 +10,7 @@ interface AuthState {
   // Actions
   login: (user: User, token: string) => void;
   logout: () => void;
+  updateUser: (updatedUser: Partial<User>) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -34,6 +35,12 @@ export const useAuthStore = create<AuthState>()(
         }
         set({ user: null, accessToken: null, isAuthenticated: false });
       },
+
+      updateUser: (updatedUser) => {
+        set((state) => ({
+          user: state.user ? { ...state.user, ...updatedUser } : null,
+        }));
+      },
     }),
     {
       name: "safeshe-auth-storage", // localStorage key
@@ -41,3 +48,4 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+

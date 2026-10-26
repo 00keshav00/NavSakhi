@@ -968,15 +968,91 @@ class JourneyIntelligenceCoordinator:
             journey_history=journey_history
         )
 
-    async def build_emergency_status(self, session_id: str, user_id: str) -> Any:
-        context = {"user_id": user_id, "session_id": session_id}
-        final_context = await self.execute_pipeline("emergency", context)
-        return self.response_builder.build_emergency_status(final_context, session_id, user_id)
+    async def build_emergency_status(
+        self,
+        session_id: str,
+        user_id: str,
+        user_repo: Any = None,
+        journey_repo: Any = None
+    ) -> Any:
+        from app.services.emergency_session_service import emergency_session_registry
+        try:
+            from app.db.connection import get_database
+        except Exception:
+            get_database = lambda: None
 
-    async def build_profile_response(self, user_id: str) -> Any:
-        context = {"user_id": user_id}
+        session = emergency_session_registry.get_session(session_id)
+        user = None
+        if user_repo:
+            try:
+                user = await user_repo.get_by_id(user_id)
+            except Exception:
+                user = None
+        if not user:
+            db = get_database()
+            if db is not None:
+                try:
+                    from app.repositories.user_repository import UserRepository
+                    repo = UserRepository(db)
+                    user = await repo.get_by_id(user_id)
+                except Exception:
+                    pass
+            if not user:
+                from app.repositories.base import BaseRepository
+                user_dict = BaseRepository._global_store.get("users", {}).get(str(user_id))
+                if user_dict:
+                    from app.models.user import User
+                    user = User(**user_dict)
+
+        active_journey = None
+        if session and session.journey_id:
+            if not journey_repo:
+                db = get_database()
+                if db is not None:
+                    from app.repositories.journey_repository import JourneyRepository
+                    journey_repo = JourneyRepository(db)
+            if journey_repo:
+                try:
+                    active_journey = await journey_repo.get_by_id(session.journey_id)
+                except Exception:
+                    pass
+
+        location = None
+        if session and session.current_location:
+            location = session.current_location
+
+        context = {
+            "user_id": user_id,
+            "session_id": session_id,
+            "user": user,
+            "session": session,
+            "active_journey": active_journey,
+            "current_location": location
+        }
+        final_context = await self.execute_pipeline("emergency", context)
+        final_context["user"] = user
+        final_context["session"] = session
+        final_context["active_journey"] = active_journey
+        if location:
+            final_context["current_location"] = location
+
+        return self.response_builder.build_emergency_status(final_context, session_id, user_id, user=user)
+
+    async def build_profile_response(
+        self,
+        user_id: str,
+        user: Any = None,
+        journey_repo: Any = None,
+        community_repo: Any = None
+    ) -> Any:
+        context = {
+            "user_id": user_id,
+            "user": user,
+            "journey_repo": journey_repo,
+            "community_repo": community_repo
+        }
         final_context = await self.execute_pipeline("profile", context)
-        return self.response_builder.build_profile_response(final_context, user_id)
+        return self.response_builder.build_profile_response(final_context, user_id, user=user)
 
     async def build_settings_response(self, user_id: str) -> Any:
         context = {"user_id": user_id}

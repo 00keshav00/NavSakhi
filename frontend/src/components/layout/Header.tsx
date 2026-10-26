@@ -7,7 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { 
   Sun, Moon, ShieldAlert, User, LogOut, Settings as SettingsIcon,
-  ChevronDown, Search, BookOpen, Compass, Info, ShieldCheck, AlertTriangle
+  ChevronDown, Search, BookOpen, Compass, Info, ShieldCheck, AlertTriangle,
+  HelpCircle, Sparkles
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -158,14 +159,63 @@ export function Header() {
                         onClick={() => setIsProfileOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
                       >
-                        <User size={15} className="text-primary" /> Profile
+                        <User size={15} className="text-primary" /> Profile Overview
                       </Link>
                       <Link
                         href="/settings"
                         onClick={() => setIsProfileOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
                       >
-                        <SettingsIcon size={15} className="text-muted-foreground" /> Settings
+                        <SettingsIcon size={15} className="text-muted-foreground" /> Settings &amp; Contacts
+                      </Link>
+                      <Link
+                        href="/safety-guidelines"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <ShieldCheck size={15} className="text-emerald-500" /> Safety Guidelines
+                      </Link>
+                      <Link
+                        href="/help"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <HelpCircle size={15} className="text-indigo-500" /> Help &amp; Support
+                      </Link>
+                      <Link
+                        href="/limitations"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <Sparkles size={15} className="text-amber-500" /> AI &amp; ML Limitations
+                      </Link>
+                      <Link
+                        href="/terms"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <BookOpen size={15} className="text-blue-500" /> Terms &amp; Conditions
+                      </Link>
+                      <Link
+                        href="/privacy"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <Info size={15} className="text-purple-500" /> Privacy Policy
+                      </Link>
+                      <Link
+                        href="/accessibility"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <ShieldAlert size={15} className="text-teal-500" /> Accessibility Statement
+                      </Link>
+                      <Link
+                        href="/about"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <Compass size={15} className="text-rose-500" /> About NavSakhi
                       </Link>
                     </div>
 

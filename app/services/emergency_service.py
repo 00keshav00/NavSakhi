@@ -15,7 +15,8 @@ class EmergencyService:
         """
         context = {
             "current_location": data.current_location,
-            "journey_id": data.journey_id
+            "journey_id": data.journey_id,
+            "user_repo": self.user_repo
         }
         # The agent returns the session dictionary containing session_id
         return await self.coordinator.handle_sos_trigger(user_id, context)

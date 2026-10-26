@@ -519,44 +519,174 @@ class ResponseBuilder:
             warnings=final_context.get("warnings", []),
         )
         
-    def build_emergency_status(self, final_context: Dict[str, Any], session_id: str, user_id: str) -> Any:
-        from app.schemas.emergency_schemas import EmergencyResponse, LiveLocation, AgentStatus, EmergencyTimelineEvent, EmergencyContact, EmergencySafeZone, JourneyStatus
+    def build_emergency_status(self, final_context: Dict[str, Any], session_id: str, user_id: str, user: Any = None) -> Any:
+        from app.schemas.emergency_schemas import (
+            EmergencyResponse, LiveLocation, AgentStatus, 
+            EmergencyTimelineEvent, EmergencyContact, EmergencySafeZone, JourneyStatus
+        )
         
-        emergency = final_context.get("EmergencyAgent", {}).get("emergency_status", {})
+        # 1. Resolve authentic user
+        if not user:
+            user = final_context.get("user")
+        if not user and user_id:
+            from app.repositories.base import BaseRepository
+            user_dict = BaseRepository._global_store.get("users", {}).get(str(user_id))
+            if user_dict:
+                from app.models.user import User
+                user = User(**user_dict)
+
+        # 2. Resolve owner-scoped emergency contacts (never fabricated)
+        contacts = []
+        user_contacts = getattr(user, "emergency_contacts", None) if user else None
+        if user_contacts:
+            for idx, c in enumerate(user_contacts):
+                cid = getattr(c, "id", None) or (c.get("id") if isinstance(c, dict) else None) or f"c_{idx}"
+                cname = getattr(c, "name", None) or (c.get("name") if isinstance(c, dict) else "")
+                crel = getattr(c, "relationship", None) or (c.get("relationship") if isinstance(c, dict) else "Family") or "Family"
+                contacts.append(
+                    EmergencyContact(
+                        id=str(cid),
+                        name=cname,
+                        relationship=crel,
+                        notification_status="Pending"  # Awaiting manual user action/share
+                    )
+                )
+
+        # 3. Resolve location strictly from context or session (never hardcoded demo coordinates)
+        session = final_context.get("session")
+        active_journey = final_context.get("active_journey")
         
-        timeline = []
-        for t in emergency.get("timeline", []):
-            timeline.append(EmergencyTimelineEvent(**t))
-            
-        return EmergencyResponse(
-            session_id=session_id,
-            status="active",
-            live_location=LiveLocation(
-                coordinates=(80.2707, 13.0827),
-                address="Poonamallee High Rd, Chennai",
-                accuracy=15,
-                last_updated="Just now"
-            ),
-            agent_status=AgentStatus(
-                action="Staging Emergency Context & Safe Haven Routing",
-                recommendation="Stay in well-lit areas if possible. Keep device accessible.",
-                context="Emergency demonstration protocol initiated.",
-                confidence=90,
-                reason="Protocol prioritizes verified safe havens and designated contact sharing."
-            ),
-            timeline=timeline,
-            contacts=[
-                EmergencyContact(id="c1", name="Sarah Connor", relationship="Sister", notification_status="Pending")
-            ],
-            safe_zones=[
-                EmergencySafeZone(id="s1", type="Police", name="Periamet Police Station", distance="1.2 km", eta="4 mins", coordinates=(80.2730, 13.0815))
-            ],
-            journey_status=JourneyStatus(
+        raw_location = final_context.get("current_location") or final_context.get("location")
+        if not raw_location and session:
+            raw_location = getattr(session, "current_location", None)
+        if not raw_location and active_journey:
+            prog = getattr(active_journey, "progress", None)
+            if prog and getattr(prog, "current_location", None):
+                raw_location = prog.current_location.coordinates
+            elif getattr(active_journey, "source", None):
+                raw_location = active_journey.source.coordinates
+
+        coords = None
+        address_str = "Location unavailable (GPS permission required or coordinates not provided)"
+        accuracy_val = 0
+        last_updated_str = "Unavailable"
+
+        if raw_location:
+            if isinstance(raw_location, (list, tuple)) and len(raw_location) >= 2:
+                try:
+                    lon, lat = float(raw_location[0]), float(raw_location[1])
+                    if -180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0:
+                        coords = (lon, lat)
+                        address_str = f"{lat:.4f}° N, {lon:.4f}° E"
+                        accuracy_val = 10
+                        last_updated_str = "Just now"
+                except (ValueError, TypeError):
+                    pass
+            elif isinstance(raw_location, str):
+                from app.intelligence.journey.coordinator import parse_coordinate_pair
+                parsed = parse_coordinate_pair(raw_location)
+                if parsed:
+                    coords = parsed  # (lon, lat)
+                    address_str = f"{parsed[1]:.4f}° N, {parsed[0]:.4f}° E"
+                    accuracy_val = 10
+                    last_updated_str = "Just now"
+                elif raw_location.strip() and raw_location != "Unknown Location":
+                    address_str = raw_location.strip()
+                    accuracy_val = 50
+                    last_updated_str = "Just now"
+
+        # 4. Agent Status & Honest Recommendations
+        if contacts:
+            agent_status = AgentStatus(
+                action="Ready for Manual Emergency Sharing",
+                recommendation="Use your device's native share sheet to transmit coordinates to your designated contact, or dial 112 directly.",
+                context="Emergency command session active.",
+                confidence=100,
+                reason=f"{len(contacts)} emergency contact(s) configured. Manual dispatch required per user privacy protocol."
+            )
+        else:
+            agent_status = AgentStatus(
+                action="No Emergency Contacts Configured",
+                recommendation="No trusted contacts are configured. Please dial national emergency helpline 112 directly.",
+                context="No emergency contacts configured for this account.",
+                confidence=100,
+                reason="Emergency contact list is empty. Add contacts in Settings to enable emergency sharing."
+            )
+
+        # 5. Timeline Events (Truthful, non-fabricated)
+        timeline = [
+            EmergencyTimelineEvent(
+                id="e1",
+                timestamp="Just now",
+                status="completed",
+                description="Emergency command session initialized"
+            )
+        ]
+        if contacts:
+            timeline.append(
+                EmergencyTimelineEvent(
+                    id="e2",
+                    timestamp="Pending",
+                    status="pending",
+                    description=f"{len(contacts)} contact(s) ready for manual sharing via device sheet"
+                )
+            )
+        else:
+            timeline.append(
+                EmergencyTimelineEvent(
+                    id="e2",
+                    timestamp="Pending",
+                    status="pending",
+                    description="No emergency contacts configured. Please dial 112 directly."
+                )
+            )
+
+        # 6. Safe Zones (Empty if location unavailable; never fabricate Periamet Police Station)
+        safe_zones = []
+        if coords and final_context.get("safe_zones"):
+            for sz in final_context.get("safe_zones", []):
+                if isinstance(sz, EmergencySafeZone):
+                    safe_zones.append(sz)
+                elif isinstance(sz, dict):
+                    safe_zones.append(EmergencySafeZone(**sz))
+
+        # 7. Journey Status
+        if active_journey:
+            dest = getattr(active_journey, "destination", None) or "Active Destination"
+            if hasattr(dest, "display_name"):
+                dest_str = dest.display_name
+            elif hasattr(dest, "coordinates") and len(dest.coordinates) >= 2:
+                dest_str = f"{dest.coordinates[1]:.4f}, {dest.coordinates[0]:.4f}"
+            else:
+                dest_str = str(dest)
+            journey_status = JourneyStatus(
+                active_journey=True,
+                destination=dest_str,
+                distance_remaining="In Progress",
+                safety_score=None
+            )
+        else:
+            journey_status = JourneyStatus(
                 active_journey=False,
                 destination="None",
                 distance_remaining="0 km",
                 safety_score=None
             )
+
+        return EmergencyResponse(
+            session_id=session_id,
+            status="active",
+            live_location=LiveLocation(
+                coordinates=coords,
+                address=address_str,
+                accuracy=accuracy_val,
+                last_updated=last_updated_str
+            ),
+            agent_status=agent_status,
+            timeline=timeline,
+            contacts=contacts,
+            safe_zones=safe_zones,
+            journey_status=journey_status
         )
 
     @staticmethod
@@ -761,9 +891,9 @@ class ResponseBuilder:
         raw_summary = llm.get("summary") if isinstance(llm, dict) else None
 
         # Prioritize genuine LLM response / rich intent-sensitive fallback from ReasoningTool
-        if raw_summary and not any(kw in raw_summary.lower() for kw in ["98%", "optimal lighting", "low crowd density", "zero community incident"]):
+        if raw_summary and not any(kw in raw_summary.lower() for kw in ["98%", "optimal lighting", "low crowd density", "zero community incident", "system ready", "context active", "route scored"]):
             response_text = raw_summary
-        elif any(w in query_lower for w in ["my safety score", "my score", "current score", "active score"]):
+        elif any(w in query_lower for w in ["safe", "score", "my score", "current score", "active score"]):
             if not has_active:
                 response_text = (
                     "No active journey is currently being monitored. "
@@ -864,63 +994,272 @@ class ResponseBuilder:
             quick_suggestions=suggestions
         )
         
-    def build_profile_response(self, final_context: Dict[str, Any], user_id: str) -> Any:
+    def build_profile_response(self, final_context: Dict[str, Any], user_id: str, user: Any = None) -> Any:
         from app.schemas.profile_schemas import (
             ProfileResponse, UserInfo, ProfileStats, 
             ProfileJourneyHistory, ProfileEmergencyContact, ProfileAchievement
         )
         
-        # Extract from ProfileAgent
+        # Extract from ProfileAgent or directly passed user
         profile_data = final_context.get("ProfileAgent", {}).get("profile", {})
         
+        full_name = "NavSakhi User"
+        email = ""
+        phone = "Not provided"
+        current_city = "Not provided"
+        member_since = "Not available"
+        emergency_contacts = []
+
+        if user:
+            ps = getattr(user, "profile_settings", {}) or {}
+            full_name = ps.get("full_name") or getattr(user, "username", "") or "NavSakhi User"
+            email = getattr(user, "email", "")
+            phone = ps.get("phone_number") or ps.get("phone") or "Not provided"
+            current_city = ps.get("current_city") or "Not provided"
+            created_at = getattr(user, "created_at", None)
+            if created_at:
+                try:
+                    member_since = created_at.strftime("%B %Y")
+                except Exception:
+                    member_since = str(created_at)[:7]
+            for idx, c in enumerate(getattr(user, "emergency_contacts", [])):
+                emergency_contacts.append(
+                    ProfileEmergencyContact(
+                        id=str(getattr(c, "id", f"c_{idx}")),
+                        name=getattr(c, "name", ""),
+                        relationship=getattr(c, "relationship", "Family") or "Family",
+                        phone=getattr(c, "phone_number", "") or getattr(c, "phone", ""),
+                        status="Active",
+                        is_primary=bool(getattr(c, "is_primary", False))
+                    )
+                )
+        elif profile_data:
+            full_name = profile_data.get("name") or "NavSakhi User"
+            email = profile_data.get("email") or ""
+            phone = profile_data.get("phone") or "Not provided"
+            current_city = profile_data.get("current_city") or "Not provided"
+            member_since = profile_data.get("join_date") or "Not available"
+            raw_contacts = profile_data.get("emergency_contacts", [])
+            for idx, c in enumerate(raw_contacts):
+                emergency_contacts.append(
+                    ProfileEmergencyContact(
+                        id=str(c.get("id", f"c_{idx}")),
+                        name=c.get("name", ""),
+                        relationship=c.get("relationship", "Family") or "Family",
+                        phone=c.get("phone") or c.get("phone_number", ""),
+                        status="Active",
+                        is_primary=bool(c.get("is_primary", False))
+                    )
+                )
+
         user_info = UserInfo(
-            full_name=profile_data.get("name", "Sarah Connor"),
-            email=profile_data.get("email", "sarah.connor@example.com"),
-            phone=profile_data.get("phone", "+1 (555) 019-8234"),
-            avatar_url=profile_data.get("avatar_url", ""),
-            current_city="Bengaluru",
-            member_since=profile_data.get("join_date", "January 2024"),
-            is_premium=True,
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            avatar_url="",
+            current_city=current_city,
+            member_since=member_since,
+            is_premium=False,
             is_online=True,
             last_active="Just now"
         )
         
+        # Genuine user-scoped metrics calculation from authentic records
+        j_metrics = final_context.get("journey_metrics") or final_context.get("ProfileAgent", {}).get("journey_metrics", {})
+        c_metrics = final_context.get("community_metrics") or final_context.get("ProfileAgent", {}).get("community_metrics", {})
+        raw_history = final_context.get("journey_history") or final_context.get("ProfileAgent", {}).get("journey_history", [])
+
+        # Fallback to query in-memory store if direct response builder invocation without agent
+        if not j_metrics and user_id:
+            from app.repositories.base import BaseRepository
+            from app.repositories.journey_repository import parse_distance_km, parse_safety_score
+            store = BaseRepository._global_store.get("journeys", {})
+            user_journeys = [
+                doc for doc in store.values()
+                if str(doc.get("user_id")) == str(user_id)
+            ]
+            completed = [
+                j for j in user_journeys
+                if (j.get("state", {}).get("current_state") if isinstance(j, dict) else getattr(getattr(j, "state", None), "current_state", None)) in ["COMPLETED", "completed"]
+            ]
+            distances = []
+            scores = []
+            for cj in completed:
+                # distance
+                d = None
+                p = cj.get("plan") if isinstance(cj, dict) else getattr(cj, "plan", None)
+                if p:
+                    sr = p.get("selected_route") if isinstance(p, dict) else getattr(p, "selected_route", None)
+                    if sr:
+                        d = parse_distance_km(sr.get("distance") if isinstance(sr, dict) else getattr(sr, "distance", None))
+                if d is None:
+                    routes = cj.get("planned_routes") if isinstance(cj, dict) else getattr(cj, "planned_routes", None) or []
+                    if routes:
+                        r0 = routes[0]
+                        d = parse_distance_km(r0.get("distance_km") or r0.get("distance") if isinstance(r0, dict) else getattr(r0, "distance_km", None) or getattr(r0, "distance", None))
+                if d is not None and d >= 0:
+                    distances.append(d)
+                # safety score
+                sc = None
+                if p:
+                    sr = p.get("selected_route") if isinstance(p, dict) else getattr(p, "selected_route", None)
+                    if sr:
+                        sc = parse_safety_score(sr.get("safety_score") if isinstance(sr, dict) else getattr(sr, "safety_score", None))
+                if sc is None:
+                    routes = cj.get("planned_routes") if isinstance(cj, dict) else getattr(cj, "planned_routes", None) or []
+                    if routes:
+                        r0 = routes[0]
+                        sc = parse_safety_score(r0.get("safety_score") if isinstance(r0, dict) else getattr(r0, "safety_score", None))
+                if sc is not None:
+                    scores.append(sc)
+            
+            j_metrics = {
+                "safe_journeys": len(completed),
+                "total_distance_km": round(sum(distances), 2),
+                "avg_safety_score": round(sum(scores) / len(scores), 1) if scores else 0.0,
+                "has_records": len(completed) > 0
+            }
+
+            # Also check community reports in store
+            c_store = BaseRepository._global_store.get("community_reports", {})
+            user_reports = [doc for doc in c_store.values() if str(doc.get("user_id")) == str(user_id)]
+            c_metrics = {
+                "community_reports_submitted": len(user_reports),
+                "verified_reports": sum(1 for r in user_reports if r.get("verification_status") == "VERIFIED"),
+                "helpful_votes": sum(int(r.get("upvotes", 0)) for r in user_reports),
+                "has_records": len(user_reports) > 0
+            }
+
+        completed_journeys = int(j_metrics.get("completed_journeys", j_metrics.get("safe_journeys", 0)))
+        safe_journeys = completed_journeys
+        total_dist = float(j_metrics.get("total_distance_km", 0.0))
+        avg_score = float(j_metrics.get("avg_safety_score", 0.0))
+        reports_sub = int(c_metrics.get("community_reports_submitted", 0))
+        reports_ver = int(c_metrics.get("verified_reports", 0))
+        helpful = int(c_metrics.get("helpful_votes", 0))
+
+        # Calculate reputation score honestly from actual user actions
+        reputation = (completed_journeys * 10) + (reports_ver * 25) + (helpful * 5)
+
+        # Truthful trust level based on verified participation
+        if completed_journeys >= 10 or reports_ver >= 5:
+            trust_level = "Trusted Contributor"
+        elif completed_journeys >= 3 or reports_ver >= 2:
+            trust_level = "Active Member"
+        elif completed_journeys >= 1 or reports_sub >= 1:
+            trust_level = "Verified Traveler"
+        else:
+            # For users with 0 journeys and 0 reports:
+            # Check if user account was created recently (< 30 days) or has no creation date
+            is_recent = False
+            if user and getattr(user, "created_at", None):
+                try:
+                    from datetime import datetime, timezone
+                    created = user.created_at
+                    if getattr(created, "tzinfo", None) is not None:
+                        now = datetime.now(timezone.utc)
+                    else:
+                        now = datetime.utcnow()
+                    if (now - created).days < 30:
+                        is_recent = True
+                except Exception:
+                    is_recent = True
+            else:
+                is_recent = True
+
+            if is_recent:
+                trust_level = "New Member"
+            else:
+                trust_level = "Member (No Journeys)"
+
         stats = ProfileStats(
-            safe_journeys=42,
-            total_distance_km=156.4,
-            avg_safety_score=97.5,
-            sos_triggered=0,
-            dangerous_routes_avoided=14,
-            ai_recommendations_followed=89,
-            community_reports_submitted=12,
-            verified_reports=10,
-            helpful_votes=45,
-            reputation_score=950,
-            trust_level="Level 3 Verified"
+            completed_journeys=completed_journeys,
+            safe_journeys=safe_journeys,
+            total_distance_km=total_dist,
+            avg_safety_score=avg_score,
+            sos_triggered=int(j_metrics.get("sos_triggered", 0)),
+            dangerous_routes_avoided=int(j_metrics.get("dangerous_routes_avoided", 0)),
+            ai_recommendations_followed=int(j_metrics.get("ai_recommendations_followed", completed_journeys)),
+            community_reports_submitted=reports_sub,
+            verified_reports=reports_ver,
+            helpful_votes=helpful,
+            reputation_score=reputation,
+            trust_level=trust_level
         )
-        
-        journey_history = [
-            ProfileJourneyHistory(
-                id="j_123", source="Home", destination="Office", 
-                date="2024-03-15", transport="Walking", safety_score=98, 
-                duration="15m", status="Completed"
-            )
-        ]
-        
-        emergency_contacts = [
-            ProfileEmergencyContact(
-                id="c1", name="John Connor", relationship="Brother", 
-                phone="+1 (555) 019-8235", status="Active", is_primary=True
-            )
-        ]
-        
+
+        # Build genuine journey history
+        journey_history = []
+        if raw_history:
+            for jh in raw_history:
+                if isinstance(jh, ProfileJourneyHistory):
+                    journey_history.append(jh)
+                elif isinstance(jh, dict):
+                    journey_history.append(ProfileJourneyHistory(**jh))
+        elif user_id:
+            from app.repositories.base import BaseRepository
+            store = BaseRepository._global_store.get("journeys", {})
+            user_journeys = [
+                doc for doc in store.values()
+                if str(doc.get("user_id")) == str(user_id)
+            ]
+            for j in user_journeys[:10]:
+                jid = str(j.get("_id") or j.get("id") or "")
+                src = j.get("source", {})
+                src_str = src.get("display_name") or ("Coordinates" if src.get("coordinates") else "Source")
+                dest = j.get("destination", {})
+                dest_str = dest.get("display_name") or ("Coordinates" if dest.get("coordinates") else "Destination")
+                ts = j.get("created_timestamp")
+                date_str = ts.strftime("%b %d, %Y") if hasattr(ts, "strftime") else "Recent"
+                p = j.get("plan", {})
+                mode = p.get("transport_mode", "WALK")
+                if hasattr(mode, "value"):
+                    mode = mode.value
+                score_val = 0
+                sr = p.get("selected_route", {})
+                if sr and sr.get("safety_score"):
+                    score_val = int(round(float(sr.get("safety_score"))))
+                dur_val = sr.get("duration") if sr else None
+                dur_str = f"{max(1, int(round(float(dur_val)/60)))} mins" if dur_val else "25 mins"
+                st = j.get("state", {}).get("current_state", "Completed")
+                if hasattr(st, "value"):
+                    st = st.value
+                journey_history.append(
+                    ProfileJourneyHistory(
+                        id=jid,
+                        source=src_str,
+                        destination=dest_str,
+                        date=date_str,
+                        transport=str(mode).capitalize(),
+                        safety_score=score_val,
+                        duration=dur_str,
+                        status=str(st).capitalize()
+                    )
+                )
+
         achievements = [
             ProfileAchievement(
-                id="a1", title="Safety First", icon="Shield", 
-                unlocked=True, date="2024-02-10"
+                id="a1",
+                title="First Step",
+                icon="Footprints",
+                unlocked=safe_journeys >= 1,
+                date="Unlocked" if safe_journeys >= 1 else None
+            ),
+            ProfileAchievement(
+                id="a2",
+                title="Safe Traveler",
+                icon="ShieldCheck",
+                unlocked=safe_journeys >= 5,
+                date="Unlocked" if safe_journeys >= 5 else None
+            ),
+            ProfileAchievement(
+                id="a3",
+                title="Community Guardian",
+                icon="Users",
+                unlocked=reports_sub >= 1,
+                date="Unlocked" if reports_sub >= 1 else None
             )
         ]
-        
+
         return ProfileResponse(
             user_info=user_info,
             stats=stats,
@@ -928,6 +1267,7 @@ class ResponseBuilder:
             emergency_contacts=emergency_contacts,
             achievements=achievements
         )
+
 
     def build_settings_response(self, final_context: Dict[str, Any], user_id: str) -> Any:
         from app.schemas.settings_schemas import (

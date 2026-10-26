@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RealWeatherCard } from "@/components/dashboard/RealWeatherCard";
 import { useDashboard } from "@/hooks/useDashboard";
+import { Footer } from "@/components/layout/Footer";
 import { useAuthStore } from "@/store/authStore";
 
 const containerVariants = {
@@ -362,6 +363,9 @@ export default function HomePage() {
         </div>
 
       </motion.section>
+
+      {/* Official Footer with Disclosures & Legal Links */}
+      <Footer />
 
     </motion.div>
   );

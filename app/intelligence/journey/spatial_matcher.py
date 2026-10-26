@@ -262,6 +262,25 @@ class SpatialMatchingService:
             i = max(i + 1, j - 2)
         return boxes
 
+    def _is_coords_covered(self, coords: List[Any]) -> bool:
+        """
+        Fast spatial bounding check: returns True if all coordinates fall within
+        the currently loaded spatial index bounds, avoiding redundant queries.
+        """
+        if self._index is None or not getattr(self, "_segment_records", None):
+            return False
+        ib = getattr(self, "_indexed_bounds", None) or getattr(self, "_indexed_bbox", None)
+        if ib is None:
+            return False
+        try:
+            min_lon = min(c[0] for c in coords)
+            max_lon = max(c[0] for c in coords)
+            min_lat = min(c[1] for c in coords)
+            max_lat = max(c[1] for c in coords)
+            return bool(ib[0] <= min_lon and max_lon <= ib[2] and ib[1] <= min_lat and max_lat <= ib[3])
+        except Exception:
+            return False
+
     def _ensure_index_for_corridor(self, coords: List[Any], margin: float = 0.0035) -> None:
         """
         Ensures the spatial index covers the exact route corridor using bounded spatial chunks.
@@ -697,23 +716,22 @@ class SpatialMatchingService:
         Snaps a single continuous route geometry against the indexed road segments.
         """
         # Ensure spatial index covers route bounding box (bounded lazy loading)
-        if self._index is None or getattr(self, "_indexed_bbox", None) is not None:
-            try:
-                coords = []
-                if isinstance(route_input, dict) and "coordinates" in route_input:
-                    coords = route_input["coordinates"]
-                elif hasattr(route_input, "coords"):
-                    coords = list(route_input.coords)
-                elif isinstance(route_input, (list, tuple)):
-                    coords = route_input
-                if coords:
-                    valid_coords = [c for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    if valid_coords:
-                        self._ensure_index_for_corridor(valid_coords)
-            except CompanionStoreError:
-                raise
-            except Exception as e:
-                logger.debug(f"Route-bounded index check: {e}")
+        try:
+            coords = []
+            if isinstance(route_input, dict) and "coordinates" in route_input:
+                coords = route_input["coordinates"]
+            elif hasattr(route_input, "coords"):
+                coords = list(route_input.coords)
+            elif isinstance(route_input, (list, tuple)):
+                coords = route_input
+            if coords:
+                valid_coords = [c for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+                if valid_coords and not self._is_coords_covered(valid_coords):
+                    self._ensure_index_for_corridor(valid_coords)
+        except CompanionStoreError:
+            raise
+        except Exception as e:
+            logger.debug(f"Route-bounded index check: {e}")
 
         # Validate index (build lazily if data available)
         if (self._index is None or len(self._segment_records) == 0) and (self._road_segments_df is not None or self.road_segments_path.exists()):
@@ -1098,21 +1116,20 @@ class SpatialMatchingService:
         Processes a multi-leg route (e.g. walk -> transit -> walk), combining all legs in traversal sequence.
         """
         # Ensure spatial index covers global multimodal bounding box
-        if self._index is None or getattr(self, "_indexed_bbox", None) is not None:
-            try:
-                all_coords = []
-                for leg in legs:
-                    leg_geom = leg.get("geometry")
-                    if isinstance(leg_geom, dict) and "coordinates" in leg_geom:
-                        all_coords.extend(leg_geom["coordinates"])
-                    elif isinstance(leg_geom, (list, tuple)):
-                        all_coords.extend(leg_geom)
-                if all_coords:
-                    valid_coords = [c for c in all_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    if valid_coords:
-                        self._ensure_index_for_corridor(valid_coords)
-            except Exception as e:
-                logger.debug(f"Multimodal route-bounded index check: {e}")
+        try:
+            all_coords = []
+            for leg in legs:
+                leg_geom = leg.get("geometry")
+                if isinstance(leg_geom, dict) and "coordinates" in leg_geom:
+                    all_coords.extend(leg_geom["coordinates"])
+                elif isinstance(leg_geom, (list, tuple)):
+                    all_coords.extend(leg_geom)
+            if all_coords:
+                valid_coords = [c for c in all_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+                if valid_coords and not self._is_coords_covered(valid_coords):
+                    self._ensure_index_for_corridor(valid_coords)
+        except Exception as e:
+            logger.debug(f"Multimodal route-bounded index check: {e}")
 
         all_matched_segments: List[MatchedSegmentResult] = []
         all_unmatched_intervals: List[UnmatchedInterval] = []

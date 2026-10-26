@@ -78,7 +78,7 @@ def build_sanitized_chat_payload(
         "   - If facing acute danger, being followed, or in distress: prioritize immediate physical safety, advise moving into a staffed shop/metro counter, "
         "and provide emergency helplines: 112 (National Emergency) and 1091 (Women Helpline).\n"
         "4. HONESTY: Do NOT claim to be human or promise physical in-person protection. Never invent transit schedules or fares.\n"
-        "5. READABLE FORMATTING: Use clean, human-friendly Markdown: short paragraphs, clear bolding (**bold**), and numbered steps if helpful."
+        "5. READABLE FORMATTING: Use clean, human-friendly Markdown: short paragraphs, bullet points, clear bolding (**bold**), and numbered steps if helpful."
     )
     return {"contents": [{"parts": [{"text": prompt}]}]}
 
@@ -153,8 +153,22 @@ CANDIDATE_GEMINI_MODELS: List[str] = [
 
 # Per-model cooldown tracking
 _model_cooldowns: Dict[str, float] = {}
+_model_cooldown_until: Dict[str, float] = {}
 _model_ineligible: set = set()
 GEMINI_429_COOLDOWN_SECONDS: float = 60.0
+
+
+def _parse_retry_after(headers: Any) -> Optional[float]:
+    """Safely extracts Retry-After in seconds from HTTP headers if present."""
+    if not headers:
+        return None
+    val = headers.get("retry-after") or headers.get("Retry-After")
+    if not val:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
 
 
 def get_configured_gemini_models() -> List[str]:
@@ -172,15 +186,27 @@ def get_configured_gemini_models() -> List[str]:
 
 
 def is_model_in_cooldown(model: str) -> bool:
+    """Checks whether a specific Gemini model is in active cooldown or marked ineligible."""
     if model in _model_ineligible:
         return True
+    now = time.time()
+    if model in _model_cooldown_until:
+        return now < _model_cooldown_until[model]
     last_time = _model_cooldowns.get(model, 0.0)
-    return (time.time() - last_time) < GEMINI_429_COOLDOWN_SECONDS
+    return (now - last_time) < GEMINI_429_COOLDOWN_SECONDS
 
 
-def record_model_429(model: str) -> None:
-    _model_cooldowns[model] = time.time()
-    logger.warning(f"Gemini model '{model}' reached rate limit (429). Cooldown activated for {GEMINI_429_COOLDOWN_SECONDS}s.")
+def record_model_429(model: str, retry_after: Optional[float] = None) -> None:
+    """
+    Records a 429 rate limit cooldown specifically for the affected model,
+    using the upstream Retry-After delay if provided.
+    """
+    cooldown = retry_after if (retry_after is not None and retry_after > 0) else GEMINI_429_COOLDOWN_SECONDS
+    now = time.time()
+    _model_cooldowns[model] = now
+    _model_cooldown_until[model] = now + cooldown
+    logger.warning(f"Gemini model '{model}' reached rate limit (429). Cooldown activated for {cooldown:.1f}s.")
+
 
 
 def mark_model_ineligible(model: str, reason: str = "") -> None:
@@ -305,21 +331,21 @@ def classify_gemini_error(
 _last_gemini_429_timestamp: float = 0.0
 
 def is_gemini_in_rate_limit_cooldown() -> bool:
-    """Returns True if global cooldown is active or all configured candidate models are currently in cooldown."""
-    global _last_gemini_429_timestamp
-    if (time.time() - _last_gemini_429_timestamp) < GEMINI_429_COOLDOWN_SECONDS:
-        return True
+    """Returns True ONLY if all configured candidate models are currently in cooldown."""
     models = get_configured_gemini_models()
-    return all(is_model_in_cooldown(m) for m in models)
+    return len(models) > 0 and all(is_model_in_cooldown(m) for m in models)
 
 
-def record_gemini_429_event() -> None:
-    """Legacy helper: records 429 globally and across candidate models."""
+def record_gemini_429_event(model: Optional[str] = None, retry_after: Optional[float] = None) -> None:
+    """Records 429 cooldown for a specific model, or all candidate models if unspecified."""
     global _last_gemini_429_timestamp
     _last_gemini_429_timestamp = time.time()
-    for m in get_configured_gemini_models():
-        _model_cooldowns[m] = time.time()
-    logger.warning(f"Gemini 429 rate limit recorded. Cooldown activated for {GEMINI_429_COOLDOWN_SECONDS}s.")
+    if model:
+        record_model_429(model, retry_after=retry_after)
+    else:
+        for m in get_configured_gemini_models():
+            record_model_429(m, retry_after=retry_after)
+    logger.warning(f"Gemini 429 rate limit recorded.")
 
 
 def reset_gemini_cooldowns() -> None:
@@ -327,7 +353,9 @@ def reset_gemini_cooldowns() -> None:
     global _last_gemini_429_timestamp
     _last_gemini_429_timestamp = 0.0
     _model_cooldowns.clear()
+    _model_cooldown_until.clear()
     _model_ineligible.clear()
+
 
 
 def get_gemini_api_key() -> str:
@@ -531,7 +559,8 @@ class ReasoningTool(BaseTool):
                     logger.warning(f"Gemini model '{model_name}' HTTP {response.status_code}: {err_info['reason']}")
 
                     if err_info["category"] == "RATE_LIMIT":
-                        record_model_429(model_name)
+                        retry_after = _parse_retry_after(response.headers)
+                        record_model_429(model_name, retry_after=retry_after)
                         last_failure_status = "RATE_LIMITED_FALLBACK"
                         continue
 
@@ -629,7 +658,8 @@ class ReasoningTool(BaseTool):
 
                     err_info = classify_gemini_error(response.status_code, response.text, model_name)
                     if err_info["category"] == "RATE_LIMIT":
-                        record_model_429(model_name)
+                        retry_after = _parse_retry_after(response.headers)
+                        record_model_429(model_name, retry_after=retry_after)
                         continue
                     if err_info["category"] == "AUTH_RESTRICTION":
                         break

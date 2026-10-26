@@ -4,6 +4,7 @@ import { authService } from "../api/services/authService";
 import { useAuthStore } from "../store/authStore";
 import { LoginCredentials } from "../types/auth";
 import { toast } from "sonner";
+import { getSafeRedirectUrl } from "../utils/safeRedirect";
 
 export const useLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,10 +27,9 @@ export const useLogin = () => {
         description: "Successfully authenticated into NavSakhi.",
       });
       
-      // Navigate to requested destination or default to /home
-      const redirectTarget = customRedirect || searchParams.get("redirect") || "/home";
-      // Ensure target is a relative safe path
-      const safeTarget = redirectTarget.startsWith("/") ? redirectTarget : "/home";
+      // Navigate to requested destination safely or default to /home
+      const targetParam = customRedirect || searchParams.get("redirect");
+      const safeTarget = getSafeRedirectUrl(targetParam, "/home");
       router.push(safeTarget);
       
     } catch (err: unknown) {
@@ -52,8 +52,8 @@ export const useLogin = () => {
       toast.success("Test Account Authenticated", {
         description: "Logged in as local development test user.",
       });
-      const redirectTarget = customRedirect || searchParams.get("redirect") || "/home";
-      const safeTarget = redirectTarget.startsWith("/") ? redirectTarget : "/home";
+      const targetParam = customRedirect || searchParams.get("redirect");
+      const safeTarget = getSafeRedirectUrl(targetParam, "/home");
       router.push(safeTarget);
     } catch (err: unknown) {
       const errorMsg = (err as Error).message || "Development test-user login failed.";

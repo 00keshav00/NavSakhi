@@ -339,7 +339,10 @@ function RegisterForm() {
                     className="mt-0.5 rounded border-border/60 text-primary focus:ring-primary h-4 w-4 shrink-0" 
                   />
                   <label htmlFor="ack" className="cursor-pointer text-[11px] leading-relaxed select-none">
-                    <strong>Prototype Acknowledgement:</strong> I understand NavSakhi is a working software prototype. Its emergency flows are simulated, do not contact real police dispatch, and require explicit user action for native device sharing and 112 helpline dialing.
+                    <strong>Prototype Acknowledgement:</strong> I understand NavSakhi is a working software prototype. I agree to the{" "}
+                    <Link href="/terms" target="_blank" className="font-semibold text-primary underline hover:text-primary/80">Terms &amp; Conditions</Link>,{" "}
+                    <Link href="/privacy" target="_blank" className="font-semibold text-primary underline hover:text-primary/80">Privacy Policy</Link>, and{" "}
+                    <Link href="/limitations" target="_blank" className="font-semibold text-primary underline hover:text-primary/80">AI &amp; ML Limitations</Link>. Its emergency flows are simulated, do not dispatch police or send automated background SMS, and saving an emergency contact does not automatically alert that contact. In an emergency, I will dial 112 directly.
                   </label>
                 </div>
                 {errors.acknowledgedLimitations && (
@@ -384,12 +387,21 @@ function RegisterForm() {
 
         </div>
 
-        {/* Security Disclosures */}
-        <div className="mt-6 text-center text-[11px] text-muted-foreground max-w-sm mx-auto space-y-1">
+        {/* Security Disclosures & Legal Links */}
+        <div className="mt-6 text-center text-[11px] text-muted-foreground max-w-sm mx-auto space-y-2">
           <p className="flex items-center justify-center gap-1.5">
             <ShieldCheck size={14} className="text-emerald-500" />
             <span>Encrypted passwords (bcrypt) &bull; Zero plaintext persistence</span>
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-muted-foreground/80">
+            <Link href="/terms" className="hover:text-primary transition-colors underline">Terms</Link>
+            <span>&bull;</span>
+            <Link href="/privacy" className="hover:text-primary transition-colors underline">Privacy Policy</Link>
+            <span>&bull;</span>
+            <Link href="/limitations" className="hover:text-primary transition-colors underline">AI/ML Limitations</Link>
+            <span>&bull;</span>
+            <Link href="/safety-guidelines" className="hover:text-primary transition-colors underline">Helplines</Link>
+          </div>
         </div>
 
       </div>

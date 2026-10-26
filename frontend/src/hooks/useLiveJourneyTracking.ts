@@ -141,17 +141,27 @@ export function useLiveJourneyTracking() {
             // WS closed
             if (activeJourneyIdRef.current === journeyId && lifecycleState === "TRACKING") {
               console.log("Journey WebSocket disconnected.");
+              toast.info("Telemetry Stream Disconnected", {
+                description: "Live telemetry connection closed. Reconnecting when connection restores."
+              });
             }
           },
           (err: unknown) => {
             console.warn("Journey WebSocket transport error:", err);
+            toast.error("Telemetry Transport Error", {
+              description: "WebSocket connection error. Real-time server telemetry stream degraded."
+            });
           }
         );
         wsRef.current = ws;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "WebSocket connection error";
         console.warn("Could not establish live journey WebSocket stream:", message);
+        toast.error("Live Monitoring Stream Unavailable", {
+          description: `Could not connect to live WebSocket server: ${message}`
+        });
       }
+
     },
     [handleWebSocketMessage, lifecycleState]
   );

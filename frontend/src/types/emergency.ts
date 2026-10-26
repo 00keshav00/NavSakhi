@@ -25,7 +25,7 @@ export interface EmergencyResponse {
   session_id: string;
   status: 'idle' | 'active' | 'resolved';
   live_location: {
-    coordinates: [number, number];
+    coordinates?: [number, number] | null;
     address: string;
     accuracy: number;
     last_updated: string;

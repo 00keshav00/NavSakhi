@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import SafeMap, { POI_CATEGORY_CONFIG } from "@/components/map/SafeMap";
 import { useJourney } from "@/hooks/useJourney";
@@ -18,10 +18,14 @@ import {
 import { enrichGeoJsonWithSelection, filterJourneyWarnings } from "@/components/journey/route-sync-utils";
 import { useLiveJourneyTracking } from "@/hooks/useLiveJourneyTracking";
 import { useActiveJourneyStore } from "@/store/activeJourneyStore";
+import { useAuthStore } from "@/store/authStore";
+import { savePendingJourneyDraft, getPendingJourneyDraft, clearPendingJourneyDraft } from "@/utils/pendingJourneyStorage";
+import { toast } from "sonner";
 
 export default function JourneyPage() {
-  const { data, isLoading, isError, isEmpty, error, planJourney, resetJourney } = useJourney();
+  const { data, isLoading, isError, isEmpty, error, planJourney, resetJourney, restoreJourney } = useJourney();
   const liveTracking = useLiveJourneyTracking();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   // Internal Navigation & Synchronized Selection States
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
@@ -35,9 +39,11 @@ export default function JourneyPage() {
   const [selectedPoi, setSelectedPoi] = useState<RoutePOI | null>(null);
   const [selectedZone, setSelectedZone] = useState<ActivityZone | null>(null);
 
-  // Form Inputs Cache for Pill Display
+  // Form Inputs Cache for Pill Display & Persistence
   const [lastSearchSource, setLastSearchSource] = useState("");
   const [lastSearchDest, setLastSearchDest] = useState("");
+  const [lastPreferences, setLastPreferences] = useState<string[]>([]);
+  const [lastTravelTime, setLastTravelTime] = useState<string | undefined>(undefined);
 
   const routes: MultimodalRoute[] = useMemo(
     () => data?.recommended_routes || [],
@@ -104,7 +110,7 @@ export default function JourneyPage() {
     );
   }, [routes, effectiveRouteId, focusedLegIndex, hoveredLegIndex]);
 
-  const handlePlanSearch = (params: {
+  const handlePlanSearch = useCallback((params: {
     source: string;
     destination: string;
     preferences: string[];
@@ -113,14 +119,16 @@ export default function JourneyPage() {
     setHasSearched(true);
     setLastSearchSource(params.source);
     setLastSearchDest(params.destination);
+    setLastPreferences(params.preferences || []);
+    setLastTravelTime(params.travelTime);
     setActiveRouteId(null);
     setFocusedLegIndex(null);
     setHoveredLegIndex(null);
     setViewState("RESULTS");
     planJourney(params);
-  };
+  }, [planJourney]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     liveTracking.cancelTracking();
     useActiveJourneyStore.getState().clearActiveJourney();
     resetJourney();
@@ -129,7 +137,67 @@ export default function JourneyPage() {
     setHoveredLegIndex(null);
     setViewState("SEARCH");
     setHasSearched(false);
-  };
+    setLastPreferences([]);
+    setLastTravelTime(undefined);
+  }, [liveTracking, resetJourney]);
+
+  const handleSaveDraftBeforeAuth = useCallback(() => {
+    if (lastSearchSource && lastSearchDest) {
+      savePendingJourneyDraft({
+        source: lastSearchSource,
+        destination: lastSearchDest,
+        preferences: lastPreferences,
+        travelTime: lastTravelTime,
+        selectedRouteId: activeRoute?.id || activeRouteId || undefined,
+        routesData: data,
+      });
+    }
+  }, [lastSearchSource, lastSearchDest, lastPreferences, lastTravelTime, activeRoute, activeRouteId, data]);
+
+  // Restore pending guest journey draft after successful sign-in
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const draft = getPendingJourneyDraft();
+    if (!draft) return;
+
+    // Immediately clear so it is consumed only once and cannot replay unexpectedly
+    clearPendingJourneyDraft();
+
+    setLastSearchSource(draft.source);
+    setLastSearchDest(draft.destination);
+    setLastPreferences(draft.preferences || []);
+    setLastTravelTime(draft.travelTime);
+    setHasSearched(true);
+
+    const candidateRoutes = draft.routesData?.recommended_routes || [];
+    const hasValidSelectedRoute = Boolean(
+      draft.selectedRouteId && candidateRoutes.some((r) => r.id === draft.selectedRouteId)
+    );
+
+    if (draft.routesData && candidateRoutes.length > 0 && hasValidSelectedRoute) {
+      // Safely restore cached route plan and selected card
+      restoreJourney(draft.routesData);
+      setActiveRouteId(draft.selectedRouteId!);
+      setViewState("DETAIL");
+      setMobileSheetSnap("EXPANDED");
+      toast.info("Journey Restored", {
+        description: "Your route has been restored. Review your route details and click 'Start Monitored Journey' to begin live tracking.",
+      });
+    } else {
+      // If routes are expired or missing, restore search inputs and recalculate fresh routes
+      toast.info("Journey Inputs Restored", {
+        description: "Recalculating fresh route options for your saved journey...",
+      });
+      setViewState("RESULTS");
+      planJourney({
+        source: draft.source,
+        destination: draft.destination,
+        preferences: draft.preferences || [],
+        travel_time: draft.travelTime,
+      });
+    }
+  }, [isAuthenticated, planJourney, restoreJourney]);
 
   const handleRouteSelect = (routeId: string) => {
     if (routeId !== effectiveRouteId) {
@@ -471,6 +539,7 @@ export default function JourneyPage() {
                   onLegSelect={handleLegSelect}
                   onLegHover={handleLegHover}
                   onBack={handleBackToResults}
+                  onSaveDraftBeforeAuth={handleSaveDraftBeforeAuth}
                   tracking={liveTracking}
                 />
               )}
@@ -846,6 +915,7 @@ export default function JourneyPage() {
                 onLegSelect={handleLegSelect}
                 onLegHover={handleLegHover}
                 onBack={handleBackToResults}
+                onSaveDraftBeforeAuth={handleSaveDraftBeforeAuth}
                 tracking={liveTracking}
               />
             )}

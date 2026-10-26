@@ -8,6 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { journeyService } from "@/api/services/journeyService";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActiveJourneyStore } from "@/store/activeJourneyStore";
 import { useAuthStore } from "@/store/authStore";
 import { 
@@ -26,6 +27,7 @@ interface RouteDetailPanelProps {
   onLegSelect?: (legIndex: number | null) => void;
   onLegHover?: (legIndex: number | null) => void;
   onSegmentFocus?: (segmentIndex: number) => void;
+  onSaveDraftBeforeAuth?: () => void;
   tracking?: {
     lifecycleState: string;
     permissionState: string;
@@ -57,8 +59,10 @@ export function RouteDetailPanel({
   onLegSelect,
   onLegHover,
   onSegmentFocus,
+  onSaveDraftBeforeAuth,
   tracking,
 }: RouteDetailPanelProps) {
+  const router = useRouter();
   const [isStartingInternal, setIsStartingInternal] = useState(false);
   const [hasStartedInternal, setHasStartedInternal] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -997,14 +1001,19 @@ export function RouteDetailPanel({
           </div>
         ) : !isAuthenticated ? (
           <div className="space-y-2">
-            <Link href="/login?redirect=/journey" className="block w-full">
-              <Button
-                className="w-full h-11 text-sm font-bold shadow-md shadow-primary/20 flex items-center justify-center gap-2"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>Sign In to Start Live Tracking</span>
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              onClick={() => {
+                if (onSaveDraftBeforeAuth) {
+                  onSaveDraftBeforeAuth();
+                }
+                router.push("/login?redirect=/journey");
+              }}
+              className="w-full h-11 text-sm font-bold shadow-md shadow-primary/20 flex items-center justify-center gap-2"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Sign In to Start Live Tracking</span>
+            </Button>
             <p className="text-[10px] text-muted-foreground text-center">
               Guest preview active. Sign in to start personalized GPS telemetry & alert contacts.
             </p>

@@ -13,6 +13,7 @@ class EmergencySession:
     created_at: datetime
     is_active: bool = True
     authorized_users: Set[str] = field(default_factory=set)
+    current_location: Optional[str] = None
 
 class EmergencySessionRegistry:
     """
@@ -27,9 +28,10 @@ class EmergencySessionRegistry:
         session_id: str,
         user_id: str,
         journey_id: Optional[str] = None,
-        authorized_recipients: Optional[Set[str]] = None
+        authorized_recipients: Optional[Set[str]] = None,
+        current_location: Optional[str] = None
     ) -> EmergencySession:
-        """Register a new emergency session with owner and optional authorized recipients."""
+        """Register a new emergency session with owner, location, and optional authorized recipients."""
         authorized = {str(user_id)}
         if authorized_recipients:
             authorized.update(str(u) for u in authorized_recipients)
@@ -40,7 +42,8 @@ class EmergencySessionRegistry:
             journey_id=journey_id,
             created_at=datetime.utcnow(),
             is_active=True,
-            authorized_users=authorized
+            authorized_users=authorized,
+            current_location=current_location
         )
         self._sessions[session_id] = session
         logger.info(f"Registered emergency session {session_id} for user {user_id}")

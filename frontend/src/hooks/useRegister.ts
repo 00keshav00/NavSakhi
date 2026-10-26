@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { authService, RegisterCredentials } from "../api/services/authService";
 import { useAuthStore } from "../store/authStore";
 import { toast } from "sonner";
+import { getSafeRedirectUrl } from "../utils/safeRedirect";
 
 export const useRegister = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -25,9 +26,9 @@ export const useRegister = () => {
         description: "Welcome to NavSakhi — Safer Journeys • Stronger Women.",
       });
 
-      // Navigate to requested destination or default to /home
-      const redirectTarget = customRedirect || searchParams.get("redirect") || "/home";
-      const safeTarget = redirectTarget.startsWith("/") ? redirectTarget : "/home";
+      // Navigate to requested destination safely or default to /home
+      const targetParam = customRedirect || searchParams.get("redirect");
+      const safeTarget = getSafeRedirectUrl(targetParam, "/home");
       router.push(safeTarget);
 
     } catch (err: unknown) {
