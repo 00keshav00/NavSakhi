@@ -1,0 +1,102 @@
+{
+  "dataset_name": "safeshe_chennai_mapped_pois_and_night_activity",
+  "dataset_version": "2.2.0",
+  "created_at": "2026-10-26T14:27:06.744141Z",
+  "publisher": "OpenStreetMap contributors",
+  "source_url": "https://www.openstreetmap.org",
+  "source_pbf_file": "app\\ml\\Hack\\ml\\datasets\\raw\\osm\\chennai_v1.osm.pbf",
+  "license": "Open Database License (ODbL) 1.0",
+  "attribution_requirement": "© OpenStreetMap contributors. Data available under the Open Database License.",
+  "geographic_coverage": {
+    "region": "Chennai Metropolitan Area (CMA), Tamil Nadu, India",
+    "bounds": {
+      "min_lat": 12.75,
+      "max_lat": 13.35,
+      "min_lon": 79.9,
+      "max_lon": 80.45
+    }
+  },
+  "total_records": 7895,
+  "provenance_breakdown": {
+    "mapped_public_facilities_count": 2079,
+    "mapped_commercial_businesses_count": 5629,
+    "surveillance_cameras_count": 187,
+    "independently_verified_safe_havens_count": 0,
+    "total_records": 7895
+  },
+  "vit_kandigai_corridor_reconciliation": {
+    "tight_corridor": {
+      "description": "Immediate road centerline corridor (VIT Chennai to Kandigai junction)",
+      "bounds": {
+        "min_lat": 12.83,
+        "max_lat": 12.875,
+        "min_lon": 80.12,
+        "max_lon": 80.165
+      },
+      "counts": {
+        "mapped_public_facilities": 7,
+        "mapped_commercial_businesses": 23,
+        "public_surveillance": 0,
+        "total": 30
+      }
+    },
+    "peri_urban_corridor": {
+      "description": "Peri-urban corridor including Rathinamangalam and Tagore Engineering College bounds",
+      "bounds": {
+        "min_lat": 12.82,
+        "max_lat": 12.875,
+        "min_lon": 80.12,
+        "max_lon": 80.18
+      },
+      "counts": {
+        "mapped_public_facilities": 9,
+        "mapped_commercial_businesses": 25,
+        "public_surveillance": 0,
+        "total": 34
+      }
+    },
+    "discrepancy_explanation": "Phase 51.102 cited 34 mapped places based on the peri-urban corridor extent [12.820-12.875 N, 80.120-80.180 E] (9 public facilities, 25 commercial places), whereas the immediate road centerline corridor [12.830-12.875 N, 80.120-80.165 E] yields exactly 30 places (7 public facilities, 23 commercial places). Both are deterministic subsets of the exact same 7,895-record master dataset."
+  },
+  "partition_artifacts": {
+    "public_safety_facilities": "poi_data/processed/chennai_safety_facilities.json",
+    "commercial_pois": "poi_data/processed/chennai_commercial_pois.json",
+    "surveillance_cameras": "poi_data/processed/chennai_surveillance_cameras.json",
+    "master_pois": "poi_data/processed/chennai_pois.json"
+  },
+  "category_breakdown": {
+    "bank_atm": 949,
+    "cafe": 334,
+    "clinic": 637,
+    "convenience": 208,
+    "entertainment": 47,
+    "fast_food": 327,
+    "fire_station": 17,
+    "food_retail": 316,
+    "fuel": 323,
+    "hospital": 975,
+    "hotel": 464,
+    "pharmacy": 329,
+    "police": 121,
+    "restaurant": 859,
+    "retail_shop": 1543,
+    "supermarket": 259,
+    "surveillance": 187
+  },
+  "records_with_opening_hours": 664,
+  "data_provenance": "Extracted directly from canonical chennai_v1.osm.pbf road and infrastructure extract.",
+  "known_limitations": [
+    "OpenStreetMap public facilities (hospitals, clinics, police stations, pharmacies, fire stations) are geographic records and are NOT independently verified emergency safe havens.",
+    "Surveillance camera records reflect mapped physical equipment positions; operational status, recording, and active monitoring are unverified.",
+    "Hotels and guest houses are classified strictly as commercial lodging activity, NOT public emergency help facilities.",
+    "Opening hours reflect verified OpenStreetMap tags and require dynamic pass-through time evaluation.",
+    "Coverage reflects mapped OSM volunteer contributions as of extract timestamp. Unmapped commercial businesses reflect dataset completeness, not absence of real-world activity or danger."
+  ],
+  "validation_rules_applied": [
+    "Coordinates verified within Chennai CMA geographic bounding box [12.75-13.35 N, 79.90-80.45 E].",
+    "Building footprints converted to representative geometric centroids.",
+    "Deduplication by stable OSM ID and spatial proximity threshold (0.0001 deg).",
+    "Preservation of raw opening_hours string for runtime deterministic parsing.",
+    "Strict provenance separation: commercial context vs public facilities vs surveillance infrastructure.",
+    "Zero promotion of raw OSM facilities to independently verified safe havens without documented ground audit."
+  ]
+}

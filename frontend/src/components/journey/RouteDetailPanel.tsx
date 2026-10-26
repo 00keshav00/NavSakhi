@@ -342,6 +342,44 @@ export function RouteDetailPanel({
               )}
             </div>
 
+            {/* Truthful Route Trade-offs & Local Knowledge Respect */}
+            <div className="bg-card border border-border rounded-xl p-3.5 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-primary" />
+                  <span>Route Trade-Offs &amp; Coverage Context</span>
+                </h4>
+                {route.is_recommended && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    Recommended Route
+                  </span>
+                )}
+              </div>
+
+              {route.recommendation_reason && route.recommendation_reason.length > 0 && (
+                <p className="text-xs text-foreground font-medium bg-primary/5 p-2 rounded-lg border border-primary/15">
+                  {route.recommendation_reason.join(" ")}
+                </p>
+              )}
+
+              <div className="space-y-1.5 text-xs">
+                {(route.tradeoffs && route.tradeoffs.length > 0 ? route.tradeoffs : [
+                  "Missing mapped POIs reflect dataset completeness, not real-time activity or danger."
+                ]).map((tradeoff, ti) => (
+                  <div key={ti} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>{tradeoff}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-[10px] text-muted-foreground/90 italic pt-1 border-t border-border/40 space-y-0.5">
+                <p>
+                  <strong>Local Knowledge Note:</strong> If you know a local market, general store corridor, or familiar route that our OpenStreetMap records do not reflect, your preference is fully supported. Unmapped areas are never assumed to be unsafe.
+                </p>
+              </div>
+            </div>
+
             {/* Machine Learning Feature Attribution (Genuine LightGBM TreeSHAP) */}
             <div className="space-y-2 pt-1 border-t border-border/60">
               <div className="flex items-center justify-between">

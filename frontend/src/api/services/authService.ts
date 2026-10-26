@@ -44,8 +44,17 @@ export const authService = {
       });
       return response.data.data;
     } catch (error: any) {
+      if (error.code === 'ECONNABORTED' || (typeof error.message === 'string' && error.message.includes('timeout')) || error.response?.status === 504) {
+        const timeoutErr = new Error("Registration request timed out. The server may have already created your account while processing. Please try signing in with your email and password, or wait a moment.");
+        (timeoutErr as any).isTimeout = true;
+        (timeoutErr as any).email = credentials.email;
+        throw timeoutErr;
+      }
       if (error.response?.status === 409) {
-        throw new Error("An account with this email address already exists.");
+        const conflictErr = new Error("An account with this email address already exists. If a previous attempt timed out, your account was likely created successfully. Please sign in below.");
+        (conflictErr as any).isDuplicate = true;
+        (conflictErr as any).email = credentials.email;
+        throw conflictErr;
       }
       if (error.response?.status === 503) {
         throw new Error("Database configuration unavailable. Account creation requires a configured database. Please continue exploring as a guest.");

@@ -125,7 +125,12 @@ export default function JourneyPage() {
     setFocusedLegIndex(null);
     setHoveredLegIndex(null);
     setViewState("RESULTS");
-    planJourney(params);
+    planJourney({
+      source: params.source,
+      destination: params.destination,
+      preferences: params.preferences,
+      travel_time: params.travelTime,
+    });
   }, [planJourney]);
 
   const handleReset = useCallback(() => {

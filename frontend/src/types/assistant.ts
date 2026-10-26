@@ -12,6 +12,14 @@ export interface AssistantResponse {
     confidence?: number | null;
     decision_source: string;
     provider_summary: string;
+    response_source?: 'gemini' | 'fallback' | 'rule_based';
+    intent_category?: string;
+    gemini_attempted?: boolean;
+    model_identifier?: string | null;
+    attempt_count?: number;
+    provider_latency_ms?: number | null;
+    outcome_category?: string;
+    correlation_id?: string;
   };
   context: {
     active_journey: boolean;
@@ -32,4 +40,5 @@ export interface AssistantResponse {
     pinned_info: string[];
   };
   quick_suggestions: string[];
+  response_source?: 'gemini' | 'fallback' | 'rule_based';
 }

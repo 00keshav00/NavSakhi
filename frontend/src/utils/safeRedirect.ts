@@ -125,44 +125,44 @@ export function getFriendlyRedirectInfo(target?: string | null): FriendlyRedirec
       };
     case "/safety-guidelines":
       return {
-        label: "access safety guidelines",
-        message: "Sign in to access safety guidelines.",
+        label: "safety guidelines",
+        message: "You can view safety guidelines directly without signing in, or sign in below to continue.",
         safePath,
       };
     case "/about":
       return {
-        label: "learn about NavSakhi",
-        message: "Sign in to explore NavSakhi architecture.",
+        label: "about NavSakhi",
+        message: "You can learn about NavSakhi directly without signing in, or sign in below to continue.",
         safePath,
       };
     case "/help":
       return {
-        label: "access help and support",
-        message: "Sign in to access help and support.",
+        label: "help and support",
+        message: "You can access help and support directly without signing in, or sign in below to continue.",
         safePath,
       };
     case "/limitations":
       return {
-        label: "review AI and ML limitations",
-        message: "Sign in to review AI and ML limitations.",
+        label: "AI and ML limitations",
+        message: "You can review AI and ML limitations directly without signing in, or sign in below to continue.",
         safePath,
       };
     case "/terms":
       return {
-        label: "review terms and conditions",
-        message: "Sign in to review terms and conditions.",
+        label: "terms and conditions",
+        message: "You can review terms and conditions directly without signing in, or sign in below to continue.",
         safePath,
       };
     case "/privacy":
       return {
-        label: "review privacy policy",
-        message: "Sign in to review privacy policy.",
+        label: "privacy policy",
+        message: "You can review our privacy policy directly without signing in, or sign in below to continue.",
         safePath,
       };
     case "/accessibility":
       return {
-        label: "review accessibility statement",
-        message: "Sign in to review accessibility statement.",
+        label: "accessibility statement",
+        message: "You can review accessibility statements directly without signing in, or sign in below to continue.",
         safePath,
       };
     default:

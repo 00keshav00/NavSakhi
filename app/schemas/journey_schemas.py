@@ -59,6 +59,11 @@ class RoutePOI(BaseModel):
     proximity_tier: str = Field("ALONG_CORRIDOR", description="IMMEDIATELY_BESIDE (<=100m) or ALONG_CORRIDOR")
     is_emergency: bool = Field(False, description="Whether facility provides emergency medical, rescue, or police services")
     is_shop: bool = Field(False, description="Whether facility is an everyday commercial shop, restaurant, or activity location")
+    provenance_type: Optional[str] = Field("mapped_commercial_business", description="mapped_public_facility, independently_verified_facility, mapped_commercial_business, or public_surveillance")
+    verification_status: Optional[str] = Field("MAPPED_COMMERCIAL_CONTEXT", description="MAPPED_PUBLIC_FACILITY, INDEPENDENTLY_VERIFIED, MAPPED_COMMERCIAL_CONTEXT, or MAPPED_SURVEILLANCE")
+    safety_role: Optional[str] = Field("commercial_activity", description="emergency_safe_haven, public_police_station, medical_emergency_facility, public_health_support, fire_and_rescue_service, commercial_activity, or surveillance_infrastructure")
+    is_verified_safety_facility: Optional[bool] = Field(False, description="True only for facilities with documented independent ground audit verification")
+    is_safe_haven_eligible: Optional[bool] = Field(False, description="True only for facilities meeting verified emergency shelter criteria")
     opening_status: Optional[str] = Field("UNKNOWN", description="OPEN, CLOSED, or UNKNOWN evaluated at estimated pass-through time")
     opening_hours: Optional[str] = Field(None, description="Raw OSM opening hours specification")
     estimated_pass_through_time: Optional[str] = Field(None, description="Estimated local time when traveler passes near this POI")
@@ -144,6 +149,7 @@ class MultimodalRoute(BaseModel):
     activity_zones: List[Dict[str, Any]] = Field(default_factory=list, description="Commercial activity zones along route corridor")
     night_activity_score: Optional[NightActivityScoreResponse] = Field(None, description="Dedicated heuristic Night Activity Assessment")
     recommendation_reason: List[str] = Field(default_factory=list, description="Why this route is recommended")
+    tradeoffs: List[str] = Field(default_factory=list, description="Truthful comparative route trade-offs and data coverage disclosures")
     strengths: List[str] = Field(default_factory=list, description="Backwards compatibility")
     segments: List[RouteSegment]
     is_recommended: bool = False

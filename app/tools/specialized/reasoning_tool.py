@@ -68,10 +68,11 @@ def build_sanitized_chat_payload(
         f"Active journey context: {'Active journey to ' + clean_dest if active_journey else 'No active journey'}\n\n"
         "COMPANION PERSONA & TONE GUIDELINES:\n"
         "1. WARMTH & CALM SUPPORT: Speak naturally with a supportive, calm, conversational feminine companion voice ('Sakhi' means trusted female friend). "
-        "Acknowledge the user's specific statement or emotion with genuine empathy. Do not repeat generic introductory greetings on follow-up turns.\n"
-        "2. COMPANIONSHIP & JOURNEY PARTNER: If the user seeks companionship, asks to talk, or wants a partner for their journey, "
-        "warmly assure them you are here with them in their phone throughout their travel. Respond to their immediate emotional need before offering suggestions. "
-        "Ask at most one natural follow-up question. Do not give long unsolicited safety lists when the user simply seeks company.\n"
+        "Acknowledge the user's specific statement or emotion directly. Do not repeat generic introductory greetings or capability lists on follow-up turns.\n"
+        "2. CONVERSATIONAL CONTEXT & NATURAL GREETINGS:\n"
+        "   - If the user says 'Hello', 'Hi', or 'How are you?', reply briefly and naturally. Do NOT repeat a boilerplate self-introduction.\n"
+        "   - If the user asks 'Will you be my sakhi for the journey?' or asks you to accompany them: warmly clarify that you are a digital travel companion in their phone to help compare routes and monitor progress, without pretending to be physically present or guaranteeing physical safety.\n"
+        "   - If the user asks what to take care of or for safety advice: give practical suggestions (transit timing, phone charged, familiar populated routes, sharing journey) without fabricating real-time occupancy or street shop conditions.\n"
         "3. TRAVEL ANXIETY VS ACUTE DANGER:\n"
         "   - If expressing nervousness about traveling alone: recognize the feeling with calm reassurance, recommend well-lit major transit like Chennai Metro or bus, "
         "and suggest sitting near the conductor/women's section without triggering a false emergency alarm.\n"
@@ -144,11 +145,13 @@ from app.services.assistant_intent_service import global_intent_classifier, Inte
 from app.services.credential_service import get_active_gemini_api_key, global_credential_manager
 
 # Candidate Gemini Models in deterministic failover priority order
+# Retired models (gemini-2.0-flash, gemini-1.5-flash) removed per official deprecations
 CANDIDATE_GEMINI_MODELS: List[str] = [
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
     "gemini-3.6-flash",
-    "gemini-3.8-flash"
+    "gemini-3.8-flash",
+    "gemini-2.5-flash",
 ]
 
 # Per-model cooldown tracking
@@ -390,6 +393,8 @@ class ReasoningTool(BaseTool):
         Calls the Gemini API with bounded multi-model failover, multi-turn history,
         and empathetic local fallback when rate-limited or offline.
         """
+        import uuid
+        correlation_id = f"chat_{uuid.uuid4().hex[:12]}"
         context = params.get("context", {})
         query = context.get("query")
         decision = context.get("decision", {})
@@ -410,7 +415,15 @@ class ReasoningTool(BaseTool):
                     "reasoning": [f"Handled deterministically by NavSakhi Travel Companion ({intent_category.value})."],
                     "provider": "local_companion",
                     "intent": intent_category.value,
-                    "ai_status": "OFFLINE_DETERMINISTIC"
+                    "ai_status": "OFFLINE_DETERMINISTIC",
+                    "response_source": "rule_based",
+                    "intent_category": intent_category.value,
+                    "gemini_attempted": False,
+                    "model_identifier": None,
+                    "attempt_count": 0,
+                    "provider_latency_ms": 0.0,
+                    "outcome_category": "skipped",
+                    "correlation_id": correlation_id
                 }
 
         # Deterministic fallback summary tailored to intent
@@ -489,7 +502,15 @@ class ReasoningTool(BaseTool):
                 "reasoning": fallback_reasoning,
                 "provider": "local_fallback",
                 "intent": intent_category.value,
-                "ai_status": "CONFIG_MISSING_FALLBACK"
+                "ai_status": "CONFIG_MISSING_FALLBACK",
+                "response_source": "fallback",
+                "intent_category": intent_category.value,
+                "gemini_attempted": False,
+                "model_identifier": None,
+                "attempt_count": 0,
+                "provider_latency_ms": 0.0,
+                "outcome_category": "unavailable",
+                "correlation_id": correlation_id
             }
 
         # Check if all candidate models are currently rate-limited
@@ -501,7 +522,15 @@ class ReasoningTool(BaseTool):
                 "reasoning": fallback_reasoning,
                 "provider": "local_fallback",
                 "intent": intent_category.value,
-                "ai_status": "RATE_LIMITED_FALLBACK"
+                "ai_status": "RATE_LIMITED_FALLBACK",
+                "response_source": "fallback",
+                "intent_category": intent_category.value,
+                "gemini_attempted": False,
+                "model_identifier": None,
+                "attempt_count": 0,
+                "provider_latency_ms": 0.0,
+                "outcome_category": "rate_limited",
+                "correlation_id": correlation_id
             }
 
         # Prepare outbound payload
@@ -526,6 +555,9 @@ class ReasoningTool(BaseTool):
         total_deadline_sec = 5.0
         start_time = time.monotonic()
         last_failure_status = "UNAVAILABLE_FALLBACK"
+        attempt_count = 0
+        last_attempted_model = None
+        last_outcome = "unavailable"
 
         for model_name in candidate_models:
             if is_model_in_cooldown(model_name):
@@ -534,14 +566,19 @@ class ReasoningTool(BaseTool):
             remaining_budget = total_deadline_sec - (time.monotonic() - start_time)
             if remaining_budget < 1.0:
                 logger.info("Remaining Gemini budget exhausted; halting model failover.")
+                last_outcome = "timeout"
                 break
 
             attempt_timeout = min(remaining_budget, 3.0)
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            attempt_count += 1
+            last_attempted_model = model_name
+            call_start = time.monotonic()
 
             try:
                 async with httpx.AsyncClient(timeout=attempt_timeout) as client:
                     response = await client.post(url, json=payload, headers=headers)
+                    call_latency_ms = (time.monotonic() - call_start) * 1000.0
 
                     if response.status_code == 200:
                         res_data = response.json()
@@ -552,7 +589,15 @@ class ReasoningTool(BaseTool):
                             "provider": "gemini",
                             "model": model_name,
                             "intent": intent_category.value,
-                            "ai_status": "LIVE_SUCCESS"
+                            "ai_status": "LIVE_SUCCESS",
+                            "response_source": "gemini",
+                            "intent_category": intent_category.value,
+                            "gemini_attempted": True,
+                            "model_identifier": model_name,
+                            "attempt_count": attempt_count,
+                            "provider_latency_ms": round(call_latency_ms, 1),
+                            "outcome_category": "success",
+                            "correlation_id": correlation_id
                         }
 
                     err_info = classify_gemini_error(response.status_code, response.text, model_name)
@@ -562,31 +607,47 @@ class ReasoningTool(BaseTool):
                         retry_after = _parse_retry_after(response.headers)
                         record_model_429(model_name, retry_after=retry_after)
                         last_failure_status = "RATE_LIMITED_FALLBACK"
+                        last_outcome = "rate_limited"
                         continue
 
                     if err_info["category"] == "AUTH_RESTRICTION":
                         logger.warning(f"Gemini returned auth/project restriction HTTP {response.status_code}. Halting model rotation.")
                         last_failure_status = "AUTH_RESTRICTION_FALLBACK"
+                        last_outcome = "unavailable"
                         break
 
                     if err_info["is_model_ineligible"]:
                         mark_model_ineligible(model_name, err_info["reason"])
 
+                    last_outcome = "invalid_response"
                     if err_info["can_failover"]:
                         continue
                     else:
                         break
 
+            except asyncio.TimeoutError:
+                last_outcome = "timeout"
+                logger.warning(f"Gemini attempt with model '{model_name}' timed out. Failing over...")
             except Exception as e:
+                last_outcome = "timeout" if "timeout" in str(e).lower() else "invalid_response"
                 logger.warning(f"Gemini attempt with model '{model_name}' failed ({type(e).__name__}: {e}). Failing over...")
 
+        total_elapsed_ms = (time.monotonic() - start_time) * 1000.0
         # If all candidate models fail or time out, return honest contextual fallback
         return {
             "summary": fallback_summary,
             "reasoning": fallback_reasoning,
             "provider": "local_fallback",
             "intent": intent_category.value,
-            "ai_status": last_failure_status
+            "ai_status": last_failure_status,
+            "response_source": "fallback",
+            "intent_category": intent_category.value,
+            "gemini_attempted": attempt_count > 0,
+            "model_identifier": last_attempted_model,
+            "attempt_count": attempt_count,
+            "provider_latency_ms": round(total_elapsed_ms, 1),
+            "outcome_category": last_outcome,
+            "correlation_id": correlation_id
         }
 
     async def explain_journey_recommendations(

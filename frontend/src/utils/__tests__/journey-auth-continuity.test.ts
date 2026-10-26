@@ -158,9 +158,10 @@ describe("Phase 51.93 — Journey Authentication Continuity & Safe Redirects", (
       assert.equal(getFriendlyRedirectInfo("/settings").message, "Sign in to access account settings.");
       assert.equal(getFriendlyRedirectInfo("/live").message, "Sign in to access live journey monitoring.");
       assert.equal(getFriendlyRedirectInfo("/home").message, "Sign in to access your dashboard.");
-      assert.equal(getFriendlyRedirectInfo("/safety-guidelines").message, "Sign in to access safety guidelines.");
-      assert.equal(getFriendlyRedirectInfo("/privacy").message, "Sign in to review privacy policy.");
-      assert.equal(getFriendlyRedirectInfo("/limitations").message, "Sign in to review AI and ML limitations.");
+      assert.equal(getFriendlyRedirectInfo("/safety-guidelines").message, "You can view safety guidelines directly without signing in, or sign in below to continue.");
+      assert.equal(getFriendlyRedirectInfo("/privacy").message, "You can review our privacy policy directly without signing in, or sign in below to continue.");
+      assert.equal(getFriendlyRedirectInfo("/limitations").message, "You can review AI and ML limitations directly without signing in, or sign in below to continue.");
+      assert.equal(getFriendlyRedirectInfo("/terms").message, "You can review terms and conditions directly without signing in, or sign in below to continue.");
     });
   });
 });

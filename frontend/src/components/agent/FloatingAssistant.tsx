@@ -17,6 +17,8 @@ export function FloatingAssistant() {
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const pathname = usePathname();
   const viewportRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wasFocusedRef = useRef(false);
   const { messages, isTyping, sendMessage, latestContext } = useAssistant();
 
   // Viewport-scoped scroll handler to protect reading position
@@ -46,12 +48,33 @@ export function FloatingAssistant() {
     }
   }, [messages, isTyping, isOpen]);
 
-  // When assistant opens, scroll to bottom
+  // When assistant opens, scroll to bottom and focus input
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => scrollToBottom("auto"), 50);
+      setTimeout(() => {
+        inputRef.current?.focus();
+        wasFocusedRef.current = true;
+      }, 100);
     }
   }, [isOpen]);
+
+  // Restore focus to input once typing/streaming completes unless user explicitly moved elsewhere
+  useEffect(() => {
+    if (!isTyping && isOpen && wasFocusedRef.current) {
+      const activeEl = document.activeElement;
+      const isOtherInteractive =
+        activeEl &&
+        activeEl !== document.body &&
+        activeEl !== inputRef.current &&
+        (activeEl.tagName === "BUTTON" ||
+          activeEl.tagName === "A" ||
+          activeEl.getAttribute("role") === "button");
+      if (!isOtherInteractive) {
+        inputRef.current?.focus();
+      }
+    }
+  }, [isTyping, isOpen]);
 
   // Handle Escape key to close
   useEffect(() => {
@@ -73,11 +96,13 @@ export function FloatingAssistant() {
     e?.preventDefault();
     const trimmed = inputValue.trim();
     if (trimmed && !isTyping) {
+      wasFocusedRef.current = true;
       sendMessage(trimmed);
       setInputValue("");
       setIsUserScrolledUp(false);
       setShowScrollBottom(false);
       setTimeout(() => scrollToBottom("smooth"), 50);
+      setTimeout(() => inputRef.current?.focus(), 0);
     }
   };
 
@@ -254,8 +279,17 @@ export function FloatingAssistant() {
             <form onSubmit={handleSend} className="border-t border-slate-800/80 bg-slate-900/70 p-3 backdrop-blur-md shrink-0">
               <div className="relative flex items-center">
                 <Input
+                  ref={inputRef}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
+                  onFocus={() => {
+                    wasFocusedRef.current = true;
+                  }}
+                  onBlur={(e) => {
+                    if (e.relatedTarget && (e.relatedTarget as HTMLElement).tagName === "BUTTON") {
+                      wasFocusedRef.current = false;
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();

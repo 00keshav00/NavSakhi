@@ -56,7 +56,7 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 function RegisterForm() {
-  const { register: submitRegister, isLoading, error } = useRegister();
+  const { register: submitRegister, isLoading, step, isTimeoutRecovery, error } = useRegister();
   const searchParams = useSearchParams();
   const redirectTarget = searchParams.get("redirect");
   const [showPassword, setShowPassword] = useState(false);
@@ -138,9 +138,20 @@ function RegisterForm() {
                 className="mb-5 rounded-2xl bg-danger/10 border border-danger/25 p-4 flex items-start gap-3 text-danger text-xs leading-relaxed"
               >
                 <AlertCircle size={18} className="shrink-0 mt-0.5" />
-                <div className="space-y-1">
+                <div className="space-y-1.5 w-full">
                   <span className="font-bold block">Registration Notice</span>
                   <p>{error}</p>
+                  {isTimeoutRecovery && (
+                    <div className="mt-2 pt-2 border-t border-danger/20 flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-foreground">Account may already exist:</span>
+                      <Link
+                        href={redirectTarget ? `/login?redirect=${redirectTarget}` : "/login"}
+                        className="inline-flex items-center gap-1 text-xs font-bold bg-primary text-primary-foreground px-3 py-1 rounded-xl hover:opacity-90 transition-opacity"
+                      >
+                        Sign In Directly <ArrowRight size={12} />
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -362,7 +373,11 @@ function RegisterForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Account...
+                  {step === "authenticating"
+                    ? "Authenticating Session..."
+                    : step === "initializing_workspace"
+                    ? "Preparing Workspace..."
+                    : "Creating Account & Securing Records..."}
                 </>
               ) : (
                 <>

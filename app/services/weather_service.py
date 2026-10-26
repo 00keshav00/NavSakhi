@@ -51,6 +51,7 @@ class WeatherService:
 
     def __init__(self, time_func=None):
         self._weather_cache: Dict[Tuple[float, float], Tuple[float, LiveWeatherResponse]] = {}
+        self._last_valid_observation: Dict[Tuple[float, float], Tuple[float, LiveWeatherResponse]] = {}
         self._geocode_cache: Dict[Tuple[float, float], Tuple[float, ReverseGeocodeResponse]] = {}
         self._weather_cache_ttl = 900  # 15 minutes (positive cache)
         self._negative_cache_ttl = 30  # 30 seconds (negative cache / transient failure cooldown)
@@ -149,16 +150,25 @@ class WeatherService:
                     res.location_name = location_name
                 return res
 
-        # Resolve location name if omitted
-        resolved_name = location_name
-        if not resolved_name or resolved_name == "Selected Location":
-            geo = await self.reverse_geocode(lat, lon)
-            resolved_name = geo.display_name
-
         # Provider-wide rate-limit cooldown: avoid retrying shared provider during active 429 cooldown
         rate_limit_elapsed = now - self._last_rate_limit_time
         if rate_limit_elapsed < self._rate_limit_cooldown:
             remaining_cooldown = max(0, int(self._rate_limit_cooldown - rate_limit_elapsed))
+            if cache_key in self._last_valid_observation:
+                _, valid_obs = self._last_valid_observation[cache_key]
+                res = valid_obs.model_copy()
+                res.cached = True
+                res.cache_expires_in_seconds = remaining_cooldown
+                if location_name:
+                    res.location_name = location_name
+                return res
+
+            # Resolve location name if omitted and no valid cache exists
+            resolved_name = location_name
+            if not resolved_name or resolved_name == "Selected Location":
+                geo = await self.reverse_geocode(lat, lon)
+                resolved_name = geo.display_name
+
             unavail = self._build_unavailable_response(
                 lat, lon, resolved_name, status="RATE_LIMITED",
                 warning="Open-Meteo API rate limit reached. Please retry in a few moments.",
@@ -167,6 +177,12 @@ class WeatherService:
             )
             self._weather_cache[cache_key] = (now, unavail)
             return unavail
+
+        # Resolve location name if omitted
+        resolved_name = location_name
+        if not resolved_name or resolved_name == "Selected Location":
+            geo = await self.reverse_geocode(lat, lon)
+            resolved_name = geo.display_name
 
         # Single-flight coalescing: share active in-flight request for identical coordinates
         in_flight_future = self._in_flight.get(cache_key)
@@ -316,12 +332,25 @@ class WeatherService:
                     )
 
                     self._weather_cache[cache_key] = (now, response)
+                    self._last_valid_observation[cache_key] = (now, response)
                     if my_future is not None and not my_future.done():
                         my_future.set_result(response)
                     return response
                 elif resp.status_code == 429:
                     logger.warning("Open-Meteo API rate limit reached.")
                     self._last_rate_limit_time = now
+                    if cache_key in self._last_valid_observation:
+                        _, valid_obs = self._last_valid_observation[cache_key]
+                        res = valid_obs.model_copy()
+                        res.cached = True
+                        res.cache_expires_in_seconds = self._negative_cache_ttl
+                        if location_name:
+                            res.location_name = location_name
+                        self._weather_cache[cache_key] = (now, res)
+                        if my_future is not None and not my_future.done():
+                            my_future.set_result(res)
+                        return res
+
                     unavail = self._build_unavailable_response(
                         lat, lon, resolved_name, status="RATE_LIMITED",
                         warning="Open-Meteo API rate limit reached. Please retry in a few moments.",

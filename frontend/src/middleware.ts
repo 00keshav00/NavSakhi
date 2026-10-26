@@ -26,7 +26,14 @@ export function middleware(request: NextRequest) {
     pathname === '/home' ||
     pathname === '/journey' ||
     pathname === '/assistant' ||
-    pathname === '/community';
+    pathname === '/community' ||
+    pathname === '/terms' ||
+    pathname === '/privacy' ||
+    pathname === '/limitations' ||
+    pathname === '/safety-guidelines' ||
+    pathname === '/about' ||
+    pathname === '/help' ||
+    pathname === '/accessibility';
 
   // Protect account-specific routes:
   // - Emergency SOS workflow (/emergency)

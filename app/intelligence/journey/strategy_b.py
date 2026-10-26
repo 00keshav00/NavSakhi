@@ -31,11 +31,13 @@ logger = logging.getLogger(__name__)
 
 class InterpretedPreferences(BaseModel):
     """Structured constraints extracted from natural-language journey preferences."""
-    target_priority: str = Field("BALANCED", description="FASTEST, SAFEST, BALANCED, LOWEST_COST, FEWEST_TRANSFERS, MINIMUM_WALKING, NIGHT_ACTIVITY")
+    target_priority: str = Field("BALANCED", description="FASTEST, SAFEST, BALANCED, LOWEST_COST, FEWEST_TRANSFERS, MINIMUM_WALKING, NIGHT_ACTIVITY, PREFER_FAMILIAR, PREFER_BUSINESSES")
     max_walk_minutes: Optional[float] = Field(None, ge=1.0, le=60.0)
     transfer_tolerance: str = Field("MODERATE", description="MINIMAL, MODERATE, ANY")
     prefer_night_activity: bool = Field(False)
     cost_sensitive: bool = Field(False)
+    prefer_familiar: bool = Field(False)
+    prefer_businesses: bool = Field(False)
     interpretation_notes: str = Field("Deterministic default preference mapping.")
 
 
@@ -133,8 +135,16 @@ Return JSON only in this exact format:
         transfer_tol = "MODERATE"
         prefer_night = False
         cost_sens = False
+        prefer_fam = False
+        prefer_biz = False
 
-        if "fewer transfer" in text or "no transfer" in text or "direct" in text:
+        if "familiar" in text:
+            priority = "PREFER_FAMILIAR"
+            prefer_fam = True
+        elif "business" in text or "shop" in text or "market" in text:
+            priority = "PREFER_BUSINESSES"
+            prefer_biz = True
+        elif "fewer transfer" in text or "no transfer" in text or "direct" in text or "fewest_transfers" in text:
             priority = "FEWEST_TRANSFERS"
             transfer_tol = "MINIMAL"
         elif "walk less" in text or "minimal walk" in text or "avoid long walk" in text:
@@ -157,6 +167,8 @@ Return JSON only in this exact format:
             transfer_tolerance=transfer_tol,
             prefer_night_activity=prefer_night,
             cost_sensitive=cost_sens,
+            prefer_familiar=prefer_fam,
+            prefer_businesses=prefer_biz,
             interpretation_notes=f"Deterministic rule-based interpretation for: '{text}'"
         )
 

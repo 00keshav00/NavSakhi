@@ -193,13 +193,13 @@ class AssistantIntentClassifier:
             )
 
         # 3b. SAFETY AWARENESS & PRECAUTIONS (Considerations, tips, what to look out for)
-        if any(kw in clean_q for kw in cls.SAFETY_AWARENESS_KEYWORDS):
+        if any(kw in clean_q for kw in cls.SAFETY_AWARENESS_KEYWORDS) or any(w in clean_q for w in ["take care", "look out", "watch out", "should i take care"]):
             awareness_fallback = (
-                "When traveling across Chennai, keep these practical safety considerations in mind:\n\n"
-                "1. **Use Well-Lit Primary Corridors:** Choose active transit modes like Chennai Metro or primary arterial MTC bus routes, especially during evening hours.\n"
-                "2. **Stay Near Staffed Facilities:** At stations and bus stops, wait near ticket counters, station masters, or well-populated areas.\n"
-                "3. **Share Live Trip Telemetry:** Keep your phone charged and share your active route link with family or a trusted contact.\n"
-                "4. **Emergency Helplines:** Note that **112** (National Emergency) and **1091** (Tamil Nadu Women Helpline) are available 24/7."
+                "When traveling across Chennai, here are a few practical considerations:\n\n"
+                "1. **Check Transit Timing:** Verify bus or metro schedules in advance to avoid long waits at quiet stops.\n"
+                "2. **Stay Connected:** Keep your phone charged and consider sharing your journey details with a trusted person.\n"
+                "3. **Prefer Familiar Corridors:** Choose active, well-populated routes near open businesses and transit hubs, especially after dark.\n"
+                "4. **Emergency Helplines:** Remember that **112** (National Emergency) and **1091** (Tamil Nadu Women Helpline) are available 24/7."
             )
             return IntentClassificationResult(
                 intent=AssistantIntent.SAFETY,
@@ -226,21 +226,13 @@ class AssistantIntentClassifier:
                 direct_response=anxiety_resp
             )
 
-        # 5. COMPANIONSHIP & JOURNEY PARTNER (Empathetic, human-centered presence)
-        if any(kw in clean_q for kw in cls.COMPANION_KEYWORDS):
-            if had_prior_companion_turn or any(pk in clean_q for pk in ["partner", "throughout", "through out", "with me"]):
-                companion_resp = (
-                    "I would be glad to stay with you throughout your journey as your travel partner. "
-                    "While I am an AI companion in your phone rather than a person walking beside you, "
-                    "you can count on me for route reassurance, station updates, or just friendly conversation anytime you feel alone. "
-                    "You can keep this chat open and message me whenever you like as you travel. Where are you starting from today?"
-                )
-            else:
-                companion_resp = (
-                    "I am right here with you, and I would love to keep you company. "
-                    "Think of me as your NavSakhi — a dependable, friendly travel companion in your pocket whenever you are navigating Chennai. "
-                    "How is your travel going so far, or where are you heading today?"
-                )
+        # 5. COMPANIONSHIP & JOURNEY PARTNER (Empathetic, digital companion presence)
+        if any(kw in clean_q for kw in cls.COMPANION_KEYWORDS) or any(w in clean_q for w in ["will you be my sakhi", "be my sakhi", "will you travel with me", "travel with me"]):
+            companion_resp = (
+                "Of course—I can be your digital travel companion and journey partner while you plan and monitor your route. "
+                "I can't physically accompany you or guarantee safety, but I can help you compare routes, "
+                "track transit timing, and understand the available safety information. Where are you heading today?"
+            )
             return IntentClassificationResult(
                 intent=AssistantIntent.COMPANION_EMPATHY,
                 confidence=0.96,
@@ -278,19 +270,18 @@ class AssistantIntentClassifier:
             )
 
         # 8. SMALL TALK
-        if any(clean_q == kw or clean_q.startswith(kw + " ") or kw in words for kw in cls.SMALL_TALK_KEYWORDS):
-            greeting_resp = (
-                "Hello! I am your NavSakhi travel companion. "
-                "I can help you check safe corridors, transit options (Metro, Suburban rail, MTC buses), "
-                "and emergency safe havens across Chennai. Where are you heading today?"
-            )
-            if any(t in words for t in ["thanks", "thank"]):
+        if any(clean_q == kw or clean_q.startswith(kw + " ") or kw in words for kw in cls.SMALL_TALK_KEYWORDS) or any(w in clean_q for w in ["how are you", "how are u"]):
+            if any(w in clean_q for w in ["how are you", "how are u"]):
+                greeting_resp = "I'm doing well, thank you for asking! How is your travel planning going today?"
+            elif any(t in words for t in ["thanks", "thank"]):
                 greeting_resp = "You are very welcome! Safe travels across Chennai. Let me know if you need route advice or emergency contacts."
+            else:
+                greeting_resp = "Hello! I am your NavSakhi travel companion. How can I help you navigate Chennai safely today?"
             return IntentClassificationResult(
                 intent=AssistantIntent.SMALL_TALK,
                 confidence=0.90,
                 is_supported_domain=True,
-                requires_external_llm=False,
+                requires_external_llm=True,
                 direct_response=greeting_resp
             )
 

@@ -76,3 +76,15 @@ def test_profile_page_includes_legal_card_and_footer():
     assert "/privacy" in content
     assert "/limitations" in content
     assert "<Footer" in content
+
+
+def test_middleware_declares_legal_routes_as_public():
+    """Verify frontend/src/middleware.ts permits public unauthenticated access to all 7 legal pages."""
+    middleware_file = Path("frontend/src/middleware.ts")
+    assert middleware_file.exists()
+    content = middleware_file.read_text(encoding="utf-8")
+
+    for slug in LEGAL_SLUGS:
+        assert f"pathname === '/{slug}'" in content, (
+            f"middleware.ts does not include '/{slug}' in isPublicRoute"
+        )

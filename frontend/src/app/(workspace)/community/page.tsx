@@ -33,6 +33,7 @@ export default function CommunityPage() {
   const [verFilter, setVerFilter] = useState("All");
   const [heatmapMode, setHeatmapMode] = useState<"Verified" | "All">("Verified");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"feed" | "map">("feed");
 
   const { data, isLoading, error, refresh } = useCommunityIntelligence({ type: typeFilter, verification: verFilter });
   const { submitReport, isSubmitting } = useCreateReport();
@@ -66,11 +67,33 @@ export default function CommunityPage() {
   const activeHeatmapData = heatmapMode === "Verified" ? data?.heatmap_data.verified_only : data?.heatmap_data.all_reports;
 
   return (
-    <div className="grid h-screen w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12">
-      <aside className="relative z-10 flex h-full flex-col border-r border-border bg-card/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-3xl lg:col-span-5 dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
+    <div className="grid h-[calc(100vh-4rem)] min-h-0 w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12">
+      <aside className={`relative z-10 h-full min-h-0 flex-col border-r border-border bg-card/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-3xl lg:col-span-5 dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] overflow-hidden ${mobileTab === 'feed' ? 'flex' : 'hidden lg:flex'}`}>
         
+        {/* Mobile View Toggle */}
+        <div className="flex lg:hidden items-center p-1 bg-secondary/60 rounded-xl m-4 mb-0 border border-border/50 shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileTab("feed")}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+              mobileTab === "feed" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
+            }`}
+          >
+            Intelligence Feed
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("map")}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+              mobileTab === "map" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
+            }`}
+          >
+            Live Map ({reports.length})
+          </button>
+        </div>
+
         {/* Header Area */}
-        <div className="flex shrink-0 flex-col border-b border-border/50 p-6">
+        <div className="flex shrink-0 flex-col border-b border-border/50 p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-[family-name:var(--font-jakarta)] text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
@@ -158,8 +181,8 @@ export default function CommunityPage() {
           </div>
         </div>
 
-        {/* Content Area */}
-        <ScrollArea className="flex-1 bg-background/30 p-6">
+        {/* Content Area - Independent Vertical Scroll */}
+        <ScrollArea className="flex-1 min-h-0 bg-background/30 p-4 sm:p-6">
           <AnimatePresence mode="popLayout">
             {isLoading ? (
               <CommunitySkeleton />
@@ -170,7 +193,7 @@ export default function CommunityPage() {
                  <Button onClick={refresh} variant="outline">Retry</Button>
                </div>
             ) : data && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-8 pb-10">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-8 pb-28">
                 
                 {/* Statistics Grid */}
                 <div className="grid grid-cols-2 gap-4">
@@ -237,7 +260,7 @@ export default function CommunityPage() {
       </aside>
 
       {/* Main Map Area */}
-      <main className="relative hidden h-full w-full bg-background/95 lg:col-span-7 lg:block">
+      <main className={`relative h-full min-h-0 w-full bg-background/95 lg:col-span-7 ${mobileTab === 'map' ? 'block' : 'hidden lg:block'}`}>
         
         {/* Heatmap Toggle HUD */}
         <div className="absolute top-6 right-6 z-10 glass-card bg-background/80 backdrop-blur-md rounded-xl p-2 border border-border/50 shadow-lg flex items-center gap-1">
@@ -254,6 +277,17 @@ export default function CommunityPage() {
           >
             All Data
           </button>
+        </div>
+
+        {/* Mobile Switch Back Button */}
+        <div className="lg:hidden absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+          <Button
+            type="button"
+            onClick={() => setMobileTab("feed")}
+            className="rounded-full shadow-2xl bg-card/95 backdrop-blur-md text-foreground border border-border px-4 py-2 font-bold text-xs flex items-center gap-2 hover:bg-card"
+          >
+            <MessageSquare size={14} className="text-primary" /> Back to Feed ({reports.length})
+          </Button>
         </div>
 
         <SafeMap 

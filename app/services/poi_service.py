@@ -365,7 +365,7 @@ class POISpatialService:
                     bbox = (min(xs) - corridor_m, min(ys) - corridor_m, max(xs) + corridor_m, max(ys) + corridor_m)
                     leg_data.append((leg_id, leg_pts_m, bbox))
 
-        EMERGENCY_CATEGORIES = {"police", "hospital", "clinic", "pharmacy", "fire_station", "fuel"}
+        EMERGENCY_CATEGORIES = {"police", "hospital", "clinic", "pharmacy", "fire_station"}
         LANDMARK_CATEGORIES = {"mall", "university", "college", "transit_hub", "park", "landmark", "commercial_complex"}
         SHOP_CATEGORIES = {"convenience", "supermarket", "retail_shop", "food_retail", "restaurant", "cafe", "fast_food", "hotel", "bank_atm", "entertainment"}
 
@@ -439,7 +439,7 @@ class POISpatialService:
                 cat in LANDMARK_CATEGORIES
                 or any(kw in name_lower for kw in ["mall", "university", "college", "campus", "institute", "park", "central", "interchange"])
             )
-            is_shop = bool((not is_emergency) and (cat in SHOP_CATEGORIES or poi.get("is_activity_location", False)))
+            is_shop = bool((not is_emergency) and cat not in ["surveillance", "surveillance_camera"] and (cat in SHOP_CATEGORIES or poi.get("is_activity_location", False)))
 
             # Evaluate opening hours at pass-through time
             raw_hours = poi.get("opening_hours")
@@ -460,6 +460,11 @@ class POISpatialService:
                 "is_emergency": is_emergency,
                 "is_landmark": is_landmark,
                 "is_shop": is_shop,
+                "provenance_type": poi.get("provenance_type", "mapped_public_facility" if is_emergency else "mapped_commercial_business"),
+                "verification_status": poi.get("verification_status", "MAPPED_PUBLIC_FACILITY" if is_emergency else "MAPPED_COMMERCIAL_CONTEXT"),
+                "is_verified_safety_facility": bool(poi.get("is_verified_safety_facility", False)),
+                "is_safe_haven_eligible": bool(poi.get("is_safe_haven_eligible", False)),
+                "safety_role": poi.get("safety_role", "public_police_station" if poi.get("category") == "police" else ("medical_emergency_facility" if poi.get("category") == "hospital" else ("fire_and_rescue_service" if poi.get("category") == "fire_station" else ("public_health_support" if is_emergency else "commercial_activity")))),
                 "opening_status": opening_status,
                 "opening_hours": raw_hours,
                 "estimated_pass_through_time": pass_through_str,

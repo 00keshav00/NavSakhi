@@ -40,6 +40,11 @@ export interface RoutePOI {
   proximity_tier: "IMMEDIATELY_BESIDE" | "ALONG_CORRIDOR" | string;
   is_emergency?: boolean;
   is_shop?: boolean;
+  provenance_type?: "mapped_public_facility" | "independently_verified_facility" | "mapped_commercial_business" | "public_surveillance" | string;
+  verification_status?: "MAPPED_PUBLIC_FACILITY" | "INDEPENDENTLY_VERIFIED" | "MAPPED_COMMERCIAL_CONTEXT" | "MAPPED_SURVEILLANCE" | string;
+  safety_role?: "emergency_safe_haven" | "public_police_station" | "medical_emergency_facility" | "public_health_support" | "fire_and_rescue_service" | "commercial_activity" | "surveillance_infrastructure" | string;
+  is_verified_safety_facility?: boolean;
+  is_safe_haven_eligible?: boolean;
   opening_status?: "OPEN" | "CLOSED" | "UNKNOWN" | string;
   opening_hours?: string | null;
   estimated_pass_through_time?: string | null;
@@ -120,6 +125,8 @@ export interface MultimodalRoute {
   score_basis?: string | null;
   model_version?: string | null;
   target_disclosure?: string | null;
+  tradeoffs?: string[];
+  user_preference_match?: string | null;
 }
 
 export interface NightActivityScore {

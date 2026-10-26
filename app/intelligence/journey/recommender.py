@@ -64,11 +64,34 @@ class SafeSheRecommender:
                 primary = balanced_route
         elif "cost" in pref_lower and lowest_cost_route:
             primary = lowest_cost_route
+        elif ("business" in pref_lower or "shop" in pref_lower) and eligible:
+            primary = max(eligible, key=lambda r: (r.route_metadata.get("commercial_poi_count") or 0, r.route_metadata.get("safety_score") or 0.0))
+        elif "familiar" in pref_lower and eligible:
+            # Check for genuine user-designated familiarity data
+            familiar_candidates = [
+                r for r in eligible
+                if r.route_metadata.get("is_user_familiar") or r.route_metadata.get("user_designated_familiar")
+            ]
+            if familiar_candidates:
+                primary = familiar_candidates[0]
+            else:
+                # Truthful fallback: do not invent personal familiarity. Recommend safest validated alternative.
+                primary = safest_route or balanced_route
+        elif ("transfer" in pref_lower or "direct" in pref_lower) and eligible:
+            def transfer_count(r):
+                dyn = r.route_metadata.get("dynamic_segments", [])
+                if dyn:
+                    return len(dyn)
+                legs = getattr(r, "legs", None)
+                if legs:
+                    return len(legs)
+                return 1
+            primary = min(eligible, key=transfer_count)
         else:
             primary = balanced_route
 
         # 7. Generate Factual Explanation
-        explanation = self._build_explanation(primary, safest_route, fastest_route)
+        explanation = self._build_explanation(primary, safest_route, fastest_route, user_preference=user_preference)
 
         return JourneyRecommendation(
             primary_route_id=primary.route_identifier,
@@ -79,15 +102,33 @@ class SafeSheRecommender:
             explanation=explanation
         )
 
-    def _build_explanation(self, primary: CandidateRoute, safest: Optional[CandidateRoute], fastest: CandidateRoute) -> RecommendationExplanation:
+    def _build_explanation(self, primary: CandidateRoute, safest: Optional[CandidateRoute], fastest: CandidateRoute, user_preference: str = "ANY") -> RecommendationExplanation:
         adv = []
         limit = []
         tradeoffs = []
+        pref_lower = (user_preference or "ANY").lower()
         
         primary_safety = primary.route_metadata.get("safety_score")
         safest_safety = safest.route_metadata.get("safety_score") if safest else None
         
-        if safest and primary.route_identifier == safest.route_identifier:
+        if "business" in pref_lower or "shop" in pref_lower:
+            primary_reason = "Recommended based on preference for mapped business corridors. Unmapped shops do not imply isolation."
+            adv.append("Passes near mapped commercial establishments.")
+        elif "familiar" in pref_lower:
+            is_explicitly_familiar = bool(
+                primary.route_metadata.get("is_user_familiar") or primary.route_metadata.get("user_designated_familiar")
+            )
+            if is_explicitly_familiar:
+                primary_reason = "Selected based on your explicitly designated familiar corridor."
+                adv.append("Matches user-designated familiar route.")
+            else:
+                primary_reason = "No saved familiar route exists for this corridor; presenting the safest validated alternative."
+                tradeoffs.append("Personal route familiarity was requested, but no user-designated familiar route is on file for this origin-destination pair.")
+                adv.append("Safest validated alternative (no personal familiarity invented).")
+        elif "transfer" in pref_lower or "direct" in pref_lower:
+            primary_reason = "Selected to minimize transit transfers and interchanges."
+            adv.append("Fewest transit transfers.")
+        elif safest and primary.route_identifier == safest.route_identifier:
             primary_reason = "Recommended because it has the strongest validated safety score among practical alternatives."
             adv.append("Highest predictive road safety score.")
         elif primary.route_identifier == fastest.route_identifier:
@@ -104,6 +145,9 @@ class SafeSheRecommender:
                 
         if primary_safety is not None and safest_safety is not None and primary_safety < safest_safety:
             tradeoffs.append("Has a slightly lower road safety score than the highest-rated alternative.")
+
+        # Data coverage transparency: missing POIs do not imply isolation
+        tradeoffs.append("Missing mapped POIs along a corridor reflect dataset completeness, not real-time activity or danger.")
 
         if primary.route_metadata.get("travel_mode") == "Multimodal":
             limit.append("Public transit track safety is not scored by the road LightGBM pipeline.")

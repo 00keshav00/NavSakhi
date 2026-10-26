@@ -630,3 +630,36 @@ async def test_p0_weather_and_gemini_failure_preserves_route_validity():
             if route.score_status == "READY":
                 assert route.safety_score is not None
                 assert 0 <= route.safety_score <= 100
+
+
+def test_phase51_103_no_retired_gemini_models_in_active_candidates():
+    """
+    Phase 51.103: Verifies that no retired models (such as gemini-2.0-flash or
+    gemini-1.5-flash) exist in the active CANDIDATE_GEMINI_MODELS list, and that
+    all candidates have documented current support.
+    """
+    from app.tools.specialized.reasoning_tool import CANDIDATE_GEMINI_MODELS, get_configured_gemini_models
+
+    retired_models = {
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-1.0-pro"
+    }
+
+    for model in CANDIDATE_GEMINI_MODELS:
+        assert model not in retired_models, f"Retired model {model} found in CANDIDATE_GEMINI_MODELS"
+        # Must be a recognized supported model prefix
+        assert model.startswith("gemini-3.") or model.startswith("gemini-2.5-"), (
+            f"Candidate model {model} does not have verified current support"
+        )
+
+    # Primary model must be fast flash-lite
+    assert CANDIDATE_GEMINI_MODELS[0] == "gemini-3.5-flash-lite"
+    assert CANDIDATE_GEMINI_MODELS[1] == "gemini-3.1-flash-lite"
+
+    # Configured model precedence preserves active non-retired candidate set
+    configured = get_configured_gemini_models()
+    for m in configured:
+        assert m not in retired_models

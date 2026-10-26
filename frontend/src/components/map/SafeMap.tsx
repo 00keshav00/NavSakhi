@@ -10,7 +10,7 @@ import { RoutePOI, ActivityZone } from "@/types/journey";
 export const EMERGENCY_CATEGORIES = new Set(["police", "hospital", "clinic", "pharmacy", "fire_station", "fuel"]);
 export const LANDMARK_CATEGORIES = new Set(["mall", "university", "college", "entertainment", "landmark", "transit_hub"]);
 export const COMMERCIAL_CATEGORIES = new Set([
-  "convenience", "supermarket", "retail_shop", "food_retail", "restaurant", "cafe", "fast_food", "hotel", "bank_atm"
+  "convenience", "supermarket", "retail_shop", "food_retail", "restaurant", "cafe", "fast_food", "hotel", "bank_atm", "salon"
 ]);
 
 if (typeof window !== "undefined") {
@@ -113,74 +113,83 @@ export const POI_CATEGORY_CONFIG: Record<string, { label: string; icon: string; 
   convenience: {
     label: "General Store",
     icon: "🏪",
-    bg: "bg-teal-700/90 hover:bg-teal-700",
-    border: "border-teal-500",
-    text: "text-white",
-    pinBg: "bg-teal-700",
-    pinBorder: "border-teal-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   supermarket: {
     label: "Supermarket",
     icon: "🛒",
-    bg: "bg-indigo-700/90 hover:bg-indigo-700",
-    border: "border-indigo-500",
-    text: "text-white",
-    pinBg: "bg-indigo-700",
-    pinBorder: "border-indigo-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   retail_shop: {
     label: "Retail Shop",
     icon: "🛍️",
-    bg: "bg-violet-700/90 hover:bg-violet-700",
-    border: "border-violet-500",
-    text: "text-white",
-    pinBg: "bg-violet-700",
-    pinBorder: "border-violet-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   food_retail: {
     label: "Food Retail",
     icon: "🥖",
-    bg: "bg-emerald-700/90 hover:bg-emerald-700",
-    border: "border-emerald-500",
-    text: "text-white",
-    pinBg: "bg-emerald-700",
-    pinBorder: "border-emerald-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   restaurant: {
     label: "Restaurant",
     icon: "🍽️",
-    bg: "bg-amber-700/90 hover:bg-amber-700",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
     border: "border-amber-500",
-    text: "text-white",
-    pinBg: "bg-amber-700",
-    pinBorder: "border-amber-400",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   cafe: {
     label: "Café",
     icon: "☕",
-    bg: "bg-yellow-700/90 hover:bg-yellow-700",
-    border: "border-yellow-500",
-    text: "text-white",
-    pinBg: "bg-yellow-700",
-    pinBorder: "border-yellow-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   fast_food: {
     label: "Fast Food",
     icon: "🍔",
-    bg: "bg-orange-700/90 hover:bg-orange-700",
-    border: "border-orange-500",
-    text: "text-white",
-    pinBg: "bg-orange-700",
-    pinBorder: "border-orange-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   hotel: {
     label: "Hotel",
     icon: "🏨",
-    bg: "bg-sky-700/90 hover:bg-sky-700",
-    border: "border-sky-500",
-    text: "text-white",
-    pinBg: "bg-sky-700",
-    pinBorder: "border-sky-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
+  },
+  salon: {
+    label: "Salon & Care",
+    icon: "💇",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   mall: {
     label: "Shopping Mall",
@@ -203,11 +212,11 @@ export const POI_CATEGORY_CONFIG: Record<string, { label: string; icon: string; 
   bank_atm: {
     label: "Bank / ATM",
     icon: "🏧",
-    bg: "bg-slate-700/90 hover:bg-slate-700",
-    border: "border-slate-500",
-    text: "text-white",
-    pinBg: "bg-slate-700",
-    pinBorder: "border-slate-400",
+    bg: "bg-amber-400/90 text-slate-950 hover:bg-amber-300",
+    border: "border-amber-500",
+    text: "text-slate-950 font-bold",
+    pinBg: "bg-amber-400 text-slate-950",
+    pinBorder: "border-amber-600",
   },
   entertainment: {
     label: "Entertainment",
@@ -954,10 +963,14 @@ export default function SafeMap({
               </div>
             </div>
 
-            {/* Commercial Shops Pass-Through Status */}
+            {/* Mapped Shops & Businesses (Yellow Markers) */}
             <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Shops (Pass-Through Status)</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mapped Shops &amp; Businesses</p>
               <div className="grid grid-cols-1 gap-1 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-600 ring-2 ring-amber-400/40 shrink-0" />
+                  <span>Mapped Shops &amp; Commercial POIs</span>
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/40 shrink-0" />
                   <span>Open at pass-through time</span>
@@ -966,11 +979,10 @@ export default function SafeMap({
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-rose-500/40 shrink-0" />
                   <span>Closed at pass-through time</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/40 shrink-0" />
-                  <span>Schedule unknown / unlisted</span>
-                </div>
               </div>
+              <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
+                Yellow markers denote ordinary mapped commercial establishments. Mapped presence does not guarantee operating status or safety.
+              </p>
             </div>
 
             {/* Transport Modes */}
@@ -1467,10 +1479,22 @@ export default function SafeMap({
           <div className="text-[9.5px] text-slate-400 space-y-0.5 border-t border-slate-800 pt-2">
             <div className="flex justify-between">
               <span>Source Attribution:</span>
-              <span className="font-semibold text-slate-300">OpenStreetMap (ODbL)</span>
+              <span className="font-semibold text-slate-300">{selectedPoi.source || "OpenStreetMap (ODbL)"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Trust Level:</span>
+              <span className="font-semibold text-slate-300">
+                {selectedPoi.is_verified_safety_facility
+                  ? "Independently Verified Safe Haven"
+                  : selectedPoi.is_emergency
+                  ? "Mapped Public Emergency Facility"
+                  : selectedPoi.is_shop
+                  ? "Mapped Commercial Context"
+                  : "Mapped Geographic Record"}
+              </span>
             </div>
             <p className="italic text-slate-500 text-[8.5px] leading-tight mt-0.5">
-              Verified coordinates and data from OpenStreetMap. Operating status evaluated at estimated route traversal time.
+              Coordinates derived from OpenStreetMap. Geographic mapping identifies facility location, but does not guarantee continuous operations or emergency shelter.
             </p>
           </div>
         </div>
