@@ -1,3 +1,4 @@
+import asyncio
 import re
 import httpx
 import json
@@ -625,7 +626,7 @@ class ReasoningTool(BaseTool):
                     else:
                         break
 
-            except asyncio.TimeoutError:
+            except (asyncio.TimeoutError, httpx.TimeoutException):
                 last_outcome = "timeout"
                 logger.warning(f"Gemini attempt with model '{model_name}' timed out. Failing over...")
             except Exception as e:
