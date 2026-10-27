@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     weather_api_key: Optional[str] = None
     weather_api_url: Optional[str] = None
     ollama_base_url: Optional[str] = None
-    llm_model_name: Optional[str] = "gemini-3.8-flash"
+    llm_model_name: Optional[str] = "gemini-3.5-flash-lite"
     gemini_api_key: Optional[str] = None
     google_api_key: Optional[str] = None
     gemini_api_key_backup: Optional[str] = None

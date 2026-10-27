@@ -22,8 +22,10 @@ export const useAuthStore = create<AuthState>()(
 
       login: (user, token) => {
         if (typeof document !== "undefined") {
-          document.cookie = `navsakhi_token=${token}; path=/; max-age=86400; SameSite=Lax`;
-          document.cookie = `safeshe_token=${token}; path=/; max-age=86400; SameSite=Lax`;
+          const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+          const secureFlag = isSecure ? "; Secure" : "";
+          document.cookie = `navsakhi_token=${token}; path=/; max-age=86400; SameSite=Lax${secureFlag}`;
+          document.cookie = `safeshe_token=${token}; path=/; max-age=86400; SameSite=Lax${secureFlag}`;
         }
         set({ user, accessToken: token, isAuthenticated: true });
       },
@@ -44,7 +46,14 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: "safeshe-auth-storage", // localStorage key
-      // We only persist the auth state, not everything
+      onRehydrateStorage: () => (state) => {
+        if (state?.accessToken && typeof document !== "undefined") {
+          const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+          const secureFlag = isSecure ? "; Secure" : "";
+          document.cookie = `navsakhi_token=${state.accessToken}; path=/; max-age=86400; SameSite=Lax${secureFlag}`;
+          document.cookie = `safeshe_token=${state.accessToken}; path=/; max-age=86400; SameSite=Lax${secureFlag}`;
+        }
+      },
     }
   )
 );

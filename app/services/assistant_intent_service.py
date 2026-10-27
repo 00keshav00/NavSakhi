@@ -55,17 +55,29 @@ class AssistantIntentClassifier:
 
     # Travel anxiety and nervousness when traveling alone (without acute danger/stalker)
     TRAVEL_ANXIETY_KEYWORDS = [
-        "nervous", "anxious", "travel anxiety", "uneasy", "feeling alone",
-        "scared of travelling", "scared of traveling", "nervous about"
+        "nervous", "anxious", "travel anxiety", "uneasy", "feeling alone", "feel alone",
+        "scared of travelling", "scared of traveling", "nervous about", "feeling anxious",
+        "feel anxious", "feeling scared", "feel scared", "panic", "panicking", "worried"
     ]
 
     # Companionship, emotional presence, and journey partner requests
     COMPANION_KEYWORDS = [
-        "companion", "partner", "be with me", "stay with me", "talk to me",
-        "keep me company", "walk with me", "accompany me", "accompany",
-        "travel partner", "journey partner", "with me through out", "with me throughout",
-        "just want a companion", "need a companion", "be my companion", "travel friend",
-        "by my side"
+        "companion", "partner", "be with me", "stay with me", "talk to me", "talk with me",
+        "can we talk", "can you talk", "let's talk", "lets talk", "chat with me", "can we chat",
+        "keep me company", "walk with me", "accompany me", "accompany", "will you accompany",
+        "can you accompany", "travel partner", "journey partner", "with me through out",
+        "with me throughout", "just want a companion", "need a companion", "be my companion",
+        "travel friend", "by my side", "feeling lonely", "feel lonely"
+    ]
+
+    # Local facilities, commercial shops, and verified safety POIs in Chennai
+    POI_FACILITY_KEYWORDS = [
+        "shop", "shops", "store", "stores", "pharmacy", "pharmacies", "chemist", "medicine",
+        "hospital", "hospitals", "clinic", "clinics", "supermarket", "supermarkets", "grocery",
+        "groceries", "mall", "malls", "market", "marketplace", "cafe", "cafes", "coffee",
+        "restaurant", "restaurants", "food", "atm", "atms", "bank", "banks", "fuel", "petrol",
+        "hotel", "lodging", "bakery", "jewel", "jewellery", "jewelry", "silks", "clothes",
+        "textiles", "facility", "facilities", "safe haven", "open places", "activity zone"
     ]
 
     # General emergency and helpline keywords
@@ -260,8 +272,14 @@ class AssistantIntentClassifier:
                 direct_response=support_resp
             )
 
-        # 7. JOURNEY & TRANSIT: Core Mobility Purpose (Routes, Bus, Metro, Chennai Travel)
-        if any(kw in clean_q for kw in cls.TRANSIT_KEYWORDS):
+        # 7. JOURNEY & TRANSIT: Core Mobility Purpose (Routes, Bus, Metro, Chennai Travel, POIs & Facilities)
+        clean_q_norm = re.sub(r"\s+", " ", re.sub(r"[^\w\s]", " ", clean_q)).strip()
+        if (
+            any(kw in clean_q for kw in cls.TRANSIT_KEYWORDS)
+            or any(kw in clean_q_norm for kw in cls.TRANSIT_KEYWORDS)
+            or any(kw in clean_q for kw in cls.POI_FACILITY_KEYWORDS)
+            or any(kw in clean_q_norm for kw in cls.POI_FACILITY_KEYWORDS)
+        ):
             return IntentClassificationResult(
                 intent=AssistantIntent.JOURNEY_TRANSIT,
                 confidence=0.92,
@@ -269,7 +287,36 @@ class AssistantIntentClassifier:
                 requires_external_llm=True
             )
 
-        # 8. SMALL TALK
+        # 7.5 COORDINATE QUERIES (lat/lon pairs like "13.0418, 80.2337" or "lat 13.0418 lon 80.2337")
+        coord_pattern = r'(?:lat(?:itude)?\s*[:=]?\s*)?([+-]?(?:[1-8]?\d(?:\.\d+)?|90(?:\.0+)?))\s*[, ]\s*(?:lon(?:gitude)?\s*[:=]?\s*)?([+-]?(?:180(?:\.0+)?|(?:1[0-7]\d|[1-9]?\d)(?:\.\d+)?))'
+        if re.search(coord_pattern, clean_q, re.IGNORECASE):
+            return IntentClassificationResult(
+                intent=AssistantIntent.JOURNEY_TRANSIT,
+                confidence=0.95,
+                is_supported_domain=True,
+                requires_external_llm=True
+            )
+
+        # 8. SMALL TALK & CONVERSATIONAL COMPANIONSHIP
+        has_companion_or_conversational_cue = (
+            any(kw in clean_q for kw in cls.COMPANION_KEYWORDS)
+            or any(kw in clean_q for kw in cls.TRAVEL_ANXIETY_KEYWORDS)
+            or any(w in clean_q for w in ["can we talk", "talk to me", "talk with me", "accompany", "feel alone", "feeling alone"])
+        )
+        if has_companion_or_conversational_cue:
+            companion_resp = (
+                "Of course—I can be your digital travel companion and journey partner while you plan and monitor your route. "
+                "I can't physically accompany you or guarantee safety, but I can help you compare routes, "
+                "track transit timing, and stay in this chat with you. Where are you heading today?"
+            )
+            return IntentClassificationResult(
+                intent=AssistantIntent.COMPANION_EMPATHY,
+                confidence=0.95,
+                is_supported_domain=True,
+                requires_external_llm=True,
+                direct_response=companion_resp
+            )
+
         if any(clean_q == kw or clean_q.startswith(kw + " ") or kw in words for kw in cls.SMALL_TALK_KEYWORDS) or any(w in clean_q for w in ["how are you", "how are u"]):
             if any(w in clean_q for w in ["how are you", "how are u"]):
                 greeting_resp = "I'm doing well, thank you for asking! How is your travel planning going today?"
@@ -277,11 +324,12 @@ class AssistantIntentClassifier:
                 greeting_resp = "You are very welcome! Safe travels across Chennai. Let me know if you need route advice or emergency contacts."
             else:
                 greeting_resp = "Hello! I am your NavSakhi travel companion. How can I help you navigate Chennai safely today?"
+
             return IntentClassificationResult(
                 intent=AssistantIntent.SMALL_TALK,
                 confidence=0.90,
                 is_supported_domain=True,
-                requires_external_llm=False,
+                requires_external_llm=True,
                 direct_response=greeting_resp
             )
 

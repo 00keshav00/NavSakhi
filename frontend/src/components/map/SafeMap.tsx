@@ -227,6 +227,15 @@ export const POI_CATEGORY_CONFIG: Record<string, { label: string; icon: string; 
     pinBg: "bg-pink-700",
     pinBorder: "border-pink-400",
   },
+  surveillance: {
+    label: "Surveillance Camera",
+    icon: "📹",
+    bg: "bg-slate-700/90 hover:bg-slate-600",
+    border: "border-slate-500",
+    text: "text-white",
+    pinBg: "bg-slate-700",
+    pinBorder: "border-slate-400",
+  },
 };
 
 interface SafeMapProps {
@@ -541,6 +550,64 @@ export default function SafeMap({
       return 0;
     });
   }, [nearbyPois, layerVisibility, activeCategoryFilters]);
+
+  const { shopClusters, nonClusteredPois } = useMemo(() => {
+    if (!visiblePois || visiblePois.length === 0) {
+      return { shopClusters: [] as { id: string; latitude: number; longitude: number; pois: RoutePOI[] }[], nonClusteredPois: [] as RoutePOI[] };
+    }
+
+    const emergenciesAndLandmarks: RoutePOI[] = [];
+    const commercialPois: RoutePOI[] = [];
+
+    for (const p of visiblePois) {
+      if (p.is_emergency || EMERGENCY_CATEGORIES.has(p.category) || LANDMARK_CATEGORIES.has(p.category)) {
+        emergenciesAndLandmarks.push(p);
+      } else {
+        commercialPois.push(p);
+      }
+    }
+
+    // When zoomed in close (zoom >= 14.5) or very few shops, show each shop individually
+    if (viewState.zoom >= 14.5 || commercialPois.length <= 3) {
+      return {
+        shopClusters: [],
+        nonClusteredPois: [...commercialPois, ...emergenciesAndLandmarks],
+      };
+    }
+
+    // Grid-based clustering with threshold ~300m - 800m depending on zoom level
+    const threshold = viewState.zoom < 12 ? 0.012 : viewState.zoom < 13.5 ? 0.007 : 0.0035;
+    const groups: Record<string, RoutePOI[]> = {};
+
+    for (const p of commercialPois) {
+      const lat = p.latitude ?? (p as any).lat;
+      const lon = p.longitude ?? (p as any).lon;
+      if (typeof lat !== "number" || typeof lon !== "number") continue;
+      const key = `${Math.round(lat / threshold)}_${Math.round(lon / threshold)}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(p);
+    }
+
+    const clustersList: { id: string; latitude: number; longitude: number; pois: RoutePOI[] }[] = [];
+    const singlesList: RoutePOI[] = [...emergenciesAndLandmarks];
+
+    for (const [key, groupPois] of Object.entries(groups)) {
+      if (groupPois.length >= 3) {
+        const avgLat = groupPois.reduce((sum, p) => sum + (p.latitude ?? (p as any).lat), 0) / groupPois.length;
+        const avgLon = groupPois.reduce((sum, p) => sum + (p.longitude ?? (p as any).lon), 0) / groupPois.length;
+        clustersList.push({
+          id: `cluster-${key}`,
+          latitude: avgLat,
+          longitude: avgLon,
+          pois: groupPois,
+        });
+      } else {
+        singlesList.push(...groupPois);
+      }
+    }
+
+    return { shopClusters: clustersList, nonClusteredPois: singlesList };
+  }, [visiblePois, viewState.zoom]);
 
   const toggleCategory = (cat: string) => {
     setActiveCategoryFilters((prev) => {
@@ -963,25 +1030,47 @@ export default function SafeMap({
               </div>
             </div>
 
-            {/* Mapped Shops & Businesses (Yellow Markers) */}
+            {/* Mapped Commercial Shops & Clusters */}
             <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mapped Shops &amp; Businesses</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Commercial Establishments</p>
               <div className="grid grid-cols-1 gap-1 text-[11px]">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-600 ring-2 ring-amber-400/40 shrink-0" />
-                  <span>Mapped Shops &amp; Commercial POIs</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-600 ring-1.5 ring-amber-400/40 shrink-0" />
+                  <span>Mapped Shop (Retail, Cafe, Dining)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/40 shrink-0" />
-                  <span>Open at pass-through time</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-black text-[9px] shrink-0 border border-amber-600">8</span>
+                  <span>Shop Cluster (Click to zoom into group)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 ring-2 ring-rose-500/40 shrink-0" />
-                  <span>Closed at pass-through time</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-emerald-500/70 shrink-0" />
+                  <span>Open at journey pass-through time</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-rose-500/70 shrink-0" />
+                  <span>Closed at journey pass-through time</span>
                 </div>
               </div>
               <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
                 Yellow markers denote ordinary mapped commercial establishments. Mapped presence does not guarantee operating status or safety.
+              </p>
+            </div>
+
+            {/* Surveillance & Activity Zones */}
+            <div className="space-y-1 border-t border-slate-800 pt-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Surveillance &amp; Activity</p>
+              <div className="grid grid-cols-1 gap-1 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">📹</span>
+                  <span>Surveillance Camera (Unverified operation)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 border border-amber-400/60 ring-1 ring-amber-400/30 shrink-0" />
+                  <span>Activity Area (Commercial cluster zone)</span>
+                </div>
+              </div>
+              <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
+                Camera coordinates are mapped physical positions; active monitoring is unverified. Activity zones reflect commercial density, not verified safety.
               </p>
             </div>
 
@@ -1109,8 +1198,45 @@ export default function SafeMap({
           </Marker>
         ))}
 
-        {/* 4C. VERIFIED SAFETY FACILITY & SHOP POI MARKERS */}
-        {visiblePois.map((poi) => {
+        {/* 4C-CLUSTER. COMMERCIAL SHOP CLUSTERS (Zoom < 14.5) */}
+        {layerVisibility.commercial && shopClusters.map((cluster) => (
+          <Marker
+            key={cluster.id}
+            longitude={cluster.longitude}
+            latitude={cluster.latitude}
+            anchor="center"
+            style={{ zIndex: 12 }}
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              mapRef.current?.easeTo({
+                center: [cluster.longitude, cluster.latitude],
+                zoom: Math.min(viewState.zoom + 2, 16),
+                duration: 350,
+              });
+            }}
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                mapRef.current?.easeTo({
+                  center: [cluster.longitude, cluster.latitude],
+                  zoom: Math.min(viewState.zoom + 2, 16),
+                  duration: 350,
+                });
+              }}
+              className="px-1.5 py-0.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] border border-amber-600 shadow-md ring-2 ring-amber-400/40 cursor-pointer transition-transform hover:scale-110 flex items-center gap-1"
+              title={`${cluster.pois.length} commercial establishments clustered nearby. Click to zoom in.`}
+              aria-label={`${cluster.pois.length} mapped shops cluster`}
+            >
+              <Store className="w-2.5 h-2.5 shrink-0" />
+              <span>{cluster.pois.length}</span>
+            </button>
+          </Marker>
+        ))}
+
+        {/* 4C. VERIFIED SAFETY FACILITY & UNCLUSTERED SHOP POI MARKERS */}
+        {nonClusteredPois.map((poi) => {
           const cfg = POI_CATEGORY_CONFIG[poi.category] || {
             label: poi.category,
             icon: "📍",
@@ -1175,23 +1301,23 @@ export default function SafeMap({
                     <div className="w-1.5 h-1.5 rotate-45 bg-fuchsia-700 -mt-1 shadow-sm" />
                   </div>
                 ) : (
-                  /* Distinct, visible yellow/amber circular marker for mapped commercial businesses */
-                  <div className="relative flex items-center justify-center p-2 min-w-[28px] min-h-[28px] cursor-pointer">
+                  /* Refined, compact yellow/amber circular marker for individual mapped commercial businesses */
+                  <div className="relative flex items-center justify-center p-1 min-w-[20px] min-h-[20px] cursor-pointer">
                     <div
                       className={`${
                         viewState.zoom < 13
-                          ? "w-2 h-2"
+                          ? "w-1.5 h-1.5"
                           : viewState.zoom < 15
-                          ? "w-2.5 h-2.5"
-                          : "w-3 h-3"
+                          ? "w-2 h-2"
+                          : "w-2.5 h-2.5"
                       } rounded-full border border-amber-600 bg-amber-400 shadow-sm transition-transform ${
                         isSelected
-                          ? "ring-4 ring-cyan-400 scale-150 bg-cyan-400 border-cyan-500"
+                          ? "ring-4 ring-cyan-400 scale-140 bg-cyan-400 border-cyan-500"
                           : poi.opening_status === "OPEN"
                           ? "ring-2 ring-emerald-500/70"
                           : poi.opening_status === "CLOSED"
                           ? "ring-2 ring-rose-500/70"
-                          : "ring-2 ring-amber-400/50"
+                          : "ring-1.5 ring-amber-400/40"
                       }`}
                     />
                   </div>
@@ -1201,7 +1327,7 @@ export default function SafeMap({
           );
         })}
 
-        {/* 4C2. MAPPED ACTIVITY ZONES (Priority C: Calm overlays without shop counts) */}
+        {/* 4C2. MAPPED ACTIVITY ZONES (Priority C: Calm translucent boundary overlays without obscuring text pills) */}
         {layerVisibility.activity && (activityZones || []).map((zone) => {
           const isSelected = selectedZone?.zone_id === zone.zone_id;
           return (
@@ -1210,7 +1336,7 @@ export default function SafeMap({
               longitude={zone.longitude}
               latitude={zone.latitude}
               anchor="center"
-              style={{ zIndex: isSelected ? 30 : 8 }}
+              style={{ zIndex: isSelected ? 30 : 6 }}
               onClick={(e) => {
                 e.originalEvent.stopPropagation();
                 handleZoneSelect(zone);
@@ -1223,26 +1349,22 @@ export default function SafeMap({
                   handleZoneSelect(zone);
                 }}
                 className={`group relative flex items-center justify-center cursor-pointer transition-transform focus:outline-none ${
-                  isSelected ? "scale-110 z-30 drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]" : "hover:scale-105"
+                  isSelected ? "scale-110 z-30 drop-shadow-[0_0_12px_rgba(251,191,36,0.9)]" : "hover:scale-105"
                 }`}
-                title={`${zone.name} — ${zone.activity_level.toLowerCase()} activity area`}
+                title={`${zone.name} — ${zone.activity_level.toLowerCase()} activity area (${zone.shop_count} mapped shops)`}
                 aria-label={zone.name}
               >
                 <div
-                  className={`absolute rounded-full opacity-10 motion-safe:animate-pulse pointer-events-none ${
-                    zone.activity_level === "HIGH" ? "w-16 h-16 bg-amber-400" : "w-12 h-12 bg-blue-400"
+                  className={`rounded-full border transition-all pointer-events-none ${
+                    zone.activity_level === "HIGH"
+                      ? isSelected
+                        ? "w-20 h-20 bg-amber-400/20 border-amber-400/80 ring-4 ring-amber-400/40"
+                        : "w-16 h-16 bg-amber-400/10 border-amber-400/40 ring-2 ring-amber-400/20"
+                      : isSelected
+                      ? "w-16 h-16 bg-blue-400/20 border-blue-400/80 ring-4 ring-blue-400/40"
+                      : "w-12 h-12 bg-blue-400/10 border-blue-400/40 ring-2 ring-blue-400/20"
                   }`}
                 />
-                <div
-                  className={`px-2 py-0.5 rounded-full bg-slate-950/90 border shadow-md text-[9.5px] font-semibold flex items-center gap-1 backdrop-blur-xs ring-1 ring-black/30 ${
-                    isSelected
-                      ? "border-amber-400 text-amber-200 ring-amber-400/50"
-                      : "border-amber-400/50 text-amber-300"
-                  }`}
-                >
-                  <span className="text-[10px]">✨</span>
-                  <span>{zone.activity_level === "HIGH" ? "High activity" : "Activity area"}</span>
-                </div>
               </button>
             </Marker>
           );

@@ -67,7 +67,8 @@ export const useRegister = () => {
           description: "Welcome to NavSakhi — Safer Journeys • Stronger Women.",
         });
 
-        // Navigate to requested destination safely or default to /home
+        // Refresh server-side router state to ensure middleware has immediate visibility of the new cookies
+        router.refresh();
         const targetParam = customRedirect || searchParams.get("redirect");
         const safeTarget = getSafeRedirectUrl(targetParam, "/home");
         router.push(safeTarget);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { weatherService } from "@/api/services/weatherService";
 import { LiveWeatherData } from "@/types/weather";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ export function useWeather() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [permissionState, setPermissionState] = useState<LocationPermissionState>("PROMPT");
   const [error, setError] = useState<string | null>(null);
+  const lastFetchedKeyRef = useRef<string | null>(null);
 
   // Load saved location on mount
   useEffect(() => {
@@ -39,7 +40,12 @@ export function useWeather() {
     }
   }, []);
 
-  const fetchWeatherForLocation = useCallback(async (loc: WeatherLocation) => {
+  const fetchWeatherForLocation = useCallback(async (loc: WeatherLocation, force: boolean = false) => {
+    const key = `${loc.latitude.toFixed(2)}_${loc.longitude.toFixed(2)}`;
+    if (!force && lastFetchedKeyRef.current === key && weather) {
+      return;
+    }
+    lastFetchedKeyRef.current = key;
     setIsLoading(true);
     setError(null);
     try {
@@ -56,7 +62,7 @@ export function useWeather() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [weather]);
 
   // Fetch when location is set or changes
   useEffect(() => {
@@ -126,7 +132,7 @@ export function useWeather() {
 
   const refresh = useCallback(() => {
     if (location) {
-      fetchWeatherForLocation(location);
+      fetchWeatherForLocation(location, true);
     } else {
       requestDeviceLocation();
     }

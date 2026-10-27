@@ -8,6 +8,7 @@ import time
 import datetime
 import logging
 import asyncio
+import math
 from typing import Dict, Any, Optional, Tuple, List
 import httpx
 
@@ -63,6 +64,20 @@ class WeatherService:
 
     def _interpret_wmo(self, code: int) -> Tuple[str, str]:
         return WMO_INTERPRETATION.get(code, ("Fair", "partly-cloudy"))
+
+    def _get_best_cached_observation(self, lat: float, lon: float) -> Optional[Tuple[float, LiveWeatherResponse]]:
+        """Finds exact match or closest verified observation within Chennai metropolitan region (~35km)."""
+        cache_key = (round(lat, 2), round(lon, 2))
+        if cache_key in self._last_valid_observation:
+            return self._last_valid_observation[cache_key]
+        best_dist = float('inf')
+        best_entry = None
+        for (c_lat, c_lon), entry in self._last_valid_observation.items():
+            dist = math.hypot(c_lat - lat, c_lon - lon)
+            if dist < best_dist and dist <= 0.35:
+                best_dist = dist
+                best_entry = entry
+        return best_entry
 
     async def reverse_geocode(self, lat: float, lon: float) -> ReverseGeocodeResponse:
         """Resolves GPS coordinates to clean city and locality name via Nominatim."""
@@ -154,24 +169,25 @@ class WeatherService:
         rate_limit_elapsed = now - self._last_rate_limit_time
         if rate_limit_elapsed < self._rate_limit_cooldown:
             remaining_cooldown = max(0, int(self._rate_limit_cooldown - rate_limit_elapsed))
-            if cache_key in self._last_valid_observation:
-                _, valid_obs = self._last_valid_observation[cache_key]
+            cached_tuple = self._get_best_cached_observation(lat, lon)
+            if cached_tuple is not None:
+                _, valid_obs = cached_tuple
                 res = valid_obs.model_copy()
                 res.cached = True
+                res.status = "AVAILABLE"
                 res.cache_expires_in_seconds = remaining_cooldown
+                res.warnings = [
+                    f"Live weather provider rate-limited. Displaying verified cached observation from {res.observation_timestamp}."
+                ]
                 if location_name:
                     res.location_name = location_name
                 return res
 
-            # Resolve location name if omitted and no valid cache exists
-            resolved_name = location_name
-            if not resolved_name or resolved_name == "Selected Location":
-                geo = await self.reverse_geocode(lat, lon)
-                resolved_name = geo.display_name
-
+            # Resolve location name without triggering fresh network calls during cooldown
+            resolved_name = location_name or f"Chennai ({lat:.2f}, {lon:.2f})"
             unavail = self._build_unavailable_response(
                 lat, lon, resolved_name, status="RATE_LIMITED",
-                warning="Open-Meteo API rate limit reached. Please retry in a few moments.",
+                warning=f"Open-Meteo API rate limit reached. Next retry permitted in {remaining_cooldown}s.",
                 cached=True,
                 cache_expires_in_seconds=remaining_cooldown
             )
@@ -338,12 +354,26 @@ class WeatherService:
                     return response
                 elif resp.status_code == 429:
                     logger.warning("Open-Meteo API rate limit reached.")
+                    retry_after_hdr = resp.headers.get("retry-after") or resp.headers.get("Retry-After")
+                    cooldown = self._rate_limit_cooldown
+                    if retry_after_hdr:
+                        try:
+                            cooldown = max(float(retry_after_hdr), 5.0)
+                        except (ValueError, TypeError):
+                            pass
+                    self._rate_limit_cooldown = cooldown
                     self._last_rate_limit_time = now
-                    if cache_key in self._last_valid_observation:
-                        _, valid_obs = self._last_valid_observation[cache_key]
+
+                    cached_tuple = self._get_best_cached_observation(lat, lon)
+                    if cached_tuple is not None:
+                        _, valid_obs = cached_tuple
                         res = valid_obs.model_copy()
                         res.cached = True
-                        res.cache_expires_in_seconds = self._negative_cache_ttl
+                        res.status = "AVAILABLE"
+                        res.cache_expires_in_seconds = int(cooldown)
+                        res.warnings = [
+                            f"Live weather provider rate-limited. Displaying verified cached observation from {res.observation_timestamp}."
+                        ]
                         if location_name:
                             res.location_name = location_name
                         self._weather_cache[cache_key] = (now, res)
@@ -353,9 +383,9 @@ class WeatherService:
 
                     unavail = self._build_unavailable_response(
                         lat, lon, resolved_name, status="RATE_LIMITED",
-                        warning="Open-Meteo API rate limit reached. Please retry in a few moments.",
+                        warning=f"Open-Meteo API rate limit reached. Next retry permitted in {int(cooldown)}s.",
                         cached=False,
-                        cache_expires_in_seconds=self._negative_cache_ttl
+                        cache_expires_in_seconds=int(cooldown)
                     )
                     self._weather_cache[cache_key] = (now, unavail)
                     if my_future is not None and not my_future.done():

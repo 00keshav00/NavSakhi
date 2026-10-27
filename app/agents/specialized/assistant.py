@@ -11,11 +11,34 @@ class AssistantAgent(BaseSpecializedAgent):
     async def execute(self, context: Dict[str, Any], **kwargs) -> Any:
         query = context.get("query")
         poi_data = None
-        if query and any(kw in str(query).lower() for kw in ["shop", "store", "pharmacy", "hospital", "clinic", "supermarket", "cafe", "restaurant", "atm"]):
+        query_str = str(query or "").lower()
+        poi_keywords = [
+            "shop", "store", "pharmaci", "pharmacy", "medical", "chemist", "medicine",
+            "hospital", "clinic", "supermarket", "grocery", "cafe", "coffee",
+            "restaurant", "atm", "bank", "food", "fuel", "police", "facility", "facilities"
+        ]
+        if query_str and any(kw in query_str for kw in poi_keywords):
+            inferred_cat = context.get("category")
+            if not inferred_cat:
+                if any(k in query_str for k in ["pharmaci", "pharmacy", "chemist", "medicin"]):
+                    inferred_cat = "pharmacy"
+                elif any(k in query_str for k in ["hospital", "emergency"]):
+                    inferred_cat = "hospital"
+                elif any(k in query_str for k in ["clinic", "doctor"]):
+                    inferred_cat = "clinic"
+                elif any(k in query_str for k in ["police", "cop"]):
+                    inferred_cat = "police"
+                elif any(k in query_str for k in ["cafe", "coffee", "tea"]):
+                    inferred_cat = "cafe"
+                elif any(k in query_str for k in ["restaurant", "food", "dine"]):
+                    inferred_cat = "restaurant"
+                elif any(k in query_str for k in ["atm", "bank"]):
+                    inferred_cat = "bank_atm"
+
             try:
                 poi_data = await self.poi_tool.execute({
                     "place": context.get("place") or context.get("location_name"),
-                    "category": context.get("category"),
+                    "category": inferred_cat,
                     "lon": context.get("lon"),
                     "lat": context.get("lat")
                 })

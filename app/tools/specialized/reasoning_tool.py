@@ -3,7 +3,7 @@ import re
 import httpx
 import json
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from app.tools.base import BaseTool, ToolMetadata
 
 logger = logging.getLogger(__name__)
@@ -41,12 +41,13 @@ def build_sanitized_chat_payload(
     active_journey: Any = None,
     history: Optional[List[Dict[str, Any]]] = None,
     grounded_pois: Optional[List[Dict[str, Any]]] = None,
-    poi_location_name: Optional[str] = None
+    poi_location_name: Optional[str] = None,
+    coord_match: Optional[Tuple[float, float]] = None
 ) -> Dict[str, Any]:
     """
     Constructs an outbound payload for conversational Gemini requests,
     guaranteeing no raw coordinates, geometry, or credentials are leaked.
-    Incorporates recent conversation history and grounded POI records.
+    Incorporates recent conversation history, coordinates context, and grounded POI records.
     """
     clean_query = sanitize_privacy_context(query)
     dest_name = getattr(active_journey, "destination_name", None) or "destination"
@@ -104,7 +105,10 @@ def build_sanitized_chat_payload(
         "and suggest sitting near the conductor/women's section without triggering a false emergency alarm.\n"
         "   - If facing acute danger, being followed, or in distress: prioritize immediate physical safety, advise moving into a staffed shop/metro counter, "
         "and provide emergency helplines: 112 (National Emergency) and 1091 (Women Helpline).\n"
-        "4. HONESTY: Do NOT claim to be human or promise physical in-person protection. Never invent transit schedules or fares.\n"
+        "4. HONESTY & COORDINATES:\n"
+        "   - Do NOT claim to be human or promise physical in-person protection. Never invent transit schedules or fares.\n"
+        "   - If coordinates are shared alone without a question, acknowledge the coordinates and ask what the user would like to find near them (e.g. shops, pharmacies, hospitals, or transit routes).\n"
+        f"{f'   - The user shared coordinates ({coord_match[0]:.4f}, {coord_match[1]:.4f}). Directly acknowledge receiving ({coord_match[0]:.4f}, {coord_match[1]:.4f}) and ask what they would like to find near them.' if coord_match else ''}\n"
         "5. READABLE FORMATTING: Use clean, human-friendly Markdown: short paragraphs, bullet points, clear bolding (**bold**), and numbered steps if helpful."
     )
     return {"contents": [{"parts": [{"text": prompt}]}]}
@@ -436,6 +440,24 @@ class ReasoningTool(BaseTool):
         ]
         is_poi_query = bool(query and any(re.search(r'\b' + re.escape(kw) + r'\b', query.lower()) for kw in poi_keywords))
 
+        # Check if query consists of coordinate pairs (e.g. "13.0418, 80.2337")
+        coord_match = None
+        if query:
+            c_pattern = r'^\s*(?:lat(?:itude)?\s*[:=]?\s*)?([+-]?(?:[1-8]?\d(?:\.\d+)?|90(?:\.0+)?))\s*,\s*(?:lon(?:gitude)?\s*[:=]?\s*)?([+-]?(?:180(?:\.0+)?|(?:1[0-7]\d|[1-9]?\d)(?:\.\d+)?))\s*$'
+            cm = re.search(c_pattern, query.strip(), re.IGNORECASE)
+            if cm:
+                v1, v2 = float(cm.group(1)), float(cm.group(2))
+                if 11.0 <= v1 <= 15.0 and 78.0 <= v2 <= 82.0:
+                    coord_match = (v1, v2)
+                elif 11.0 <= v2 <= 15.0 and 78.0 <= v1 <= 82.0:
+                    coord_match = (v2, v1)
+                else:
+                    coord_match = (v1, v2)
+
+        # Check Gemini availability for conversational routing
+        active_api_key = get_gemini_api_key()
+        gemini_online = bool(active_api_key and active_api_key.strip() and not is_gemini_in_rate_limit_cooldown())
+
         # Intent classification & local travel-companion handling
         intent_category = IntentCategory.JOURNEY_TRANSIT
         intent_result = None
@@ -443,8 +465,8 @@ class ReasoningTool(BaseTool):
             intent_result = global_intent_classifier.classify(query, history=history)
             intent_category = intent_result.intent
 
-            # Small talk or off-topic with deterministic companion response (unless seeking POIs)
-            if not is_poi_query and not intent_result.requires_external_llm and intent_result.direct_response:
+            # Off-topic general queries always receive concise deterministic capsule with redirection
+            if intent_category == IntentCategory.OFF_TOPIC and intent_result.direct_response:
                 return {
                     "summary": intent_result.direct_response,
                     "reasoning": [f"Handled deterministically by NavSakhi Travel Companion ({intent_category.value})."],
@@ -458,6 +480,24 @@ class ReasoningTool(BaseTool):
                     "attempt_count": 0,
                     "provider_latency_ms": 0.0,
                     "outcome_category": "skipped",
+                    "correlation_id": correlation_id
+                }
+
+            # If query does not require external LLM and has a direct response (or Gemini is offline/unconfigured), return deterministic response
+            if (not intent_result.requires_external_llm or not gemini_online) and not is_poi_query and not coord_match and intent_result.direct_response:
+                return {
+                    "summary": intent_result.direct_response,
+                    "reasoning": [f"Handled deterministically by NavSakhi Travel Companion ({intent_category.value})."],
+                    "provider": "local_companion",
+                    "intent": intent_category.value,
+                    "ai_status": "OFFLINE_DETERMINISTIC",
+                    "response_source": "rule_based" if not is_gemini_in_rate_limit_cooldown() else "fallback",
+                    "intent_category": intent_category.value,
+                    "gemini_attempted": False,
+                    "model_identifier": None,
+                    "attempt_count": 0,
+                    "provider_latency_ms": 0.0,
+                    "outcome_category": "skipped" if not is_gemini_in_rate_limit_cooldown() else "rate_limited",
                     "correlation_id": correlation_id
                 }
 
@@ -525,6 +565,13 @@ class ReasoningTool(BaseTool):
                     dest_n = getattr(active_journey, "destination_name", "your active route")
                     poi_location_label = f"corridor towards {dest_n}"
 
+        elif coord_match:
+            c_lat, c_lon = coord_match
+            from app.services.poi_service import get_poi_service
+            point_res = get_poi_service().query_pois_near_point(c_lon, c_lat, radius_m=1200.0, max_results=8)
+            grounded_pois = point_res.get("pois", [])
+            poi_location_label = f"coordinates ({c_lat:.4f}, {c_lon:.4f})"
+
         # Deterministic fallback summary tailored to intent
         if grounded_pois:
             lines = []
@@ -538,10 +585,26 @@ class ReasoningTool(BaseTool):
                 lines.append(f"- **{p_name}** ({p_cat}): ~{p_dist}m away &bull; Hours: {p_hours}{status_desc}")
 
             loc_txt = f" near **{poi_location_label}**" if poi_location_label else ""
+            if coord_match:
+                c_lat, c_lon = coord_match
+                fallback_summary = (
+                    f"I received coordinates **({c_lat:.4f}, {c_lon:.4f})**. What would you like to find near here? "
+                    f"(For example: open pharmacies, hospitals, commercial shops, or route navigation).\n\n"
+                    f"Here are nearest mapped establishments found near these coordinates in Chennai:\n\n"
+                    + "\n".join(lines)
+                    + "\n\n*(Note: These records are sourced from OpenStreetMap. Commercial businesses provide public street activity, but are not verified emergency shelters or police checkpoints.)*"
+                )
+            else:
+                fallback_summary = (
+                    f"Here are mapped establishments found{loc_txt} in Chennai:\n\n"
+                    + "\n".join(lines)
+                    + "\n\n*(Note: These records are sourced from OpenStreetMap. Commercial businesses provide public street activity, but are not verified emergency shelters or police checkpoints.)*"
+                )
+        elif coord_match and not grounded_pois:
+            c_lat, c_lon = coord_match
             fallback_summary = (
-                f"Here are mapped establishments found{loc_txt} in Chennai:\n\n"
-                + "\n".join(lines)
-                + "\n\n*(Note: These records are sourced from OpenStreetMap. Commercial businesses provide public street activity, but are not verified emergency shelters or police checkpoints.)*"
+                f"I received coordinates **({c_lat:.4f}, {c_lon:.4f})**. No mapped establishments were found within 1.2km in our Chennai dataset. "
+                "What would you like to find near here, or would you like to plan a route from this location?"
             )
         elif poi_location_label and not grounded_pois:
             fallback_summary = (
@@ -624,13 +687,17 @@ class ReasoningTool(BaseTool):
         api_key = get_gemini_api_key()
         if not api_key or not api_key.strip():
             logger.info("GEMINI_API_KEY not configured; using verified conversational/infrastructure fallback.")
+            is_rule_based_eligible = (
+                intent_result is not None
+                and intent_result.intent in [IntentCategory.SMALL_TALK, IntentCategory.OFF_TOPIC]
+            )
             return {
                 "summary": fallback_summary,
                 "reasoning": fallback_reasoning,
-                "provider": "local_fallback",
+                "provider": "local_companion" if is_rule_based_eligible else "local_fallback",
                 "intent": intent_category.value,
-                "ai_status": "CONFIG_MISSING_FALLBACK",
-                "response_source": "fallback",
+                "ai_status": "OFFLINE_DETERMINISTIC" if is_rule_based_eligible else "CONFIG_MISSING_FALLBACK",
+                "response_source": "rule_based" if is_rule_based_eligible else "fallback",
                 "intent_category": intent_category.value,
                 "gemini_attempted": False,
                 "model_identifier": None,
@@ -667,7 +734,8 @@ class ReasoningTool(BaseTool):
                 active_journey=active_journey,
                 history=history,
                 grounded_pois=grounded_pois,
-                poi_location_name=poi_location_label
+                poi_location_name=poi_location_label,
+                coord_match=coord_match
             )
         else:
             clean_decision = sanitize_privacy_context(str(decision))

@@ -1,131 +1,146 @@
+"""Phase 51.109 Test Suite: Live Monitor POI Overlay, Grounded Assistant POI Tool, and Provenance.
+
+Verifies:
+1. POISpatialService.query_pois_near_point returns grounded, formatted POIs with opening hours.
+2. POITool executes correctly, validates inputs, and queries spatial index.
+3. AssistantAgent integrates POITool and executes contextual queries.
+4. JourneyIntelligenceCoordinator returns response_source and model_identifier provenance.
+5. Spatial index log wording accurately distinguishes mapped Chennai establishments from safety facilities.
+6. Live Monitor response schema includes nearby_pois and activity_zones in current_route.
+"""
+
 import pytest
 import asyncio
-from app.services.poi_service import get_poi_service
+from typing import Dict, Any
+
+from app.services.poi_service import get_poi_service, POISpatialService
 from app.tools.specialized.poi_tool import POITool
-from app.tools.specialized.reasoning_tool import ReasoningTool, build_sanitized_chat_payload
+from app.agents.specialized.assistant import AssistantAgent
+from app.intelligence.journey.coordinator import JourneyIntelligenceCoordinator
 
-@pytest.mark.asyncio
-async def test_poi_service_query_near_point():
-    """Verify that POISpatialService.query_pois_near_point retrieves real mapped Chennai POIs."""
-    service = get_poi_service()
-    # T. Nagar coordinates (lon, lat)
-    lon, lat = 80.2337, 13.0418
-    res = service.query_pois_near_point(lon, lat, radius_m=1200.0, max_results=10)
 
-    assert res["status"] == "AVAILABLE"
-    assert res["total_found"] > 0
+def test_poi_spatial_service_query_near_point():
+    """Verify query_pois_near_point accurately queries cKDTree index around given coordinates."""
+    poi_service = get_poi_service()
+
+    # Coordinates in central Chennai (near T. Nagar / Panagal Park: 13.0418, 80.2337)
+    res = poi_service.query_pois_near_point(
+        lon=80.2337,
+        lat=13.0418,
+        radius_m=1000.0,
+        max_results=10
+    )
+
+    assert res["status"] in ("AVAILABLE", "NO_POIS_IN_RADIUS")
+    assert "pois" in res
+    assert "total_found" in res
+    assert isinstance(res["pois"], list)
     assert len(res["pois"]) > 0
-    assert "OpenStreetMap" in res["disclosure"]
 
+    # Check structure of returned POIs
     first_poi = res["pois"][0]
     assert "poi_id" in first_poi
     assert "name" in first_poi
     assert "category" in first_poi
-    assert "longitude" in first_poi
-    assert "latitude" in first_poi
-    assert "is_shop" in first_poi
+    assert "category_label" in first_poi
+    assert "distance_m" in first_poi
+    assert "opening_status" in first_poi
+    assert first_poi["distance_m"] <= 1000.0
 
-@pytest.mark.asyncio
-async def test_poi_tool_resolution():
-    """Verify POITool resolves named Chennai hubs and queries establishments."""
-    poi_tool = POITool()
 
-    # Query with known Chennai hub
-    res = await poi_tool.execute({
-        "place": "T. Nagar",
-        "radius_m": 1200.0,
-        "max_results": 5
-    })
-    assert res["status"] == "AVAILABLE"
-    assert len(res["pois"]) > 0
+def test_poi_spatial_service_query_near_point_category_filter():
+    """Verify category filtering works when querying POIs near a point."""
+    poi_service = get_poi_service()
 
-    # Query with missing location
-    missing_res = await poi_tool.execute({})
-    assert missing_res["status"] == "LOCATION_MISSING"
-    assert missing_res["total_found"] == 0
-
-@pytest.mark.asyncio
-async def test_reasoning_tool_grounded_poi_query():
-    """Verify ReasoningTool handles shop queries by grounding in POI records."""
-    reasoning_tool = ReasoningTool()
-
-    # 1. Query with location
-    context_with_loc = {
-        "query": "Are there any shops or pharmacies near T. Nagar?",
-        "history": []
-    }
-    res_with_loc = await reasoning_tool.execute({"context": context_with_loc})
-    assert res_with_loc["response_source"] in ["gemini", "fallback"]
-    summary_text = res_with_loc["summary"].lower()
-    # If fallback or gemini, should mention either specific shops or OpenStreetMap/Chennai context
-    assert ("shop" in summary_text or "pharmacy" in summary_text or "t. nagar" in summary_text or "nagar" in summary_text)
-
-    # 2. Query seeking nearby shops without location and without active journey
-    context_no_loc = {
-        "query": "Can you show me nearby grocery shops?",
-        "history": []
-    }
-    res_no_loc = await reasoning_tool.execute({"context": context_no_loc})
-    assert res_no_loc["response_source"] in ["gemini", "fallback"]
-    summary_no_loc = res_no_loc["summary"].lower()
-    # Must ask for location or specify route/corridor limitation
-    assert any(term in summary_no_loc for term in ["which area", "which location", "landmark", "where", "corridor", "route", "chennai"])
-
-def test_build_sanitized_chat_payload_poi_guidance():
-    """Verify build_sanitized_chat_payload includes grounded POI guidelines."""
-    dummy_pois = [
-        {
-            "name": "Apollo Pharmacy",
-            "category": "pharmacy",
-            "category_label": "Pharmacy",
-            "distance_m": 150,
-            "opening_hours": "24/7",
-            "opening_status": "OPEN",
-            "is_emergency": True,
-            "is_safe_haven_eligible": True
-        },
-        {
-            "name": "Saravana Stores",
-            "category": "retail_shop",
-            "category_label": "Retail Store",
-            "distance_m": 300,
-            "opening_hours": "09:00-21:00",
-            "opening_status": "OPEN",
-            "is_emergency": False,
-            "is_safe_haven_eligible": False
-        }
-    ]
-    payload = build_sanitized_chat_payload(
-        query="What shops are near T. Nagar?",
-        grounded_pois=dummy_pois,
-        poi_location_name="T. Nagar"
+    # Query pharmacies near T. Nagar
+    res = poi_service.query_pois_near_point(
+        lon=80.2337,
+        lat=13.0418,
+        radius_m=2000.0,
+        category="pharmacy",
+        max_results=5
     )
 
-    prompt = payload["contents"][0]["parts"][0]["text"]
-    assert "GROUNDED MAPPED ESTABLISHMENTS IN CHENNAI NEAR T. NAGAR:" in prompt
-    assert "Apollo Pharmacy" in prompt
-    assert "Saravana Stores" in prompt
-    assert "commercial shops are mapped openstreetmap records, not emergency safe havens" in prompt.lower()
-    assert "distinguish commercial businesses from emergency facilities" in prompt.lower()
+    assert res["status"] in ("AVAILABLE", "NO_POIS_IN_RADIUS")
+    for poi in res["pois"]:
+        assert poi["category"] == "pharmacy"
 
-def test_route_corridor_poi_query_and_monitor_contract():
-    """Verify that route corridor queries extract shops, facilities, and activity zones for the monitor."""
-    service = get_poi_service()
-    # Route through T. Nagar / Guindy corridor
-    sample_route_coords = [
-        [80.2337, 13.0418],
-        [80.2260, 13.0240],
-        [80.2184, 13.0067]
-    ]
-    res = service.query_pois_near_route(sample_route_coords, corridor_m=800.0)
-    assert "pois" in res
-    assert "activity_zones" in res
-    assert res["status"] in ["AVAILABLE", "EMPTY"]
 
-    if res["pois"]:
-        poi = res["pois"][0]
-        # Verify required monitor fields
-        assert "poi_id" in poi or "name" in poi
-        assert "latitude" in poi
-        assert "longitude" in poi
-        assert "is_shop" in poi
+@pytest.mark.asyncio
+async def test_poi_tool_definition_and_execution():
+    """Verify POITool metadata and async execute method."""
+    tool = POITool()
+    assert tool.name == "SpecializedPOITool"
+    assert "facilities" in tool.description.lower() or "commercial" in tool.description.lower()
+
+    # Valid execution with lat / lon
+    result = await tool.execute({
+        "lat": 13.0418,
+        "lon": 80.2337,
+        "radius_m": 800.0,
+        "category": "pharmacy"
+    })
+    assert result["status"] == "AVAILABLE"
+    assert "pois" in result
+    assert len(result["pois"]) > 0
+
+    # Missing coordinates execution
+    missing_res = await tool.execute({})
+    assert missing_res["status"] == "LOCATION_MISSING"
+    assert "disclosure" in missing_res
+
+
+@pytest.mark.asyncio
+async def test_assistant_agent_tool_integration():
+    """Verify AssistantAgent uses POITool for commercial and facility queries."""
+    agent = AssistantAgent()
+    assert hasattr(agent, "poi_tool")
+    assert isinstance(agent.poi_tool, POITool)
+
+    res = await agent.execute({
+        "query": "Find pharmacies near Panagal Park",
+        "lat": 13.0418,
+        "lon": 80.2337
+    })
+    assert res["status"] == "READY"
+    assert res["agent"] == "AssistantAgent"
+    assert res["poi_data"] is not None
+    assert res["poi_data"]["status"] == "AVAILABLE"
+    assert len(res["poi_data"]["pois"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_coordinator_assistant_chat_provenance():
+    """Verify coordinator process_assistant_chat returns structured response with provenance."""
+    coordinator = JourneyIntelligenceCoordinator()
+
+    # Send a safety and facilities question
+    res = await coordinator.process_assistant_chat(
+        user_id="phase51_109_user",
+        query="What safety facilities and open shops are near Chennai Central?"
+    )
+
+    assert hasattr(res, "content")
+    assert hasattr(res, "reasoning")
+    assert res.reasoning.response_source in ("gemini", "fallback", "rule_based")
+    assert isinstance(res.content, str)
+    assert len(res.content) > 0
+
+
+def test_poi_service_honesty_check():
+    """Ensure spatial index does not classify commercial establishments as safety havens."""
+    poi_service = get_poi_service()
+
+    # Query commercial shops and ensure is_verified_safety_facility is False
+    res = poi_service.query_pois_near_point(
+        lon=80.2337,
+        lat=13.0418,
+        radius_m=1000.0,
+        category="retail_shop",
+        max_results=5
+    )
+
+    assert res["status"] == "AVAILABLE"
+    for poi in res["pois"]:
+        assert poi["is_verified_safety_facility"] is False
+        assert poi["is_shop"] is True

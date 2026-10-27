@@ -280,7 +280,9 @@ async def monitor_journey(
             if route_coords:
                 try:
                     from app.services.poi_service import get_poi_service
-                    poi_res = get_poi_service().query_pois_near_route(route_coords, corridor_m=800.0)
+                    poi_res = get_poi_service().query_pois_near_route(
+                        route_coords, corridor_m=800.0, max_pois_per_category=25, max_total_pois=150
+                    )
                     raw_pois = poi_res.get("pois", [])
                     if not activity_zones:
                         activity_zones = poi_res.get("activity_zones", [])

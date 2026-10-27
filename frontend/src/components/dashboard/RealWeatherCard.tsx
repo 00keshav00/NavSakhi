@@ -214,17 +214,19 @@ export function RealWeatherCard() {
   }
 
   // 4. Data-Driven Weather Card
-  const isAvailable = weather?.available !== false && weather?.status !== "UNAVAILABLE" && weather?.status !== "RATE_LIMITED";
-  const tempVal = isAvailable && typeof weather?.temperature === "number" ? Math.round(weather.temperature) : null;
-  const apparentVal = isAvailable && typeof weather?.apparent_temperature === "number" ? Math.round(weather.apparent_temperature) : tempVal;
-  const conditionLabel = isAvailable
+  const hasValidMeasurements = typeof weather?.temperature === "number" && (weather?.weather_code ?? -1) >= 0;
+  const isAvailable = weather?.available !== false && (hasValidMeasurements || (weather?.status !== "UNAVAILABLE" && weather?.status !== "RATE_LIMITED"));
+  const isRateLimited = weather?.status === "RATE_LIMITED";
+  const tempVal = hasValidMeasurements ? Math.round(weather.temperature) : null;
+  const apparentVal = hasValidMeasurements && typeof weather?.apparent_temperature === "number" ? Math.round(weather.apparent_temperature) : tempVal;
+  const conditionLabel = hasValidMeasurements
     ? (weather?.condition || "Clear")
-    : (weather?.status === "RATE_LIMITED" ? "Provider Rate Limited" : "Weather Unavailable");
-  const humidityVal = isAvailable && typeof weather?.humidity === "number" ? weather.humidity : null;
-  const windVal = isAvailable && typeof weather?.wind_speed === "number" ? Math.round(weather.wind_speed) : null;
-  const rainVal = isAvailable && typeof weather?.precipitation === "number" ? weather.precipitation : null;
-  const uvVal = isAvailable && typeof weather?.uv_index === "number" ? Math.round(weather.uv_index) : null;
-  const uvMaxVal = isAvailable && typeof weather?.uv_index_max === "number" ? Math.round(weather.uv_index_max) : null;
+    : (isRateLimited ? "Provider Rate Limited" : "Weather Unavailable");
+  const humidityVal = hasValidMeasurements && typeof weather?.humidity === "number" ? weather.humidity : null;
+  const windVal = hasValidMeasurements && typeof weather?.wind_speed === "number" ? Math.round(weather.wind_speed) : null;
+  const rainVal = hasValidMeasurements && typeof weather?.precipitation === "number" ? weather.precipitation : null;
+  const uvVal = hasValidMeasurements && typeof weather?.uv_index === "number" ? Math.round(weather.uv_index) : null;
+  const uvMaxVal = hasValidMeasurements && typeof weather?.uv_index_max === "number" ? Math.round(weather.uv_index_max) : null;
   const uvDescriptor = uvVal !== null
     ? (uvVal >= 8 ? "Very High" : uvVal >= 6 ? "High" : uvVal >= 3 ? "Moderate" : uvVal > 0 ? "Low" : "Minimal / Night")
     : "--";
@@ -250,9 +252,14 @@ export function RealWeatherCard() {
             {weather?.cached && (
               <span className="px-1.5 py-0.5 rounded bg-secondary/80 text-[10px] text-muted-foreground border border-border/40 font-medium">Cached</span>
             )}
-            {!isAvailable && (
+            {isRateLimited && hasValidMeasurements && (
               <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] border border-amber-500/20 font-medium">
-                {weather?.status === "RATE_LIMITED" ? "Rate Limited" : "Offline"}
+                Cached (Rate Limited)
+              </span>
+            )}
+            {!hasValidMeasurements && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] border border-amber-500/20 font-medium">
+                {isRateLimited ? "Rate Limited" : "Offline"}
               </span>
             )}
           </div>

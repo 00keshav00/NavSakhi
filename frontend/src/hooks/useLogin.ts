@@ -27,7 +27,8 @@ export const useLogin = () => {
         description: "Successfully authenticated into NavSakhi.",
       });
       
-      // Navigate to requested destination safely or default to /home
+      // Refresh server-side router state to ensure middleware has immediate visibility of the new cookies
+      router.refresh();
       const targetParam = customRedirect || searchParams.get("redirect");
       const safeTarget = getSafeRedirectUrl(targetParam, "/home");
       router.push(safeTarget);
@@ -52,6 +53,7 @@ export const useLogin = () => {
       toast.success("Test Account Authenticated", {
         description: "Logged in as local development test user.",
       });
+      router.refresh();
       const targetParam = customRedirect || searchParams.get("redirect");
       const safeTarget = getSafeRedirectUrl(targetParam, "/home");
       router.push(safeTarget);

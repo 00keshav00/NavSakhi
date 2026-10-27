@@ -252,8 +252,8 @@ class POISpatialService:
         route_coords: List[List[float]],
         corridor_m: float = 800.0,
         legs: Optional[List[Dict[str, Any]]] = None,
-        max_pois_per_category: int = 6,
-        max_total_pois: int = 35,
+        max_pois_per_category: int = 25,
+        max_total_pois: int = 150,
         total_duration_s: float = 0.0,
         departure_dt: Optional[datetime.datetime] = None,
     ) -> Dict[str, Any]:
@@ -485,31 +485,37 @@ class POISpatialService:
 
         filtered_pois: List[Dict[str, Any]] = []
         category_counts: Dict[str, int] = {}
-        effective_max_per_cat = max(max_pois_per_category, 15)
-        effective_total_max = max(max_total_pois, 75)
+        effective_max_per_cat = max(max_pois_per_category, 25)
+        effective_total_max = max(max_total_pois, 150)
 
-        # Add up to 15 emergency POIs
+        # Dynamic capacity based on effective_total_max
+        max_emergencies = min(35, max(18, int(effective_total_max * 0.20)))
+        max_landmarks = min(30, max(10, int(effective_total_max * 0.15)))
+        max_shops = max(50, effective_total_max - max_emergencies - max_landmarks)
+
+        # 1. Add emergency POIs
         for p in emergency_pois:
             cat = p["category"]
             c_count = category_counts.get(cat, 0)
-            if c_count < effective_max_per_cat and len(filtered_pois) < 18:
+            if c_count < effective_max_per_cat and len(filtered_pois) < max_emergencies:
                 filtered_pois.append(p)
                 category_counts[cat] = c_count + 1
 
-        # Add up to 10 major landmark POIs
+        # 2. Add major landmark POIs
+        landmark_limit = len(filtered_pois) + max_landmarks
         for p in landmark_pois:
             cat = p["category"]
             c_count = category_counts.get(cat, 0)
-            if c_count < effective_max_per_cat and len(filtered_pois) < 28:
+            if c_count < effective_max_per_cat and len(filtered_pois) < landmark_limit:
                 filtered_pois.append(p)
                 category_counts[cat] = c_count + 1
 
-        # Add up to 50 shop POIs (allowing rich coverage for shop-dense corridors like Kandigai)
+        # 3. Add commercial shop POIs (allowing rich coverage for dense shopping districts like T. Nagar & Panagal Park)
         shop_count = 0
         for p in shop_pois:
             cat = p["category"]
             c_count = category_counts.get(cat, 0)
-            if c_count < effective_max_per_cat and shop_count < 50 and len(filtered_pois) < effective_total_max:
+            if c_count < effective_max_per_cat and shop_count < max_shops and len(filtered_pois) < effective_total_max:
                 filtered_pois.append(p)
                 category_counts[cat] = c_count + 1
                 shop_count += 1

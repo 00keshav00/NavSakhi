@@ -99,6 +99,10 @@ class POITool(BaseTool):
             "besant nagar": (80.2670, 13.0000),
             "saidapet": (80.2220, 13.0210),
             "chromepet": (80.1440, 12.9510),
+            "vit chennai": (80.1554, 12.8406),
+            "vit": (80.1554, 12.8406),
+            "kandigai": (80.1450, 12.8360),
+            "panagal park": (80.2337, 13.0418),
         }
         cleaned = place_name.strip().lower()
         for hub, coords in CHENNAI_HUBS.items():
