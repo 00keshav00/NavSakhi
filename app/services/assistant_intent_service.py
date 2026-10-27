@@ -281,7 +281,7 @@ class AssistantIntentClassifier:
                 intent=AssistantIntent.SMALL_TALK,
                 confidence=0.90,
                 is_supported_domain=True,
-                requires_external_llm=True,
+                requires_external_llm=False,
                 direct_response=greeting_resp
             )
 

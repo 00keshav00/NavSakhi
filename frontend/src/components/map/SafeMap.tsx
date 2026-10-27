@@ -1175,23 +1175,23 @@ export default function SafeMap({
                     <div className="w-1.5 h-1.5 rotate-45 bg-fuchsia-700 -mt-1 shadow-sm" />
                   </div>
                 ) : (
-                  /* Priority B2: Substantially Reduced Commercial Dot Marker with Accessible Touch Hit Area */
+                  /* Distinct, visible yellow/amber circular marker for mapped commercial businesses */
                   <div className="relative flex items-center justify-center p-2 min-w-[28px] min-h-[28px] cursor-pointer">
                     <div
                       className={`${
                         viewState.zoom < 13
-                          ? "w-1 h-1"
+                          ? "w-2 h-2"
                           : viewState.zoom < 15
-                          ? "w-1.5 h-1.5"
-                          : "w-2 h-2"
-                      } rounded-full border border-slate-900 shadow-xs transition-transform ${
+                          ? "w-2.5 h-2.5"
+                          : "w-3 h-3"
+                      } rounded-full border border-amber-600 bg-amber-400 shadow-sm transition-transform ${
                         isSelected
-                          ? "ring-4 ring-cyan-400 scale-150 bg-cyan-400"
+                          ? "ring-4 ring-cyan-400 scale-150 bg-cyan-400 border-cyan-500"
                           : poi.opening_status === "OPEN"
-                          ? "bg-emerald-500 ring-1 ring-emerald-500/40"
+                          ? "ring-2 ring-emerald-500/70"
                           : poi.opening_status === "CLOSED"
-                          ? "bg-rose-500 ring-1 ring-rose-500/40"
-                          : "bg-amber-400/90 ring-1 ring-amber-400/30"
+                          ? "ring-2 ring-rose-500/70"
+                          : "ring-2 ring-amber-400/50"
                       }`}
                     />
                   </div>

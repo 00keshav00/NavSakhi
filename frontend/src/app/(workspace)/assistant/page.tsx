@@ -483,6 +483,26 @@ export default function AssistantPage() {
                         <div className="flex items-center gap-2 mt-1.5 px-1">
                           <span className="text-[10px] font-bold text-muted-foreground">{formatMessageTime(msg.timestamp)}</span>
 
+                          {/* Provenance Badge for Assistant Messages */}
+                          {msg.role === "assistant" && msg.response_source && (
+                            msg.response_source === "gemini" ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-[9.5px] font-semibold text-indigo-400">
+                                <Sparkles size={10} className="text-indigo-400" />
+                                Gemini AI
+                              </span>
+                            ) : msg.response_source === "fallback" ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-[9.5px] font-semibold text-amber-500">
+                                <ShieldCheck size={10} className="text-amber-500" />
+                                NavSakhi fallback
+                              </span>
+                            ) : msg.response_source === "rule_based" ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-secondary border border-border text-[9.5px] font-semibold text-muted-foreground">
+                                <Bot size={10} className="text-muted-foreground" />
+                                Rule-based response
+                              </span>
+                            ) : null
+                          )}
+
                           {/* Read Aloud Button for Assistant Messages */}
                           {msg.role === "assistant" && voice.isSynthesisSupported && (
                             <Button

@@ -15,7 +15,9 @@ import { toast } from "sonner";
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const currentTheme = resolvedTheme || theme;
+  const nextTheme = currentTheme === "dark" ? "light" : "dark";
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
 
@@ -246,10 +248,11 @@ export function MobileNav() {
             <div className="pt-2 border-t border-border/50 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                onClick={() => setTheme(nextTheme)}
                 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground py-2"
+                aria-label={`Switch to ${nextTheme === "dark" ? "Dark" : "Light"} Mode`}
               >
-                {theme === "dark" ? (
+                {currentTheme === "dark" ? (
                   <>
                     <Sun size={15} className="text-amber-400" /> Light Mode
                   </>

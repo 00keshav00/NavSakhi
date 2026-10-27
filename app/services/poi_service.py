@@ -242,7 +242,7 @@ class POISpatialService:
 
             self.tree = cKDTree(self.poi_coords_m)
             self.is_loaded = True
-            logger.info(f"Loaded {n} verified safety POIs into spatial index.")
+            logger.info(f"Loaded {n} mapped Chennai POIs and facilities into spatial index.")
         except Exception as e:
             logger.error(f"Failed to load POI dataset: {e}")
             self.is_loaded = False
@@ -564,6 +564,134 @@ class POISpatialService:
             "status": status,
             "total_found": len(filtered_pois),
         }
+
+    def query_pois_near_point(
+        self,
+        lon: float,
+        lat: float,
+        radius_m: float = 1200.0,
+        category: Optional[str] = None,
+        max_results: int = 15,
+        evaluation_dt: Optional[datetime.datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        Queries verified facilities and commercial shops within radius_m of a single geographic point (lon, lat).
+        Used by the AI Assistant to provide grounded, honest answers about nearby facilities and businesses.
+        """
+        import datetime
+        from app.intelligence.journey.opening_hours_parser import evaluate_opening_hours
+
+        if not self.is_loaded or self.tree is None or not self.pois:
+            return {
+                "pois": [],
+                "status": "UNAVAILABLE",
+                "total_found": 0,
+                "disclosure": "POI spatial service is not loaded."
+            }
+
+        if evaluation_dt is None:
+            ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+            evaluation_dt = datetime.datetime.now(ist_tz)
+
+        qx, qy = _to_projected_xy(lon, lat)
+        matched_indices = self.tree.query_ball_point([qx, qy], radius_m)
+
+        if not matched_indices:
+            return {
+                "pois": [],
+                "status": "NOT_FOUND",
+                "total_found": 0,
+                "radius_m": radius_m,
+                "disclosure": "No mapped establishments found within search radius."
+            }
+
+        EMERGENCY_CATEGORIES = {"police", "hospital", "clinic", "pharmacy", "fire_station"}
+        LANDMARK_CATEGORIES = {"mall", "university", "college", "transit_hub", "park", "landmark", "commercial_complex"}
+        SHOP_CATEGORIES = {"convenience", "supermarket", "retail_shop", "food_retail", "restaurant", "cafe", "fast_food", "hotel", "bank_atm", "entertainment"}
+
+        # Normalization for category filter keywords
+        cat_filter = (category or "").strip().lower()
+        cat_aliases = {
+            "pharmacies": "pharmacy", "chemist": "pharmacy", "medicine": "pharmacy", "medical": "pharmacy",
+            "hospitals": "hospital", "clinics": "clinic", "doctor": "clinic", "health": "clinic",
+            "police": "police", "cops": "police", "station": "police",
+            "restaurants": "restaurant", "food": "restaurant", "eatery": "restaurant", "dine": "restaurant",
+            "cafes": "cafe", "cafe": "cafe", "coffee": "cafe", "tea": "cafe",
+            "shops": "shop", "stores": "shop", "supermarkets": "supermarket", "grocery": "supermarket",
+            "groceries": "supermarket", "atms": "bank_atm", "atm": "bank_atm", "banks": "bank_atm",
+            "fuel": "fuel", "petrol": "fuel", "gas": "fuel",
+            "hotel": "hotel", "lodging": "hotel",
+        }
+        normalized_cat = cat_aliases.get(cat_filter, cat_filter)
+
+        results = []
+        for idx in matched_indices:
+            poi = self.pois[idx]
+            p_cat = (poi.get("category") or "retail_shop").lower()
+            p_name = poi.get("name") or "Unnamed Facility"
+
+            # Category filtering
+            if normalized_cat:
+                if normalized_cat == "shop":
+                    if p_cat not in SHOP_CATEGORIES and not poi.get("is_activity_location"):
+                        continue
+                elif normalized_cat == "emergency":
+                    if p_cat not in EMERGENCY_CATEGORIES:
+                        continue
+                elif normalized_cat not in p_cat and normalized_cat not in p_name.lower():
+                    continue
+
+            px = self.poi_coords_m[idx, 0]
+            py = self.poi_coords_m[idx, 1]
+            dist_m = math.hypot(px - qx, py - qy)
+
+            is_emergency = bool(poi.get("is_emergency") or p_cat in EMERGENCY_CATEGORIES)
+            is_landmark = bool(
+                p_cat in LANDMARK_CATEGORIES
+                or any(kw in p_name.lower() for kw in ["mall", "university", "college", "campus", "institute", "park", "central", "interchange"])
+            )
+            is_shop = bool((not is_emergency) and p_cat not in ["surveillance", "surveillance_camera"] and (p_cat in SHOP_CATEGORIES or poi.get("is_activity_location", False)))
+
+            raw_hours = poi.get("opening_hours")
+            status_eval = evaluate_opening_hours(raw_hours, evaluation_dt)
+            opening_status = status_eval.value
+
+            results.append({
+                "poi_id": poi.get("poi_id"),
+                "name": p_name,
+                "category": p_cat,
+                "category_label": poi.get("category_label", p_cat.replace("_", " ").title()),
+                "latitude": poi.get("latitude") if poi.get("latitude") is not None else poi.get("lat"),
+                "longitude": poi.get("longitude") if poi.get("longitude") is not None else poi.get("lon"),
+                "distance_m": round(dist_m, 1),
+                "is_emergency": is_emergency,
+                "is_landmark": is_landmark,
+                "is_shop": is_shop,
+                "provenance_type": poi.get("provenance_type", "mapped_public_facility" if is_emergency else "mapped_commercial_business"),
+                "verification_status": poi.get("verification_status", "MAPPED_PUBLIC_FACILITY" if is_emergency else "MAPPED_COMMERCIAL_CONTEXT"),
+                "is_verified_safety_facility": bool(poi.get("is_verified_safety_facility", False)),
+                "is_safe_haven_eligible": bool(poi.get("is_safe_haven_eligible", False)),
+                "safety_role": poi.get("safety_role", "public_police_station" if p_cat == "police" else ("medical_emergency_facility" if p_cat == "hospital" else ("fire_and_rescue_service" if p_cat == "fire_station" else ("public_health_support" if is_emergency else "commercial_activity")))),
+                "opening_status": opening_status,
+                "opening_hours": raw_hours,
+                "address": poi.get("address") or poi.get("locality"),
+                "phone": poi.get("phone") or poi.get("contact:phone"),
+                "operator": poi.get("operator"),
+                "source": poi.get("source", "OpenStreetMap (ODbL 1.0)"),
+            })
+
+        results.sort(key=lambda p: p["distance_m"])
+        bounded_results = results[:max_results]
+
+        return {
+            "pois": bounded_results,
+            "status": "AVAILABLE" if bounded_results else "EMPTY",
+            "total_found": len(bounded_results),
+            "radius_m": radius_m,
+            "center": {"lon": round(lon, 5), "lat": round(lat, 5)},
+            "disclosure": "Establishments are mapped OpenStreetMap records. Commercial shops are not emergency safe havens or verified police checkpoints."
+        }
+
 
 
 # Global singleton instance

@@ -25,8 +25,10 @@ import {
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const currentTheme = resolvedTheme || theme;
+  const nextTheme = currentTheme === "dark" ? "light" : "dark";
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSosInfoOpen, setIsSosInfoOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
@@ -97,21 +99,21 @@ export function Header() {
           {mounted && (
             <button
               type="button"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(nextTheme)}
               className="relative p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border transition-colors overflow-hidden"
-              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
-              aria-label="Toggle Color Theme"
+              title={`Switch to ${nextTheme === "dark" ? "Dark" : "Light"} Mode`}
+              aria-label={`Switch to ${nextTheme === "dark" ? "Dark" : "Light"} Mode`}
             >
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
-                  key={theme}
+                  key={currentTheme}
                   initial={{ rotate: -90, scale: 0.6, opacity: 0 }}
                   animate={{ rotate: 0, scale: 1, opacity: 1 }}
                   exit={{ rotate: 90, scale: 0.6, opacity: 0 }}
                   transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
                   className="flex items-center justify-center"
                 >
-                  {theme === "dark" ? (
+                  {currentTheme === "dark" ? (
                     <Sun size={17} className="text-amber-400" />
                   ) : (
                     <Moon size={17} className="text-foreground/80" />

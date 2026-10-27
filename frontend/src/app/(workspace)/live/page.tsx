@@ -15,6 +15,7 @@ import { useLiveMonitor } from "@/hooks/useLiveMonitor";
 import { useLiveJourneyTracking } from "@/hooks/useLiveJourneyTracking";
 import { useActiveJourneyStore } from "@/store/activeJourneyStore";
 import { journeyService } from "@/api/services/journeyService";
+import { RoutePOI } from "@/types/journey";
 import Link from "next/link";
 
 function LiveMonitorContent() {
@@ -26,6 +27,8 @@ function LiveMonitorContent() {
     urlJourneyId || activeJourneyId || null
   );
   const [isResolvingActive, setIsResolvingActive] = useState<boolean>(!urlJourneyId && !activeJourneyId);
+  const [mobileTab, setMobileTab] = useState<"panel" | "map">("panel");
+  const [selectedPoi, setSelectedPoi] = useState<RoutePOI | null>(null);
 
   const tracking = useLiveJourneyTracking();
   const { data, isLoading, error, refetch } = useLiveMonitor(resolvedJourneyId);
@@ -201,10 +204,32 @@ function LiveMonitorContent() {
   };
 
   return (
-    <div className="grid h-screen w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12">
+    <div className="grid h-[calc(100vh-4rem)] min-h-0 w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12">
       {/* Left Panel: Telemetry & Agent Status */}
-      <aside className="relative z-10 flex h-full flex-col border-r border-border bg-card/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-3xl lg:col-span-5 dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
-        <div className="flex shrink-0 flex-col p-6 border-b border-border/30">
+      <aside className={`relative z-10 h-full min-h-0 flex-col border-r border-border bg-card/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-3xl lg:col-span-5 dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] overflow-hidden ${mobileTab === 'panel' ? 'flex' : 'hidden lg:flex'}`}>
+        {/* Mobile View Toggle */}
+        <div className="flex lg:hidden items-center p-1 bg-secondary/60 rounded-xl m-4 mb-0 border border-border/50 shrink-0">
+          <button
+            type="button"
+            onClick={() => setMobileTab("panel")}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+              mobileTab === "panel" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
+            }`}
+          >
+            Live Telemetry
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("map")}
+            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${
+              mobileTab === "map" ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground"
+            }`}
+          >
+            Live Map ({data?.current_route?.nearby_pois?.length || 0} POIs)
+          </button>
+        </div>
+
+        <div className="flex shrink-0 flex-col p-4 sm:p-6 border-b border-border/30">
           <div className="flex items-center justify-between">
             <h1 className="font-[family-name:var(--font-jakarta)] text-2xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
               <Radio size={24} className="text-primary animate-pulse" /> Live Monitor
@@ -239,7 +264,7 @@ function LiveMonitorContent() {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 p-6">
+        <ScrollArea className="flex-1 min-h-0 p-4 sm:p-6">
           <div className="flex flex-col gap-6">
             {/* Permission / Stale Warnings */}
             {tracking.permissionError && (
@@ -410,13 +435,44 @@ function LiveMonitorContent() {
                   <AlertOctagon size={16} /> Trigger SOS Emergency
                 </Button>
               </Link>
+
+              {/* Creator Credit & Social Links */}
+              <div className="pt-3 border-t border-border/40 text-[11px] text-muted-foreground flex items-center justify-center gap-2">
+                <span>Designed by <strong className="text-foreground font-semibold">Keshav Kumar</strong></span>
+                <div className="flex items-center gap-2 ml-1">
+                  <a
+                    href="https://www.linkedin.com/in/keshavkumarofficial/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Keshav Kumar on LinkedIn (opens in new tab)"
+                    className="text-muted-foreground hover:text-[#0077b5] dark:hover:text-[#38a8e3] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary p-0.5 rounded"
+                    title="LinkedIn Profile"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                    </svg>
+                  </a>
+                  <a
+                    href="https://github.com/00keshav00"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Keshav Kumar on GitHub (opens in new tab)"
+                    className="text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary p-0.5 rounded"
+                    title="GitHub Profile"
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                      <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         </ScrollArea>
       </aside>
 
       {/* Right Panel: Progress & Map */}
-      <main className="relative flex flex-col h-full w-full bg-background lg:col-span-7">
+      <main className={`relative flex flex-col h-full min-h-0 w-full bg-background lg:col-span-7 ${mobileTab === 'map' ? 'flex' : 'hidden lg:flex'}`}>
         {/* Top Overlay HUD */}
         <div className="absolute top-4 left-4 right-4 z-20 flex flex-col gap-3 pointer-events-none">
           {/* Progress Bar HUD */}
@@ -466,11 +522,26 @@ function LiveMonitorContent() {
           )}
         </div>
 
+        {/* Mobile Switch Back Button */}
+        <div className="lg:hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+          <Button
+            type="button"
+            onClick={() => setMobileTab("panel")}
+            className="rounded-full shadow-lg bg-card/90 text-foreground border border-border backdrop-blur-md px-4 py-2 text-xs font-bold gap-2"
+          >
+            <Radio size={14} className="text-primary" /> Return to Telemetry
+          </Button>
+        </div>
+
         {/* Live Tracking Map */}
         <div className="flex-1 w-full h-full relative z-0">
           <SafeMap
             routeGeometry={data.current_route?.geometry}
             liveLocation={currentCoords}
+            nearbyPois={data.current_route?.nearby_pois || []}
+            activityZones={data.current_route?.activity_zones || []}
+            selectedPoi={selectedPoi}
+            onPoiSelect={setSelectedPoi}
           />
         </div>
       </main>
@@ -492,7 +563,7 @@ function EnvironmentPill({ icon: Icon, label, value }: { icon: any; label: strin
 
 function LiveMonitorSkeleton() {
   return (
-    <div className="grid h-screen w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12 animate-pulse">
+    <div className="grid h-[calc(100vh-4rem)] min-h-0 w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12 animate-pulse">
       <aside className="border-r border-border bg-card/60 lg:col-span-5 p-6 flex flex-col gap-6">
         <div className="h-8 w-48 bg-secondary rounded-xl mb-4"></div>
         <div className="h-32 bg-secondary/50 rounded-3xl"></div>

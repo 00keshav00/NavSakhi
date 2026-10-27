@@ -9,6 +9,8 @@ export interface ChatMessage {
   role: 'assistant' | 'user';
   content: string;
   timestamp: string;
+  response_source?: 'gemini' | 'fallback' | 'rule_based';
+  model_identifier?: string | null;
 }
 
 export const useAssistant = () => {
@@ -36,7 +38,9 @@ export const useAssistant = () => {
             id: response.message_id,
             role: response.role,
             content: response.content,
-            timestamp: response.timestamp
+            timestamp: response.timestamp,
+            response_source: response.response_source || response.reasoning?.response_source,
+            model_identifier: response.reasoning?.model_identifier,
           }]);
         }
       } catch (err: unknown) {
@@ -96,11 +100,16 @@ export const useAssistant = () => {
       }
       setLatestContext(response); // Update the right/left sidebars with new DTO context
       
+      const respSource = response.response_source || response.reasoning?.response_source;
+      const modelId = response.reasoning?.model_identifier;
+
       setMessages(prev => [...prev, {
         id: response.message_id,
         role: response.role,
         content: response.content,
-        timestamp: response.timestamp
+        timestamp: response.timestamp,
+        response_source: respSource,
+        model_identifier: modelId,
       }]);
     } catch (err: unknown) {
       if (currentSeq !== requestSeqRef.current) {
@@ -111,7 +120,8 @@ export const useAssistant = () => {
         id: "err_" + Math.random(),
         role: 'assistant',
         content: "Error communicating with the Intelligence Coordinator. Please try again.",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        response_source: 'fallback',
       }]);
     } finally {
       if (currentSeq === requestSeqRef.current) {

@@ -229,7 +229,7 @@ export function FloatingAssistant() {
                     messages.map((msg) => (
                       <div
                         key={msg.id}
-                        className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                        className={`flex flex-col w-full ${msg.role === "user" ? "items-end" : "items-start"}`}
                       >
                         <div
                           className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs ${
@@ -240,6 +240,26 @@ export function FloatingAssistant() {
                         >
                           <MarkdownMessage content={msg.content} isUser={msg.role === "user"} />
                         </div>
+                        {msg.role === "assistant" && msg.response_source && (
+                          <div className="mt-1 px-1 flex items-center gap-1.5">
+                            {msg.response_source === "gemini" ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-semibold text-indigo-400">
+                                <Sparkles size={9} className="text-indigo-400" />
+                                Gemini AI
+                              </span>
+                            ) : msg.response_source === "fallback" ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20 text-[9px] font-semibold text-amber-500">
+                                <ShieldCheck size={9} className="text-amber-500" />
+                                NavSakhi fallback
+                              </span>
+                            ) : msg.response_source === "rule_based" ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[9px] font-semibold text-slate-300">
+                                <Bot size={9} className="text-slate-400" />
+                                Rule-based response
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}

@@ -39,12 +39,14 @@ def sanitize_privacy_context(text: Any) -> str:
 def build_sanitized_chat_payload(
     query: str,
     active_journey: Any = None,
-    history: Optional[List[Dict[str, Any]]] = None
+    history: Optional[List[Dict[str, Any]]] = None,
+    grounded_pois: Optional[List[Dict[str, Any]]] = None,
+    poi_location_name: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Constructs an outbound payload for conversational Gemini requests,
     guaranteeing no raw coordinates, geometry, or credentials are leaked.
-    Incorporates recent conversation history for empathetic multi-turn context.
+    Incorporates recent conversation history and grounded POI records.
     """
     clean_query = sanitize_privacy_context(query)
     dest_name = getattr(active_journey, "destination_name", None) or "destination"
@@ -62,11 +64,34 @@ def build_sanitized_chat_payload(
         if recent_turns:
             history_context = "RECENT CONVERSATION HISTORY:\n" + "\n".join(recent_turns) + "\n\n"
 
+    poi_context = ""
+    if grounded_pois:
+        poi_lines = []
+        for p in grounded_pois[:10]:
+            p_name = sanitize_privacy_context(p.get("name"))
+            p_cat = sanitize_privacy_context(p.get("category_label") or p.get("category"))
+            p_dist = p.get("distance_m", 0)
+            p_hours = sanitize_privacy_context(p.get("opening_hours") or "Not published in OpenStreetMap")
+            p_status = p.get("opening_status", "UNKNOWN")
+            p_role = "Mapped Public Facility" if p.get("is_emergency") else ("Verified Safe Haven" if p.get("is_safe_haven_eligible") else "Mapped Commercial Establishment")
+            poi_lines.append(f"- {p_name} ({p_cat}): ~{int(p_dist)}m away. Hours: {p_hours} (Status: {p_status}). Classification: {p_role}.")
+        target_loc_str = f" NEAR {poi_location_name.upper()}" if poi_location_name else ""
+        poi_context = (
+            f"GROUNDED MAPPED ESTABLISHMENTS IN CHENNAI{target_loc_str}:\n"
+            + "\n".join(poi_lines)
+            + "\n\nFACILITY GUIDELINES:\n"
+            "- Answer using only the mapped establishments listed above.\n"
+            "- Clearly state that commercial shops are mapped OpenStreetMap records, not emergency safe havens or police checkpoints.\n"
+            "- Do not promise a business is open unless available data indicates OPEN; if hours are unknown, clearly say so.\n"
+            "- Distinguish commercial businesses from emergency facilities (police, hospitals).\n\n"
+        )
+
     prompt = (
         "You are NavSakhi, a warm, compassionate, and trustworthy travel companion for women navigating Chennai.\n"
         f"{history_context}"
         f"Current user message: {clean_query}\n"
         f"Active journey context: {'Active journey to ' + clean_dest if active_journey else 'No active journey'}\n\n"
+        f"{poi_context}"
         "COMPANION PERSONA & TONE GUIDELINES:\n"
         "1. WARMTH & CALM SUPPORT: Speak naturally with a supportive, calm, conversational feminine companion voice ('Sakhi' means trusted female friend). "
         "Acknowledge the user's specific statement or emotion directly. Do not repeat generic introductory greetings or capability lists on follow-up turns.\n"
@@ -402,6 +427,15 @@ class ReasoningTool(BaseTool):
         active_journey = context.get("active_journey")
         history = context.get("history")
 
+        # Check if query seeks commercial or facility POIs
+        poi_keywords = [
+            "shop", "shops", "store", "stores", "pharmacy", "pharmacies", "chemist", "medicine",
+            "hospital", "hospitals", "clinic", "clinics", "supermarket", "supermarkets",
+            "cafe", "cafes", "coffee", "restaurant", "restaurants", "food", "grocery", "groceries",
+            "atm", "atms", "bank", "fuel", "petrol", "hotel", "safe haven", "facility", "facilities"
+        ]
+        is_poi_query = bool(query and any(re.search(r'\b' + re.escape(kw) + r'\b', query.lower()) for kw in poi_keywords))
+
         # Intent classification & local travel-companion handling
         intent_category = IntentCategory.JOURNEY_TRANSIT
         intent_result = None
@@ -409,8 +443,8 @@ class ReasoningTool(BaseTool):
             intent_result = global_intent_classifier.classify(query, history=history)
             intent_category = intent_result.intent
 
-            # Small talk or off-topic with deterministic companion response
-            if not intent_result.requires_external_llm and intent_result.direct_response:
+            # Small talk or off-topic with deterministic companion response (unless seeking POIs)
+            if not is_poi_query and not intent_result.requires_external_llm and intent_result.direct_response:
                 return {
                     "summary": intent_result.direct_response,
                     "reasoning": [f"Handled deterministically by NavSakhi Travel Companion ({intent_category.value})."],
@@ -427,8 +461,100 @@ class ReasoningTool(BaseTool):
                     "correlation_id": correlation_id
                 }
 
+        grounded_pois: List[Dict[str, Any]] = []
+        poi_location_label: Optional[str] = None
+
+        if is_poi_query:
+            from app.tools.specialized.poi_tool import POITool
+            poi_tool = POITool()
+
+            # Attempt to extract location name from query
+            place_match = re.search(
+                r'(?:near|in|around|at|by|close to)\s+([A-Za-z0-9\s\.\-]+?)(?:\?|$|\.|\,|for|with)',
+                query,
+                re.IGNORECASE
+            )
+            extracted_place = place_match.group(1).strip() if place_match else None
+
+            # Category filter
+            target_category = None
+            q_lower = query.lower()
+            if any(w in q_lower for w in ["pharmacy", "pharmacies", "chemist", "medicine"]):
+                target_category = "pharmacy"
+            elif any(w in q_lower for w in ["hospital", "hospitals", "clinic", "clinics"]):
+                target_category = "clinic"
+            elif any(w in q_lower for w in ["supermarket", "grocery", "groceries"]):
+                target_category = "supermarket"
+            elif any(w in q_lower for w in ["police", "station"]):
+                target_category = "police"
+            elif any(w in q_lower for w in ["cafe", "coffee", "restaurant", "food"]):
+                target_category = "restaurant"
+            elif any(w in q_lower for w in ["atm", "bank"]):
+                target_category = "bank_atm"
+            elif any(w in q_lower for w in ["shop", "store"]):
+                target_category = "shop"
+
+            if extracted_place:
+                poi_res = await poi_tool.execute({
+                    "place": extracted_place,
+                    "category": target_category,
+                    "radius_m": 1500.0,
+                    "max_results": 10
+                })
+                if poi_res.get("status") == "AVAILABLE":
+                    grounded_pois = poi_res.get("pois", [])
+                    poi_location_label = extracted_place.title()
+                elif poi_res.get("status") in ["NOT_FOUND", "EMPTY"]:
+                    poi_location_label = extracted_place.title()
+            elif active_journey:
+                all_coords = []
+                if hasattr(active_journey, "planned_routes") and active_journey.planned_routes:
+                    for r in active_journey.planned_routes:
+                        for s in r.get("segments", []):
+                            poly = s.get("polyline")
+                            if poly and isinstance(poly, dict):
+                                geom = poly.get("geometry", poly)
+                                all_coords.extend(geom.get("coordinates", []))
+                if all_coords:
+                    poi_res = await poi_tool.execute({
+                        "corridor_coords": all_coords,
+                        "radius_m": 800.0,
+                        "max_results": 10
+                    })
+                    grounded_pois = poi_res.get("pois", [])
+                    dest_n = getattr(active_journey, "destination_name", "your active route")
+                    poi_location_label = f"corridor towards {dest_n}"
+
         # Deterministic fallback summary tailored to intent
-        if intent_result and intent_result.direct_response:
+        if grounded_pois:
+            lines = []
+            for p in grounded_pois[:5]:
+                p_name = p.get("name", "Unnamed")
+                p_cat = p.get("category_label") or p.get("category", "Shop")
+                p_dist = int(p.get("distance_m", 0))
+                p_hours = p.get("opening_hours") or "Hours not published in OpenStreetMap"
+                p_status = p.get("opening_status", "UNKNOWN")
+                status_desc = f" ({p_status})" if p_status != "UNKNOWN" else ""
+                lines.append(f"- **{p_name}** ({p_cat}): ~{p_dist}m away &bull; Hours: {p_hours}{status_desc}")
+
+            loc_txt = f" near **{poi_location_label}**" if poi_location_label else ""
+            fallback_summary = (
+                f"Here are mapped establishments found{loc_txt} in Chennai:\n\n"
+                + "\n".join(lines)
+                + "\n\n*(Note: These records are sourced from OpenStreetMap. Commercial businesses provide public street activity, but are not verified emergency shelters or police checkpoints.)*"
+            )
+        elif poi_location_label and not grounded_pois:
+            fallback_summary = (
+                f"I checked the mapped OpenStreetMap records for Chennai near **{poi_location_label}**, but no matching establishments were found within the search radius. "
+                "You can specify a nearby arterial junction or landmark (for example: *'near T. Nagar bus terminus'* or *'near Central'*)."
+            )
+        elif is_poi_query and not active_journey:
+            fallback_summary = (
+                "Which area or landmark in Chennai would you like me to check for shops or facilities? "
+                "(For example: *'Shops near T. Nagar'* or *'Pharmacies near Adyar'*). "
+                "If you start a monitored journey in the Journey Planner, I can also look along your route corridor."
+            )
+        elif intent_result and intent_result.direct_response:
             fallback_summary = intent_result.direct_response
         elif query:
             q_lower = query.lower()
@@ -536,7 +662,13 @@ class ReasoningTool(BaseTool):
 
         # Prepare outbound payload
         if query:
-            payload = build_sanitized_chat_payload(query=query, active_journey=active_journey, history=history)
+            payload = build_sanitized_chat_payload(
+                query=query,
+                active_journey=active_journey,
+                history=history,
+                grounded_pois=grounded_pois,
+                poi_location_name=poi_location_label
+            )
         else:
             clean_decision = sanitize_privacy_context(str(decision))
             prompt = (

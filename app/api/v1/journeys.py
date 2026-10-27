@@ -224,6 +224,8 @@ async def monitor_journey(
     route_dur = 0.0
     route_score = None
     route_geom = {"type": "FeatureCollection", "features": []}
+    nearby_pois = []
+    activity_zones = []
 
     if target_route:
         raw_dist = target_route.get("distance", 0.0)
@@ -261,6 +263,37 @@ async def monitor_journey(
                 features.append(poly)
         if features:
             route_geom = {"type": "FeatureCollection", "features": features}
+
+        # Extract corridor POIs and commercial establishments for active route
+        raw_pois = target_route.get("nearby_pois") or []
+        activity_zones = target_route.get("activity_zones") or []
+
+        # If planned route has no precalculated POIs, query from spatial service on demand
+        if not raw_pois and features:
+            route_coords = []
+            for feat in features:
+                geom = feat.get("geometry", feat) if isinstance(feat, dict) else None
+                if isinstance(geom, dict):
+                    coords = geom.get("coordinates", [])
+                    if coords:
+                        route_coords.extend(coords)
+            if route_coords:
+                try:
+                    from app.services.poi_service import get_poi_service
+                    poi_res = get_poi_service().query_pois_near_route(route_coords, corridor_m=800.0)
+                    raw_pois = poi_res.get("pois", [])
+                    if not activity_zones:
+                        activity_zones = poi_res.get("activity_zones", [])
+                except Exception as poi_err:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Error querying corridor POIs for monitor: {poi_err}")
+
+        # Ensure serialized dicts
+        for p in raw_pois:
+            if hasattr(p, "model_dump"):
+                nearby_pois.append(p.model_dump())
+            elif isinstance(p, dict):
+                nearby_pois.append(p)
 
     # 3. Determine telemetry and progress state
     prog = journey.progress
@@ -369,7 +402,9 @@ async def monitor_journey(
             "weather_impact": "Neutral",
             "community_impact": "Neutral",
             "risk_factors": [],
-            "geometry": route_geom
+            "geometry": route_geom,
+            "nearby_pois": nearby_pois,
+            "activity_zones": activity_zones,
         },
         "current_location": current_loc
     }

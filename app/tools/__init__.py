@@ -6,6 +6,7 @@ from app.tools.location import LocationTool
 from app.tools.weather import WeatherTool
 from app.tools.community import CommunityTool
 from app.tools.notification import NotificationTool
+from app.tools.specialized.poi_tool import POITool
 
 # Register all tools automatically upon import
 registry.register(RoutingTool())
@@ -13,5 +14,6 @@ registry.register(LocationTool())
 registry.register(WeatherTool())
 registry.register(CommunityTool())
 registry.register(NotificationTool())
+registry.register(POITool())
 
 __all__ = ["registry", "ToolManager"]
