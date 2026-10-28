@@ -6,18 +6,60 @@ export interface StandardResponse<T> {
   message?: string;
 }
 
-// This creates a reusable Axios instance.
+/**
+ * Resolves the backend API base URL with defensive multi-environment fallback.
+ * 
+ * Precedence:
+ * 1. Explicit `NEXT_PUBLIC_API_URL` environment variable (if defined at build or runtime).
+ * 2. Client-side browser runtime inspection:
+ *    - If running on `nav-sakhi.vercel.app` or any remote hostname (not localhost / 127.0.0.1):
+ *      Defaults to the authoritative production/staging Render backend:
+ *      `https://navsakhi-api-staging.onrender.com`
+ * 3. Local development fallback: `http://localhost:8000`.
+ */
+export function resolveApiBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (typeof envUrl === "string" && envUrl.trim().length > 0) {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
+
+  // Client-side browser execution fallback for deployed frontends
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    const host = window.location.hostname.toLowerCase();
+    if (host !== "localhost" && host !== "127.0.0.1" && host !== "0.0.0.0") {
+      return "https://navsakhi-api-staging.onrender.com";
+    }
+  }
+
+  return "http://localhost:8000";
+}
+
+// This creates a reusable Axios instance with dynamic base URL resolution.
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  baseURL: resolveApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },
   timeout: 60000, // 60s timeout
 });
 
-// Request interceptor to attach JWT token
+// Request interceptor to attach JWT token and ensure valid remote baseURL in browser
 apiClient.interceptors.request.use((config) => {
   try {
+    if (typeof window !== "undefined") {
+      // Dynamically repair baseURL if it defaulted to localhost on a remote browser host
+      const currentBase = config.baseURL || apiClient.defaults.baseURL || "";
+      if (
+        (!currentBase || currentBase.includes("localhost") || currentBase.includes("127.0.0.1")) &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+      ) {
+        const resolved = resolveApiBaseUrl();
+        config.baseURL = resolved;
+        apiClient.defaults.baseURL = resolved;
+      }
+    }
+
     let token: string | null = null;
     if (typeof window !== "undefined") {
       const storageData = localStorage.getItem("safeshe-auth-storage");
@@ -122,6 +164,9 @@ export function extractApiErrorMessage(
   // 4. Standard JavaScript / Axios Error.message
   if (typeof errObj?.message === "string" && errObj.message.trim().length > 0) {
     const msg = errObj.message.trim();
+    if (msg.toLowerCase() === "network error") {
+      return "Unable to connect to the NavSakhi backend service. The server may be waking up from sleep. Please try again in a few moments.";
+    }
     if (msg !== "[object Object]") {
       return msg;
     }
