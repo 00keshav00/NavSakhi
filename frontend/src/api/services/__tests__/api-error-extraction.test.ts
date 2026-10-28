@@ -185,4 +185,14 @@ describe("NavSakhi Phase 51.34: Frontend API Error Message Extraction Suite", ()
       (globalThis as any).window = originalWindow;
     }
   });
+
+  it("12. resolveApiBaseUrl remaps obsolete navsakhi-api.onrender.com to navsakhi-api-staging.onrender.com", () => {
+    const original = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      process.env.NEXT_PUBLIC_API_URL = "https://navsakhi-api.onrender.com/";
+      assert.equal(resolveApiBaseUrl(), "https://navsakhi-api-staging.onrender.com");
+    } finally {
+      process.env.NEXT_PUBLIC_API_URL = original;
+    }
+  });
 });
