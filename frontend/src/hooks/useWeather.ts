@@ -24,7 +24,7 @@ export function useWeather() {
   const [error, setError] = useState<string | null>(null);
   const lastFetchedKeyRef = useRef<string | null>(null);
 
-  // Load saved location on mount
+  // Load saved location on mount, defaulting to Chennai metropolitan region
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -33,11 +33,20 @@ export function useWeather() {
         if (parsed && typeof parsed.latitude === "number" && typeof parsed.longitude === "number") {
           setLocation(parsed);
           setPermissionState(parsed.source === "GPS" ? "GRANTED" : "PROMPT");
+          return;
         }
       }
     } catch {
       // Ignore JSON parse errors
     }
+    // Default to Chennai Metropolitan Area on first visit
+    const defaultLoc: WeatherLocation = {
+      name: "Chennai Metropolitan Area",
+      latitude: 12.8406,
+      longitude: 80.1534,
+      source: "MANUAL",
+    };
+    setLocation(defaultLoc);
   }, []);
 
   const fetchWeatherForLocation = useCallback(async (loc: WeatherLocation, force: boolean = false) => {

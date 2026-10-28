@@ -23,6 +23,7 @@ import {
   Train
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Footer } from "@/components/layout/Footer";
 import { Section, Container, Grid } from "@/components/ui/craft";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
@@ -78,21 +79,22 @@ export function LandingView() {
                 alt="NavSakhi - Safer Journeys • Stronger Women" 
                 width={175} 
                 height={56} 
-                className="h-9 sm:h-10 w-auto object-contain" 
+                className="h-9 sm:h-10 w-auto object-contain transition-transform dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110" 
                 priority 
               />
             </div>
           </Link>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <ThemeToggle />
           <Link href="/login">
-            <Button variant="ghost" size="sm" className="rounded-full text-xs font-semibold px-4 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="sm" className="rounded-full text-xs font-semibold px-3.5 sm:px-4 text-muted-foreground hover:text-foreground">
               Sign In
             </Button>
           </Link>
           <Link href="/home">
-            <Button size="sm" className="rounded-full px-5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/25">
+            <Button size="sm" className="rounded-full px-4 sm:px-5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm shadow-primary/25">
               Open Workspace
             </Button>
           </Link>

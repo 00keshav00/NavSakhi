@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { useRegister } from "@/hooks/useRegister";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 // Zod Validation Schema matching backend validation rules
 const registerSchema = z.object({
@@ -97,6 +98,17 @@ function RegisterForm() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background flex flex-col items-center justify-center p-4 py-8">
+      {/* Top Floating Controls: Back to Home & Theme Toggle */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-auto max-w-5xl mx-auto">
+        <Link
+          href="/"
+          className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full bg-secondary/50 border border-border/40 backdrop-blur-md"
+        >
+          ← Home
+        </Link>
+        <ThemeToggle />
+      </div>
+
       {/* Dynamic Ambient Background Glows */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[15%] -left-[10%] w-[55vw] h-[55vw] rounded-full bg-primary/10 blur-[130px] dark:bg-primary/5" />
@@ -113,7 +125,7 @@ function RegisterForm() {
                 alt="NavSakhi - Safer Journeys • Stronger Women" 
                 width={200} 
                 height={64} 
-                className="h-11 w-auto object-contain" 
+                className="h-11 w-auto object-contain transition-transform dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110" 
                 priority 
               />
             </div>

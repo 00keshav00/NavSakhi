@@ -503,7 +503,7 @@ class JourneyIntelligenceCoordinator:
                                 ist_dt=ist_dt,
                                 preferences=pref_list
                             ),
-                            timeout=4.5
+                            timeout=5.0
                         )
                         for ddc in data_driven_cands:
                             fully_validated_routes.append(ddc)

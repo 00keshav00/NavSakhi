@@ -100,7 +100,7 @@ export function Sidebar() {
                 alt="NavSakhi" 
                 width={175} 
                 height={56} 
-                className="h-10 w-auto object-contain" 
+                className="h-10 w-auto object-contain dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110" 
               />
             </div>
           )}

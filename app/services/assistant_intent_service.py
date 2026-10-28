@@ -64,7 +64,8 @@ class AssistantIntentClassifier:
     TRAVEL_ANXIETY_KEYWORDS = [
         "nervous", "anxious", "travel anxiety", "uneasy", "feeling alone", "feel alone",
         "scared of travelling", "scared of traveling", "nervous about", "feeling anxious",
-        "feel anxious", "feeling scared", "feel scared", "panic", "panicking", "worried"
+        "feel anxious", "feeling scared", "feel scared", "panic", "panicking", "worried",
+        "afraid", "i am afraid", "feeling afraid", "feel afraid"
     ]
 
     # Companionship, emotional presence, and journey partner requests
@@ -77,7 +78,8 @@ class AssistantIntentClassifier:
         "travel friend", "by my side", "feeling lonely", "feel lonely",
         "help me", "will you help", "can you help", "assist me", "support me",
         "will you with me", "will you with me in journey", "with me in journey",
-        "with me on journey", "be with me in journey", "be with me on journey"
+        "with me on journey", "be with me in journey", "be with me on journey",
+        "as my sister", "like a sister", "travel alongside", "alongside me", "alongside", "sister"
     ]
 
     # Local facilities, commercial shops, and verified safety POIs in Chennai
@@ -128,7 +130,9 @@ class AssistantIntentClassifier:
         "profile", "settings", "guest", "how to use", "how do i use",
         "guide", "tutorial", "tell me about this site", "about this site",
         "what does this app do", "what is this app", "about this app",
-        "tell me about this app", "what does the app do", "about the app"
+        "tell me about this app", "what does the app do", "about the app",
+        "can you tell me about this app", "can you tell me about this site",
+        "what does navsakhi do", "what does the site do"
     ]
 
     # Keywords for SMALL TALK & GREETINGS
@@ -281,7 +285,7 @@ class AssistantIntentClassifier:
                     "open places, transit nodes, and surveillance cameras along your route. It represents an environmental safety proxy, "
                     "not an empirical crime prediction or guarantee of personal safety."
                 )
-            elif any(sk in clean_q for sk in ["about this site", "tell me about this site", "what does this app do", "what is this app", "about this app", "what is navsakhi", "what is safeshe"]):
+            elif any(sk in clean_q for sk in ["about this site", "tell me about this site", "what does this app do", "what is this app", "about this app", "what is navsakhi", "what is safeshe", "what does navsakhi do", "tell me about this app", "can you tell me about this app", "can you tell me about this site", "what does the app do"]):
                 support_resp = (
                     "NavSakhi is a smart, women-focused safety navigation assistant and travel companion for Chennai. "
                     "It offers model-evaluated route safety scores, multimodal transit planning (Metro, MTC Bus, Suburban rail), "

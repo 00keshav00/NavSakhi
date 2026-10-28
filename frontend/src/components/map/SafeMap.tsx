@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import Map, { Source, Layer, Marker, NavigationControl, Popup, MapRef } from "react-map-gl/maplibre";
+import Map, { Source, Layer, Marker, Popup, MapRef } from "react-map-gl/maplibre";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   Loader2, Layers, X, ChevronDown, ChevronUp, Info, Check, Eye, EyeOff, Sparkles,
   Building2, Store, ShieldAlert, Train, Shield, Stethoscope, Pill, Flame, Fuel,
-  GraduationCap, Landmark, Film, Navigation, MapPin, Camera
+  GraduationCap, Landmark, Film, Navigation, MapPin, Camera, Plus, Minus, Compass
 } from "lucide-react";
 import { RoutePOI, ActivityZone } from "@/types/journey";
 
@@ -334,6 +334,8 @@ export default function SafeMap({
     longitude: 80.2090, // Chennai Default
     latitude: 13.0827,
     zoom: 12,
+    bearing: 0,
+    pitch: 0,
   });
   const lastFitKeyRef = useRef<string>("");
   const [internalSelectedPoi, setInternalSelectedPoi] = useState<RoutePOI | null>(null);
@@ -698,17 +700,24 @@ export default function SafeMap({
         </div>
       )}
 
-      {/* 2C. CONSOLIDATED MAP CONTROLS (LAYERS & LEGEND) */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
-          {/* Map Layers Toggle */}
+      {/* 2C. CONSOLIDATED MAP CONTROLS (LAYERS, LEGEND & NAVIGATION) */}
+      <div className="absolute top-4 right-3 sm:top-4 sm:right-4 z-20 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Map Layers Toggle - Compact Icon-only on mobile, full pill on desktop */}
           <button
             type="button"
             onClick={() => {
-              setShowLayers(!showLayers);
-              if (!showLayers) setShowLegend(false);
+              const next = !showLayers;
+              setShowLayers(next);
+              if (next) {
+                setShowLegend(false);
+                setInternalSelectedPoi(null);
+                setInternalSelectedZone(null);
+                onPoiSelect?.(null);
+                onZoneSelect?.(null);
+              }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
+            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
               showLayers
                 ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
                 : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
@@ -716,22 +725,31 @@ export default function SafeMap({
             title="Toggle Map Layers & POI Categories"
             aria-label="Map Layers"
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Layers</span>
+            <Layers className="w-4 h-4" />
+            <span className="hidden md:inline">Layers</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/40 font-extrabold">
               {Object.values(layerVisibility).filter(Boolean).length}/5
             </span>
-            {showLayers ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            <span className="hidden md:inline">
+              {showLayers ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </span>
           </button>
 
-          {/* Legend Toggle */}
+          {/* Legend Toggle - Compact Icon-only on mobile, full pill on desktop */}
           <button
             type="button"
             onClick={() => {
-              setShowLegend(!showLegend);
-              if (!showLegend) setShowLayers(false);
+              const next = !showLegend;
+              setShowLegend(next);
+              if (next) {
+                setShowLayers(false);
+                setInternalSelectedPoi(null);
+                setInternalSelectedZone(null);
+                onPoiSelect?.(null);
+                onZoneSelect?.(null);
+              }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
+            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
               showLegend
                 ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
                 : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
@@ -739,10 +757,46 @@ export default function SafeMap({
             title="Toggle map symbols and transport legend"
             aria-label="Map Legend"
           >
-            <Info className="w-3.5 h-3.5" />
-            <span>Legend</span>
-            {showLegend ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            <Info className="w-4 h-4" />
+            <span className="hidden md:inline">Legend</span>
+            <span className="hidden md:inline">
+              {showLegend ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </span>
           </button>
+
+          {/* Dedicated Map Navigation Controls (Zoom In, Zoom Out, Orientation) */}
+          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/90 backdrop-blur-md shadow-xl overflow-hidden divide-x divide-slate-800">
+            <button
+              type="button"
+              onClick={() => mapRef.current?.zoomIn()}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Zoom in"
+              aria-label="Zoom in"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => mapRef.current?.zoomOut()}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Zoom out"
+              aria-label="Zoom out"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => mapRef.current?.resetNorth({ duration: 300 })}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Reset bearing to north"
+              aria-label="Reset bearing to north"
+            >
+              <Compass
+                className="w-4 h-4 transition-transform duration-300"
+                style={{ transform: `rotate(-${viewState.bearing || 0}deg)` }}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Map Layers Popover */}
@@ -1097,8 +1151,10 @@ export default function SafeMap({
                   <span>Mapped Shop (Retail, Cafe, Dining)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-black text-[9px] shrink-0 border border-amber-600">8</span>
-                  <span>Shop Cluster (Click to zoom into group)</span>
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500/30 border border-amber-500/70 ring-1.5 ring-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
+                    <Store className="w-2 h-2" />
+                  </span>
+                  <span>Commercial Activity Cluster (Click to zoom)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-emerald-500/70 shrink-0" />
@@ -1189,8 +1245,6 @@ export default function SafeMap({
           }
         }}
       >
-        <NavigationControl position="top-right" />
-
         {/* 3. DISTINCT ORIGIN / START PIN ('S' / Start) */}
         {resolvedSourceCoords && (
           <Marker longitude={resolvedSourceCoords[0]} latitude={resolvedSourceCoords[1]} anchor="bottom">
@@ -1283,12 +1337,11 @@ export default function SafeMap({
                   duration: 350,
                 });
               }}
-              className="px-1.5 py-0.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] border border-amber-600 shadow-md ring-2 ring-amber-400/40 cursor-pointer transition-transform hover:scale-110 flex items-center gap-1"
+              className="w-5 h-5 rounded-full bg-amber-500/25 hover:bg-amber-500/40 text-amber-900 dark:text-amber-200 border border-amber-500/60 shadow-md ring-2 ring-amber-400/30 cursor-pointer transition-transform hover:scale-115 flex items-center justify-center backdrop-blur-xs"
               title={`${cluster.pois.length} commercial establishments clustered nearby. Click to zoom in.`}
-              aria-label={`${cluster.pois.length} mapped shops cluster`}
+              aria-label={`${cluster.pois.length} mapped commercial establishments cluster`}
             >
-              <Store className="w-2.5 h-2.5 shrink-0" />
-              <span>{cluster.pois.length}</span>
+              <Store className="w-2.5 h-2.5 shrink-0 text-amber-500 dark:text-amber-300" />
             </button>
           </Marker>
         ))}
@@ -1346,17 +1399,25 @@ export default function SafeMap({
                     <div className="w-1 h-1 bg-black/60 rounded-b shadow-xs" />
                   </>
                 ) : isLandmark ? (
-                  /* Distinct Major Landmark Badge */
+                  /* Distinct Major Landmark Badge: show icon only at zoom < 14.5 to prevent map clutter, full label at close zoom (>= 14.5) or when selected */
                   <div className="flex flex-col items-center group cursor-pointer transition-transform">
                     <div
-                      className={`px-2 py-0.5 rounded-lg ${cfg.pinBg} border-2 ${
+                      className={`${
+                        viewState.zoom >= 14.5 || isSelected
+                          ? "px-2 py-0.5 rounded-lg max-w-[150px] gap-1.5"
+                          : "w-6 h-6 rounded-full justify-center p-1"
+                      } ${cfg.pinBg} border-2 ${
                         isSelected ? "border-cyan-400 ring-4 ring-cyan-400/70" : cfg.pinBorder
-                      } shadow-xl flex items-center gap-1.5 text-white max-w-[150px] truncate`}
+                      } shadow-xl flex items-center text-white`}
                     >
                       {renderCategoryIcon(poi.category, "w-3 h-3 text-white shrink-0")}
-                      <span className="text-[10px] font-bold truncate">{poi.name}</span>
+                      {(viewState.zoom >= 14.5 || isSelected) && (
+                        <span className="text-[10px] font-bold truncate">{poi.name}</span>
+                      )}
                     </div>
-                    <div className="w-1.5 h-1.5 rotate-45 bg-fuchsia-700 -mt-1 shadow-sm" />
+                    {(viewState.zoom >= 14.5 || isSelected) && (
+                      <div className="w-1.5 h-1.5 rotate-45 bg-fuchsia-700 -mt-1 shadow-sm" />
+                    )}
                   </div>
                 ) : (
                   /* Refined, compact yellow/amber circular marker for individual mapped commercial businesses */

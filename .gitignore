@@ -57,3 +57,8 @@ Thumbs.db
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Temporary Audit Reports & Generated Evidence
+docs/audits/
+*REPORT*.md
+NAVSAKHI_PHASE_*.md

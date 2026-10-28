@@ -198,7 +198,7 @@ export default function PrivacyPolicyPage() {
                 <span>Pre-Release Legal Caveat</span>
               </div>
               <p>
-                NavSakhi is an academic and research software prototype. This privacy policy describes the actual data architecture implemented in the current codebase. It does not constitute formal certification or substitute for qualified legal review prior to commercial deployment.
+                NavSakhi is an independent women's safety navigation software platform. This privacy policy describes the actual data architecture implemented in the current codebase. It does not constitute formal certification or substitute for qualified legal review prior to commercial deployment.
               </p>
             </div>
           </section>

@@ -67,7 +67,7 @@ export default function CommunityPage() {
   const activeHeatmapData = heatmapMode === "Verified" ? data?.heatmap_data.verified_only : data?.heatmap_data.all_reports;
 
   return (
-    <div className="grid h-[calc(100vh-4rem)] min-h-0 w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12">
+    <div className="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12">
       <aside className={`relative z-10 h-full min-h-0 flex-col border-r border-border bg-card/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-3xl lg:col-span-5 dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] overflow-hidden ${mobileTab === 'feed' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* Mobile View Toggle */}
@@ -313,7 +313,7 @@ function FilterPill({ label, active, onClick, color }: { label: string, active: 
   return (
     <button 
       onClick={onClick} 
-      className={`flex-1 rounded-xl border py-2 text-[10px] sm:text-xs font-bold transition-all duration-200 ${active ? `${baseColor} shadow-md` : "border-transparent bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
+      className={`flex-1 min-w-0 truncate rounded-xl border py-2 px-1 text-[10px] sm:text-xs font-bold transition-all duration-200 text-center ${active ? `${baseColor} shadow-md` : "border-transparent bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
     >
       {label}
     </button>
