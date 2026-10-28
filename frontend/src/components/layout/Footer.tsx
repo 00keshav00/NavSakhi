@@ -39,7 +39,7 @@ export function Footer() {
                   alt="NavSakhi - Safer Journeys • Stronger Women" 
                   width={175} 
                   height={56} 
-                  className="h-9 w-auto object-contain" 
+                  className="h-9 w-auto object-contain dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110" 
                 />
               </div>
             </Link>
@@ -165,16 +165,16 @@ export function Footer() {
         <div className="mt-8 pt-6 border-t border-border/60 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-muted-foreground">
           <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-left">
             <p>
-              &copy; {new Date().getFullYear()} NavSakhi &bull; Personal Software Project &amp; Prototype &bull; Developed for academic &amp; demonstration purposes.
+              &copy; {new Date().getFullYear()} NavSakhi &bull; Personal Software Project &bull; Decision-Support Platform for Commuter Safety.
             </p>
           </div>
 
           {/* Designed by Keshav Kumar with Social Profiles */}
-          <div className="flex items-center gap-3 bg-secondary/50 px-3.5 py-1.5 rounded-full border border-border/70 text-foreground font-medium shadow-xs">
-            <span className="text-muted-foreground text-xs">Designed by</span>
-            <span className="font-bold text-foreground text-xs font-[family-name:var(--font-jakarta)]">Keshav Kumar</span>
+          <div className="flex items-center gap-3 bg-secondary/50 px-3.5 py-1.5 rounded-full border border-border/70 text-foreground font-medium shadow-xs shrink-0 whitespace-nowrap">
+            <span className="text-muted-foreground text-xs whitespace-nowrap">Designed by</span>
+            <span className="font-bold text-foreground text-xs font-[family-name:var(--font-jakarta)] whitespace-nowrap">Keshav Kumar</span>
             <div className="h-3 w-px bg-border/80" />
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <a
                 href="https://www.linkedin.com/in/keshavkumarofficial/"
                 target="_blank"

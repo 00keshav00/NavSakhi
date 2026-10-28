@@ -186,7 +186,7 @@ export default function ProfilePage() {
               Legal, Privacy &amp; Policies
             </h4>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              NavSakhi is an academic prototype decision-support tool. It does not provide police dispatch or automated background emergency SMS.
+              NavSakhi is a decision-support platform for commuter safety. It provides spatial navigation assistance and does not provide police dispatch or automated background emergency SMS.
             </p>
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-xs font-semibold">
               <Link href="/terms" className="text-primary hover:underline">Terms of Use</Link>
@@ -310,7 +310,7 @@ export default function ProfilePage() {
             <h3 className="font-[family-name:var(--font-jakarta)] text-lg font-bold text-foreground">Legal, Privacy & Policies</h3>
             <div className="glass-card rounded-2xl p-6 border-border/50 flex flex-col gap-3">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                NavSakhi is an academic prototype evaluating women's safety routing proxies in Chennai. Review our legal policies, methodology disclosures, and transparency guidelines:
+                NavSakhi provides model-evaluated women's safety routing proxies across Chennai. Review our legal policies, methodology disclosures, and transparency guidelines:
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
                 <Link href="/terms" className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import SafeMap, { POI_CATEGORY_CONFIG, renderCategoryIcon } from "@/components/map/SafeMap";
 import { useJourney } from "@/hooks/useJourney";
@@ -38,6 +38,35 @@ export default function JourneyPage() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [selectedPoi, setSelectedPoi] = useState<RoutePOI | null>(null);
   const [selectedZone, setSelectedZone] = useState<ActivityZone | null>(null);
+
+  const touchStartY = useRef<number | null>(null);
+
+  const updateMobileSheetSnap = useCallback((snap: "PEEK" | "HALF" | "EXPANDED") => {
+    setMobileSheetSnap(snap);
+    if (snap !== "PEEK") {
+      setSelectedPoi(null);
+      setSelectedZone(null);
+    }
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return;
+    const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+    if (deltaY < -35) {
+      // Swiped UP -> expand
+      if (mobileSheetSnap === "PEEK") updateMobileSheetSnap("HALF");
+      else if (mobileSheetSnap === "HALF") updateMobileSheetSnap("EXPANDED");
+    } else if (deltaY > 35) {
+      // Swiped DOWN -> collapse
+      if (mobileSheetSnap === "EXPANDED") updateMobileSheetSnap("HALF");
+      else if (mobileSheetSnap === "HALF") updateMobileSheetSnap("PEEK");
+    }
+    touchStartY.current = null;
+  };
 
   // Form Inputs Cache for Pill Display & Persistence
   const [lastSearchSource, setLastSearchSource] = useState("");
@@ -763,8 +792,12 @@ export default function JourneyPage() {
           transition={{ type: "spring", damping: 28, stiffness: 280 }}
           className="absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl border-t border-border bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden pb-safe"
         >
-          {/* Action Header / Minimize / Restore Bar */}
-          <div className="w-full pt-2.5 pb-2 px-4 flex items-center justify-between shrink-0 select-none bg-secondary/30 border-b border-border/50">
+          {/* Action Header / Minimize / Restore Bar with Swipe & Tap gesture handling */}
+          <div 
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            className="w-full pt-2.5 pb-2 px-4 flex items-center justify-between shrink-0 select-none bg-secondary/30 border-b border-border/50 touch-pan-y"
+          >
             {/* Left Status / Category indicator */}
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-2 h-2 rounded-full bg-primary shrink-0 animate-pulse" />
@@ -785,7 +818,7 @@ export default function JourneyPage() {
             {/* Center Drag Handle */}
             <div
               onClick={() => {
-                setMobileSheetSnap(
+                updateMobileSheetSnap(
                   mobileSheetSnap === "PEEK"
                     ? "HALF"
                     : mobileSheetSnap === "HALF"
@@ -793,8 +826,9 @@ export default function JourneyPage() {
                     : "HALF"
                 );
               }}
-              className="w-10 h-1.5 rounded-full bg-muted-foreground/40 cursor-pointer hover:bg-muted-foreground/60 transition-colors mx-2"
+              className="w-12 h-2 rounded-full bg-muted-foreground/40 hover:bg-muted-foreground/60 active:scale-95 transition-all mx-2 cursor-pointer p-1"
               title="Drag or tap to adjust sheet height"
+              aria-label="Drag or tap to adjust sheet height"
             />
 
             {/* Right Explicit Minimize / Expand Controls */}
@@ -802,7 +836,7 @@ export default function JourneyPage() {
               {mobileSheetSnap !== "PEEK" ? (
                 <button
                   type="button"
-                  onClick={() => setMobileSheetSnap("PEEK")}
+                  onClick={() => updateMobileSheetSnap("PEEK")}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-[11px] font-bold text-foreground border border-border shadow-xs transition-colors cursor-pointer"
                   title="Minimize panel to inspect map"
                   aria-label="Minimize panel to map"
@@ -813,7 +847,7 @@ export default function JourneyPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setMobileSheetSnap(viewState === "DETAIL" ? "EXPANDED" : "HALF")}
+                  onClick={() => updateMobileSheetSnap(viewState === "DETAIL" ? "EXPANDED" : "HALF")}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary hover:bg-primary/90 text-[11px] font-bold text-primary-foreground shadow-xs transition-colors cursor-pointer"
                   title="Expand route options"
                   aria-label="Expand route options"

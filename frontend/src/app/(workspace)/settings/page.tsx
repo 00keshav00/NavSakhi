@@ -6,7 +6,7 @@ import Link from "next/link";
 import { 
   Palette, Bell, Lock, AlertOctagon, Bot, Navigation, Code, Save, Activity,
   User as UserIcon, ShieldAlert, Plus, Phone, Mail, Trash2, Edit2, Star, CheckCircle2,
-  AlertCircle, ShieldCheck, HeartHandshake, Info, Scale, ArrowRight
+  AlertCircle, ShieldCheck, HeartHandshake, Info, Scale, ArrowRight, ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [activeTab, setActiveTab] = useState<TabId>('profile');
+  const [mobileViewMode, setMobileViewMode] = useState<"LIST" | "DETAIL">("LIST");
 
   // Local state for app settings preferences
   const [localSettings, setLocalSettings] = useState<SettingsResponse | null>(settings);
@@ -344,12 +345,15 @@ export default function SettingsPage() {
       <div className="flex flex-col md:flex-row gap-8 lg:gap-12 min-h-[600px]">
         
         {/* Left Sidebar Navigation */}
-        <div className="w-full md:w-64 shrink-0 flex flex-col gap-2">
+        <div className={`w-full md:w-64 shrink-0 flex flex-col gap-2 ${mobileViewMode === 'LIST' ? 'flex' : 'hidden md:flex'}`}>
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 text-left ${
+              onClick={() => {
+                setActiveTab(tab.id);
+                setMobileViewMode("DETAIL");
+              }}
+              className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 text-left cursor-pointer ${
                 activeTab === tab.id 
                   ? 'bg-primary text-primary-foreground font-bold shadow-md' 
                   : 'text-muted-foreground font-medium hover:bg-secondary hover:text-foreground'
@@ -369,7 +373,21 @@ export default function SettingsPage() {
         </div>
 
         {/* Right Content Area */}
-        <div className="flex-1 glass-card rounded-3xl border-border/50 p-8 shadow-xl bg-card/40">
+        <div className={`flex-1 glass-card rounded-3xl border-border/50 p-5 sm:p-8 shadow-xl bg-card/40 ${mobileViewMode === 'DETAIL' ? 'block' : 'hidden md:block'}`}>
+          {/* Mobile Back to Categories Navigation */}
+          <div className="md:hidden mb-6 flex items-center justify-between pb-3 border-b border-border/60">
+            <button
+              type="button"
+              onClick={() => setMobileViewMode("LIST")}
+              className="flex items-center gap-2 text-xs font-bold text-foreground hover:text-primary transition-colors py-1.5 px-3 rounded-full bg-secondary/80 border border-border cursor-pointer"
+            >
+              <ArrowLeft size={14} className="text-primary" />
+              <span>Back to Categories</span>
+            </button>
+            <span className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
+              {tabs.find(t => t.id === activeTab)?.label}
+            </span>
+          </div>
            <AnimatePresence mode="wait">
              <motion.div
                key={activeTab}
@@ -742,7 +760,7 @@ export default function SettingsPage() {
                      </Link>
                      <Link href="/about" className="glass-card p-4 rounded-2xl border border-border/70 hover:border-primary/50 transition-all flex flex-col gap-1.5">
                        <span className="font-bold text-sm text-foreground flex items-center justify-between">About NavSakhi <ArrowRight size={14} className="text-primary"/></span>
-                       <span className="text-xs text-muted-foreground">Academic demonstration scope, research pillars, and architecture.</span>
+                       <span className="text-xs text-muted-foreground">Product architecture, core research pillars, and safety standards.</span>
                      </Link>
                      <Link href="/help" className="glass-card p-4 rounded-2xl border border-border/70 hover:border-primary/50 transition-all flex flex-col gap-1.5 md:col-span-2">
                        <span className="font-bold text-sm text-foreground flex items-center justify-between">Help &amp; FAQ <ArrowRight size={14} className="text-primary"/></span>

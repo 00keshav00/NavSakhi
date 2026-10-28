@@ -125,7 +125,7 @@ export default function AboutPage() {
         <section className="p-5 rounded-3xl bg-secondary/40 border border-border/70 space-y-2 text-xs text-muted-foreground leading-relaxed">
           <span className="font-bold text-foreground block text-sm">Independent Technology Prototype</span>
           <p>
-            NavSakhi is an independent software project developed for academic research, demonstration, and personal safety innovation. It is not affiliated with the Government of Tamil Nadu, Chennai Metro Rail Limited (CMRL), or Chennai City Police. Route calculations and scores are mathematical estimates for decision support.
+            NavSakhi is an independent software project developed for commuter safety innovation and proactive spatial navigation. It is not affiliated with the Government of Tamil Nadu, Chennai Metro Rail Limited (CMRL), or Chennai City Police. Route calculations and scores are mathematical estimates for decision support.
           </p>
         </section>
 

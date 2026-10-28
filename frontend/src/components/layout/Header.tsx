@@ -65,7 +65,7 @@ export function Header() {
                 alt="NavSakhi - Safer Journeys • Stronger Women" 
                 width={175} 
                 height={56} 
-                className="h-9 sm:h-10 w-auto object-contain transition-transform group-hover:scale-[1.02]" 
+                className="h-9 sm:h-10 w-auto object-contain transition-transform group-hover:scale-[1.02] dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110" 
                 priority 
               />
             </div>
@@ -270,8 +270,8 @@ export function Header() {
               type="button"
               onClick={() => setIsSosInfoOpen(true)}
               className="p-1.5 rounded-full text-muted-foreground hover:text-danger hover:bg-danger/10 border border-border/60 transition-colors shrink-0"
-              title="Emergency SOS Demonstration Information & Scope"
-              aria-label="Emergency SOS Demonstration Information"
+              title="Emergency SOS Operational Scope & Information"
+              aria-label="Emergency SOS Operational Scope"
             >
               <Info size={14} />
             </button>
@@ -281,7 +281,7 @@ export function Header() {
 
       </div>
 
-      {/* Emergency SOS Scope & Demonstration Limitations Modal */}
+      {/* Emergency SOS Operational Scope & Limitations Modal */}
       <Dialog open={isSosInfoOpen} onOpenChange={setIsSosInfoOpen}>
         <DialogContent className="max-w-lg rounded-3xl p-6 border-border shadow-2xl bg-card text-foreground">
           <DialogHeader className="space-y-2">

@@ -81,6 +81,9 @@ export const journeyService = {
       }
     }
     wsUrl = wsUrl.replace(/\/+$/, "");
+    if (wsUrl === "wss://navsakhi-api.onrender.com" || wsUrl === "ws://navsakhi-api.onrender.com") {
+      wsUrl = "wss://navsakhi-api-staging.onrender.com";
+    }
     const ws = new WebSocket(`${wsUrl}/api/v1/ws/journey/${journeyId}?ticket=${encodeURIComponent(ticket)}`);
 
     

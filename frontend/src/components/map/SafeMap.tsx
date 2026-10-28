@@ -705,8 +705,15 @@ export default function SafeMap({
           <button
             type="button"
             onClick={() => {
-              setShowLayers(!showLayers);
-              if (!showLayers) setShowLegend(false);
+              const next = !showLayers;
+              setShowLayers(next);
+              if (next) {
+                setShowLegend(false);
+                setInternalSelectedPoi(null);
+                setInternalSelectedZone(null);
+                onPoiSelect?.(null);
+                onZoneSelect?.(null);
+              }
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
               showLayers
@@ -728,8 +735,15 @@ export default function SafeMap({
           <button
             type="button"
             onClick={() => {
-              setShowLegend(!showLegend);
-              if (!showLegend) setShowLayers(false);
+              const next = !showLegend;
+              setShowLegend(next);
+              if (next) {
+                setShowLayers(false);
+                setInternalSelectedPoi(null);
+                setInternalSelectedZone(null);
+                onPoiSelect?.(null);
+                onZoneSelect?.(null);
+              }
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
               showLegend
@@ -1097,8 +1111,10 @@ export default function SafeMap({
                   <span>Mapped Shop (Retail, Cafe, Dining)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-black text-[9px] shrink-0 border border-amber-600">8</span>
-                  <span>Shop Cluster (Click to zoom into group)</span>
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500/30 border border-amber-500/70 ring-1.5 ring-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
+                    <Store className="w-2 h-2" />
+                  </span>
+                  <span>Commercial Activity Cluster (Click to zoom)</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-emerald-500/70 shrink-0" />
@@ -1283,12 +1299,11 @@ export default function SafeMap({
                   duration: 350,
                 });
               }}
-              className="px-1.5 py-0.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] border border-amber-600 shadow-md ring-2 ring-amber-400/40 cursor-pointer transition-transform hover:scale-110 flex items-center gap-1"
+              className="w-5 h-5 rounded-full bg-amber-500/25 hover:bg-amber-500/40 text-amber-900 dark:text-amber-200 border border-amber-500/60 shadow-md ring-2 ring-amber-400/30 cursor-pointer transition-transform hover:scale-115 flex items-center justify-center backdrop-blur-xs"
               title={`${cluster.pois.length} commercial establishments clustered nearby. Click to zoom in.`}
-              aria-label={`${cluster.pois.length} mapped shops cluster`}
+              aria-label={`${cluster.pois.length} mapped commercial establishments cluster`}
             >
-              <Store className="w-2.5 h-2.5 shrink-0" />
-              <span>{cluster.pois.length}</span>
+              <Store className="w-2.5 h-2.5 shrink-0 text-amber-500 dark:text-amber-300" />
             </button>
           </Marker>
         ))}
@@ -1346,17 +1361,25 @@ export default function SafeMap({
                     <div className="w-1 h-1 bg-black/60 rounded-b shadow-xs" />
                   </>
                 ) : isLandmark ? (
-                  /* Distinct Major Landmark Badge */
+                  /* Distinct Major Landmark Badge: show icon only at zoom < 14.5 to prevent map clutter, full label at close zoom (>= 14.5) or when selected */
                   <div className="flex flex-col items-center group cursor-pointer transition-transform">
                     <div
-                      className={`px-2 py-0.5 rounded-lg ${cfg.pinBg} border-2 ${
+                      className={`${
+                        viewState.zoom >= 14.5 || isSelected
+                          ? "px-2 py-0.5 rounded-lg max-w-[150px] gap-1.5"
+                          : "w-6 h-6 rounded-full justify-center p-1"
+                      } ${cfg.pinBg} border-2 ${
                         isSelected ? "border-cyan-400 ring-4 ring-cyan-400/70" : cfg.pinBorder
-                      } shadow-xl flex items-center gap-1.5 text-white max-w-[150px] truncate`}
+                      } shadow-xl flex items-center text-white`}
                     >
                       {renderCategoryIcon(poi.category, "w-3 h-3 text-white shrink-0")}
-                      <span className="text-[10px] font-bold truncate">{poi.name}</span>
+                      {(viewState.zoom >= 14.5 || isSelected) && (
+                        <span className="text-[10px] font-bold truncate">{poi.name}</span>
+                      )}
                     </div>
-                    <div className="w-1.5 h-1.5 rotate-45 bg-fuchsia-700 -mt-1 shadow-sm" />
+                    {(viewState.zoom >= 14.5 || isSelected) && (
+                      <div className="w-1.5 h-1.5 rotate-45 bg-fuchsia-700 -mt-1 shadow-sm" />
+                    )}
                   </div>
                 ) : (
                   /* Refined, compact yellow/amber circular marker for individual mapped commercial businesses */

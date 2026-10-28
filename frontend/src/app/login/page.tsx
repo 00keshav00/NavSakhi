@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { getSafeRedirectUrl, getFriendlyRedirectInfo } from "@/utils/safeRedirect";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 // Zod Validation Schema
 const loginSchema = z.object({
@@ -69,6 +70,17 @@ function LoginForm() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background flex flex-col items-center justify-center p-4">
+      {/* Top Floating Controls: Back to Home & Theme Toggle */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-auto max-w-5xl mx-auto">
+        <Link
+          href="/"
+          className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full bg-secondary/50 border border-border/40 backdrop-blur-md"
+        >
+          ← Home
+        </Link>
+        <ThemeToggle />
+      </div>
+
       {/* Dynamic Mesh Gradient Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[20%] -left-[10%] w-[50vw] h-[50vw] rounded-full bg-primary/10 blur-[100px] animate-aurora opacity-50 dark:opacity-30" />
@@ -85,7 +97,7 @@ function LoginForm() {
                 alt="NavSakhi - Safer Journeys • Stronger Women" 
                 width={200} 
                 height={64} 
-                className="h-12 w-auto object-contain" 
+                className="h-12 w-auto object-contain transition-transform dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110" 
                 priority 
               />
             </div>

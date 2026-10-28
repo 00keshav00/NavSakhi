@@ -393,7 +393,24 @@ class WeatherService:
                         my_future.set_result(unavail)
                     return unavail
 
-            # Fallback for unexpected status codes
+            # Fallback for unexpected status codes: check cached observation before marking unavailable
+            cached_tuple = self._get_best_cached_observation(lat, lon)
+            if cached_tuple is not None:
+                _, valid_obs = cached_tuple
+                res = valid_obs.model_copy()
+                res.cached = True
+                res.status = "AVAILABLE"
+                res.cache_expires_in_seconds = 60
+                res.warnings = [
+                    f"Live weather provider returned status {resp.status_code}. Displaying verified cached observation from {res.observation_timestamp}."
+                ]
+                if location_name:
+                    res.location_name = location_name
+                self._weather_cache[cache_key] = (now, res)
+                if my_future is not None and not my_future.done():
+                    my_future.set_result(res)
+                return res
+
             unavail = self._build_unavailable_response(
                 lat, lon, resolved_name, status="UNAVAILABLE",
                 warning="Live weather provider is temporarily unreachable.",
@@ -406,6 +423,23 @@ class WeatherService:
             return unavail
         except Exception as e:
             logger.warning(f"Failed to fetch live weather from Open-Meteo for ({lat}, {lon}): {e}")
+            cached_tuple = self._get_best_cached_observation(lat, lon)
+            if cached_tuple is not None:
+                _, valid_obs = cached_tuple
+                res = valid_obs.model_copy()
+                res.cached = True
+                res.status = "AVAILABLE"
+                res.cache_expires_in_seconds = 60
+                res.warnings = [
+                    f"Live weather provider temporarily unreachable. Displaying verified cached observation from {res.observation_timestamp}."
+                ]
+                if location_name:
+                    res.location_name = location_name
+                self._weather_cache[cache_key] = (now, res)
+                if my_future is not None and not my_future.done():
+                    my_future.set_result(res)
+                return res
+
             unavail = self._build_unavailable_response(
                 lat, lon, resolved_name, status="UNAVAILABLE",
                 warning="Live weather provider is temporarily unreachable.",

@@ -41,11 +41,22 @@ class SafeSheRecommender:
                 detour_penalty = 0.15
             if r.duration > fastest_dur * 2.0:
                 detour_penalty = 0.30
+
+            # Penalize long-distance walking routes (> 1.5 km) so walking never replaces appropriate transit on long corridors
+            if r.route_metadata.get("travel_mode") == "Walking" and r.distance > 1500.0:
+                detour_penalty += 0.50
                 
             score = (safety_norm * self.BALANCED_SAFETY_WEIGHT) + (time_norm * self.BALANCED_TIME_WEIGHT) - detour_penalty
             return max(0.0, score)
             
         balanced_route = sorted(eligible, key=balanced_score, reverse=True)[0]
+
+        # Configurable heuristic: walking is preferred for trips around 1 km or less (when reasonable)
+        is_short_trip = any(c.distance <= 1000.0 for c in eligible)
+        walking_cand = next((c for c in eligible if c.route_metadata.get("travel_mode") == "Walking"), None)
+        if is_short_trip and walking_cand and walking_cand.distance <= 1000.0:
+            if not any(p in (user_preference or "").lower() for p in ["personal", "car", "bike", "driving", "fast"]):
+                balanced_route = walking_cand
 
         # 5. Objective Ranking (Lowest Cost)
         cost_eligible = [c for c in eligible if c.route_metadata.get("estimated_fare") is not None]
