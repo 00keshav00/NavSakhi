@@ -216,6 +216,7 @@ class SpatialMatchingService:
         self._indexed_bbox = None
         self._indexed_boxes = []
         self._indexed_bounds = None
+        self._covered_polygon = None
         self._feature_cache.clear()
 
     def _compute_corridor_boxes(
@@ -261,6 +262,25 @@ class SpatialMatchingService:
             i = max(i + 1, j - 2)
         return boxes
 
+    def _is_coords_covered(self, coords: List[Any]) -> bool:
+        """
+        Fast spatial bounding check: returns True if all coordinates fall within
+        the currently loaded spatial index bounds, avoiding redundant queries.
+        """
+        if self._index is None or not getattr(self, "_segment_records", None):
+            return False
+        ib = getattr(self, "_indexed_bounds", None) or getattr(self, "_indexed_bbox", None)
+        if ib is None:
+            return False
+        try:
+            min_lon = min(c[0] for c in coords)
+            max_lon = max(c[0] for c in coords)
+            min_lat = min(c[1] for c in coords)
+            max_lat = max(c[1] for c in coords)
+            return bool(ib[0] <= min_lon and max_lon <= ib[2] and ib[1] <= min_lat and max_lat <= ib[3])
+        except Exception:
+            return False
+
     def _ensure_index_for_corridor(self, coords: List[Any], margin: float = 0.0035) -> None:
         """
         Ensures the spatial index covers the exact route corridor using bounded spatial chunks.
@@ -279,22 +299,23 @@ class SpatialMatchingService:
         if not corridor_boxes:
             return
 
-        # Check if corridor is already covered by active index
-        if self._index is not None and len(self._segment_records) > 0 and self._indexed_boxes:
-            all_covered = True
-            for b in corridor_boxes:
-                box_covered = False
-                for ib in self._indexed_boxes:
-                    if ib[0] <= b[0] and ib[1] <= b[1] and ib[2] >= b[2] and ib[3] >= b[3]:
-                        box_covered = True
-                        break
+        from shapely.geometry import box as shapely_box
+        from shapely.ops import unary_union
 
-                if not box_covered:
-                    all_covered = False
-                    break
-            if all_covered:
-                logger.debug("Route corridor fully covered by active spatial index; reusing index.")
-                return
+        # Check if corridor is already covered by active index
+        uncovered_boxes: List[Tuple[float, float, float, float]] = []
+        if self._index is not None and len(self._segment_records) > 0:
+            if getattr(self, "_covered_polygon", None) is not None:
+                uncovered_boxes = [b for b in corridor_boxes if not self._covered_polygon.covers(shapely_box(*b))]
+                if not uncovered_boxes:
+                    logger.debug("Route corridor fully covered by active spatial index union; reusing index.")
+                    return
+            elif self._indexed_boxes:
+                self._covered_polygon = unary_union([shapely_box(*b) for b in self._indexed_boxes])
+                uncovered_boxes = [b for b in corridor_boxes if not self._covered_polygon.covers(shapely_box(*b))]
+                if not uncovered_boxes:
+                    logger.debug("Route corridor fully covered by active spatial index union; reusing index.")
+                    return
 
         # Check for disjoint journey: if active index is far from new route, invalidate and reset
         c_min_lon = min(b[0] for b in corridor_boxes)
@@ -305,11 +326,12 @@ class SpatialMatchingService:
 
         if self._index is not None and self._indexed_bounds is not None:
             ib = self._indexed_bounds
+
             c1 = ((ib[0] + ib[2]) / 2.0, (ib[1] + ib[3]) / 2.0)
             c2 = ((new_bounds[0] + new_bounds[2]) / 2.0, (new_bounds[1] + new_bounds[3]) / 2.0)
             dist_deg = max(abs(c1[0] - c2[0]), abs(c1[1] - c2[1]))
-            # If routes are more than ~15 km apart or index has accumulated > 50k segments, invalidate
-            if dist_deg > 0.15 or len(self._segment_records) > 50000:
+            # If routes are truly disjoint (e.g. > 55 km apart) or index has accumulated > 100k segments, invalidate
+            if dist_deg > 0.50 or len(self._segment_records) > 100000:
                 logger.info("New route corridor is geographically disjoint or index is large; rebuilding bounded index.")
                 self.invalidate_index()
                 all_boxes_to_index = corridor_boxes
@@ -339,7 +361,8 @@ class SpatialMatchingService:
                 c = conn.cursor()
                 where_clauses = []
                 params = []
-                for b in corridor_boxes:
+                boxes_to_query = uncovered_boxes if (self._index is not None and getattr(self, "_covered_polygon", None) is not None and len(uncovered_boxes) > 0) else corridor_boxes
+                for b in boxes_to_query:
                     where_clauses.append("(latitude >= ? AND latitude <= ? AND longitude >= ? AND longitude <= ?)")
                     params.extend([b[1], b[3], b[0], b[2]])
 
@@ -396,9 +419,9 @@ class SpatialMatchingService:
             new_df = new_df.drop_duplicates(subset=["segment_id"])
 
         if self._index is not None and self._road_segments_df is not None:
-            # If combining with previous route exceeds 50k segments, keep new route directly to protect RAM
-            if len(self._road_segments_df) + len(new_df) > 50000:
-                logger.info("Combined route corridors exceed 50k segments; narrowing index to active corridor.")
+            # If combining with previous route exceeds 100k segments, narrow index to active corridor
+            if len(self._road_segments_df) + len(new_df) > 100000:
+                logger.info("Combined route corridors exceed 100k segments; narrowing index to active corridor.")
                 combined_df = new_df
                 all_boxes_to_index = corridor_boxes
                 new_bounds = (c_min_lon, c_min_lat, c_max_lon, c_max_lat)
@@ -408,11 +431,21 @@ class SpatialMatchingService:
         else:
             combined_df = new_df
 
+        from shapely.ops import unary_union
+        # If no new segments were added to the dataset, avoid expensive index rebuild
+        if self._index is not None and self._road_segments_df is not None and len(combined_df) == len(self._road_segments_df):
+            self._indexed_boxes = all_boxes_to_index
+            self._indexed_bounds = new_bounds
+            self._indexed_bbox = new_bounds
+            self._covered_polygon = unary_union([shapely_box(*b) for b in all_boxes_to_index])
+            return
+
         self.build_index(road_segments_df=combined_df)
         del new_df
         self._indexed_boxes = all_boxes_to_index
         self._indexed_bounds = new_bounds
         self._indexed_bbox = new_bounds
+        self._covered_polygon = unary_union([shapely_box(*b) for b in all_boxes_to_index])
 
     def _ensure_index_for_bbox(self, min_lon: float, min_lat: float, max_lon: float, max_lat: float, margin: float = 0.03) -> None:
         """
@@ -499,6 +532,7 @@ class SpatialMatchingService:
         self._indexed_bbox = target_bbox
         self._indexed_bounds = target_bbox
         self._indexed_boxes = [target_bbox]
+        self._covered_polygon = shapely_box(*target_bbox)
 
     # --- Index Management ---
 
@@ -682,23 +716,22 @@ class SpatialMatchingService:
         Snaps a single continuous route geometry against the indexed road segments.
         """
         # Ensure spatial index covers route bounding box (bounded lazy loading)
-        if self._index is None or getattr(self, "_indexed_bbox", None) is not None:
-            try:
-                coords = []
-                if isinstance(route_input, dict) and "coordinates" in route_input:
-                    coords = route_input["coordinates"]
-                elif hasattr(route_input, "coords"):
-                    coords = list(route_input.coords)
-                elif isinstance(route_input, (list, tuple)):
-                    coords = route_input
-                if coords:
-                    valid_coords = [c for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    if valid_coords:
-                        self._ensure_index_for_corridor(valid_coords)
-            except CompanionStoreError:
-                raise
-            except Exception as e:
-                logger.debug(f"Route-bounded index check: {e}")
+        try:
+            coords = []
+            if isinstance(route_input, dict) and "coordinates" in route_input:
+                coords = route_input["coordinates"]
+            elif hasattr(route_input, "coords"):
+                coords = list(route_input.coords)
+            elif isinstance(route_input, (list, tuple)):
+                coords = route_input
+            if coords:
+                valid_coords = [c for c in coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+                if valid_coords and not self._is_coords_covered(valid_coords):
+                    self._ensure_index_for_corridor(valid_coords)
+        except CompanionStoreError:
+            raise
+        except Exception as e:
+            logger.debug(f"Route-bounded index check: {e}")
 
         # Validate index (build lazily if data available)
         if (self._index is None or len(self._segment_records) == 0) and (self._road_segments_df is not None or self.road_segments_path.exists()):
@@ -767,7 +800,11 @@ class SpatialMatchingService:
         total_length_m = metric_line.length
 
         # Generate dense metric evaluation points along the route polyline
-        sample_distances = np.arange(0.0, total_length_m, self.sample_interval_m).tolist()
+        # For long journeys (>15km), adaptively scale step to bound point count while preserving high resolution
+        effective_interval_m = self.sample_interval_m
+        if total_length_m > 15000.0:
+            effective_interval_m = min(60.0, max(self.sample_interval_m, total_length_m / 600.0))
+        sample_distances = np.arange(0.0, total_length_m, effective_interval_m).tolist()
         if not sample_distances or sample_distances[-1] < total_length_m:
             sample_distances.append(total_length_m)
 
@@ -1079,21 +1116,20 @@ class SpatialMatchingService:
         Processes a multi-leg route (e.g. walk -> transit -> walk), combining all legs in traversal sequence.
         """
         # Ensure spatial index covers global multimodal bounding box
-        if self._index is None or getattr(self, "_indexed_bbox", None) is not None:
-            try:
-                all_coords = []
-                for leg in legs:
-                    leg_geom = leg.get("geometry")
-                    if isinstance(leg_geom, dict) and "coordinates" in leg_geom:
-                        all_coords.extend(leg_geom["coordinates"])
-                    elif isinstance(leg_geom, (list, tuple)):
-                        all_coords.extend(leg_geom)
-                if all_coords:
-                    valid_coords = [c for c in all_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
-                    if valid_coords:
-                        self._ensure_index_for_corridor(valid_coords)
-            except Exception as e:
-                logger.debug(f"Multimodal route-bounded index check: {e}")
+        try:
+            all_coords = []
+            for leg in legs:
+                leg_geom = leg.get("geometry")
+                if isinstance(leg_geom, dict) and "coordinates" in leg_geom:
+                    all_coords.extend(leg_geom["coordinates"])
+                elif isinstance(leg_geom, (list, tuple)):
+                    all_coords.extend(leg_geom)
+            if all_coords:
+                valid_coords = [c for c in all_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+                if valid_coords and not self._is_coords_covered(valid_coords):
+                    self._ensure_index_for_corridor(valid_coords)
+        except Exception as e:
+            logger.debug(f"Multimodal route-bounded index check: {e}")
 
         all_matched_segments: List[MatchedSegmentResult] = []
         all_unmatched_intervals: List[UnmatchedInterval] = []

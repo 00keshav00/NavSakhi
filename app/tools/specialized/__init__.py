@@ -7,6 +7,7 @@ from app.tools.specialized.profile_tool import ProfileTool
 from app.tools.specialized.transit_tool import TransitTool
 from app.tools.specialized.emergency_tool import EmergencyTool
 from app.tools.specialized.reasoning_tool import ReasoningTool
+from app.tools.specialized.poi_tool import POITool
 
 __all__ = [
     "RoutingTool",
@@ -17,5 +18,6 @@ __all__ = [
     "ProfileTool",
     "TransitTool",
     "EmergencyTool",
-    "ReasoningTool"
+    "ReasoningTool",
+    "POITool"
 ]

@@ -1,12 +1,16 @@
-from pydantic import BaseModel
+import uuid
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
 from app.models.base import MongoBaseModel
 
 class EmergencyContact(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
     phone_number: str
-    relationship: Optional[str] = None
+    relationship: Optional[str] = "Family"
+    email: Optional[str] = None
+    is_primary: bool = False
 
 class UserPreferences(BaseModel):
     default_transport_mode: str = "walking"
@@ -23,3 +27,16 @@ class User(MongoBaseModel):
     created_at: datetime = datetime.utcnow()
     updated_at: datetime = datetime.utcnow()
     is_active: bool = True
+
+    @property
+    def full_name(self) -> str:
+        return self.profile_settings.get("full_name") or self.username
+
+    @property
+    def phone_number(self) -> str:
+        return self.profile_settings.get("phone_number") or ""
+
+    @property
+    def current_city(self) -> str:
+        return self.profile_settings.get("current_city") or "Not provided"
+

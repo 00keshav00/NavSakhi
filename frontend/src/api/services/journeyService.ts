@@ -1,5 +1,5 @@
-import { apiClient, StandardResponse } from "../client";
-import { JourneyCreateRequest, JourneyPlanResponse, LocationSuggestion } from "../../types/journey";
+import { apiClient, type StandardResponse } from "../client.ts";
+import type { JourneyCreateRequest, JourneyPlanResponse, LocationSuggestion } from "../../types/journey.ts";
 
 export const journeyService = {
   autocomplete: async (query: string, limit: number = 8, signal?: AbortSignal): Promise<LocationSuggestion[]> => {
@@ -11,8 +11,12 @@ export const journeyService = {
     return response.data?.data || [];
   },
 
-  planJourney: async (request: JourneyCreateRequest): Promise<JourneyPlanResponse> => {
-    const response = await apiClient.post<StandardResponse<JourneyPlanResponse>>("/api/v1/journeys/", request);
+  planJourney: async (request: JourneyCreateRequest, signal?: AbortSignal): Promise<JourneyPlanResponse> => {
+    // Temporary client mitigation: extended to 120,000ms to allow long-route computation on resource-constrained deployments
+    const response = await apiClient.post<StandardResponse<JourneyPlanResponse>>("/api/v1/journeys/", request, {
+      signal,
+      timeout: 120000,
+    });
     return response.data.data;
   },
 
@@ -65,8 +69,20 @@ export const journeyService = {
       throw new Error("Unable to obtain single-use WebSocket ticket for journey connection.");
     }
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+    let wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (!wsUrl) {
+      const apiBase = apiClient.defaults.baseURL || (typeof window !== "undefined" ? window.location.origin : "http://localhost:8000");
+      if (apiBase.startsWith("https://")) {
+        wsUrl = apiBase.replace(/^https:\/\//, "wss://");
+      } else if (apiBase.startsWith("http://")) {
+        wsUrl = apiBase.replace(/^http:\/\//, "ws://");
+      } else {
+        wsUrl = "ws://localhost:8000";
+      }
+    }
+    wsUrl = wsUrl.replace(/\/+$/, "");
     const ws = new WebSocket(`${wsUrl}/api/v1/ws/journey/${journeyId}?ticket=${encodeURIComponent(ticket)}`);
+
     
     ws.onmessage = (event) => {
       try {

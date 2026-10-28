@@ -4,6 +4,7 @@ import { authService } from "../api/services/authService";
 import { useAuthStore } from "../store/authStore";
 import { LoginCredentials } from "../types/auth";
 import { toast } from "sonner";
+import { getSafeRedirectUrl } from "../utils/safeRedirect";
 
 export const useLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -26,10 +27,10 @@ export const useLogin = () => {
         description: "Successfully authenticated into NavSakhi.",
       });
       
-      // Navigate to requested destination or default to /home
-      const redirectTarget = customRedirect || searchParams.get("redirect") || "/home";
-      // Ensure target is a relative safe path
-      const safeTarget = redirectTarget.startsWith("/") ? redirectTarget : "/home";
+      // Refresh server-side router state to ensure middleware has immediate visibility of the new cookies
+      router.refresh();
+      const targetParam = customRedirect || searchParams.get("redirect");
+      const safeTarget = getSafeRedirectUrl(targetParam, "/home");
       router.push(safeTarget);
       
     } catch (err: unknown) {
@@ -43,8 +44,33 @@ export const useLogin = () => {
     }
   };
 
+  const loginAsTestUser = async (customRedirect?: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authService.testUserLogin();
+      setAuth(response.user, response.access_token);
+      toast.success("Test Account Authenticated", {
+        description: "Logged in as local development test user.",
+      });
+      router.refresh();
+      const targetParam = customRedirect || searchParams.get("redirect");
+      const safeTarget = getSafeRedirectUrl(targetParam, "/home");
+      router.push(safeTarget);
+    } catch (err: unknown) {
+      const errorMsg = (err as Error).message || "Development test-user login failed.";
+      setError(errorMsg);
+      toast.error("Test Login Failed", {
+        description: errorMsg,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     login,
+    loginAsTestUser,
     isLoading,
     error,
   };

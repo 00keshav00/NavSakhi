@@ -104,30 +104,15 @@ def get_reports_provider(db: AsyncIOMotorDatabase = Depends(get_database)) -> Re
     return MongoReportsProvider(db)
 
 from app.intelligence.journey.coordinator import JourneyIntelligenceCoordinator
-import threading
 
-_shared_journey_coordinator: Optional[JourneyIntelligenceCoordinator] = None
-_coordinator_lock = threading.Lock()
-
+_global_journey_coordinator: Optional[JourneyIntelligenceCoordinator] = None
 
 def get_journey_coordinator() -> JourneyIntelligenceCoordinator:
-    """Return the shared Journey Intelligence Coordinator singleton with double-checked locking."""
-    global _shared_journey_coordinator
-    if _shared_journey_coordinator is not None:
-        return _shared_journey_coordinator
-    with _coordinator_lock:
-        if _shared_journey_coordinator is not None:
-            return _shared_journey_coordinator
-        instance = JourneyIntelligenceCoordinator()
-        _shared_journey_coordinator = instance
-        return _shared_journey_coordinator
-
-
-def reset_journey_coordinator() -> None:
-    """Reset the shared Journey Intelligence Coordinator singleton (for test isolation)."""
-    global _shared_journey_coordinator
-    with _coordinator_lock:
-        _shared_journey_coordinator = None
+    """Return the shared Journey Intelligence Coordinator singleton."""
+    global _global_journey_coordinator
+    if _global_journey_coordinator is None:
+        _global_journey_coordinator = JourneyIntelligenceCoordinator()
+    return _global_journey_coordinator
 
 def get_journey_service(
     repo: JourneyRepository = Depends(get_journey_repository),

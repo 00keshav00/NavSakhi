@@ -61,6 +61,51 @@ async def auth_login(
         )
     )
 
+@router.post("/test-user-login", response_model=StandardResponse[TokenResponse])
+async def auth_test_user_login():
+    """
+    Local development-only deterministic test user login.
+    Fails closed with HTTP 403 in production and non-development environments.
+    """
+    from fastapi import HTTPException
+    from app.config.settings import settings
+    from app.models.user import UserPreferences, EmergencyContact
+    
+    env = (settings.environment or "").strip().lower()
+    if env in ["production", "prod", "staging"] or env not in ["development", "dev", "test", "testing", "local"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Development test-user login is strictly disabled in production and staging environments."
+        )
+
+    # Valid 24-character hexadecimal ObjectId representation for deterministic dev test user
+    user_id = "000000000000000000000001"
+    email = "tester@navsakhi.local"
+    username = "LocalDevTester"
+    token = AuthService.create_access_token(user_id=user_id, email=email)
+    
+    user_data = UserResponse(
+        id=user_id,
+        username=username,
+        email=email,
+        preferences=UserPreferences(),
+        emergency_contacts=[
+            EmergencyContact(name="Safety Guardian", phone_number="+919876543210", relationship="Family")
+        ],
+        full_name="Local Dev Tester",
+        is_active=True,
+        role="tester"
+    )
+    return StandardResponse(
+        success=True,
+        data=TokenResponse(
+            access_token=token,
+            token_type="bearer",
+            user=user_data
+        ),
+        message="Local development test user authenticated successfully."
+    )
+
 @router.post("/ws-ticket", response_model=StandardResponse[Dict[str, Any]])
 async def create_ws_ticket(user_id: str = Depends(get_current_user_id)):
     """Issue a short-lived, single-use ticket for WebSocket authentication."""

@@ -143,29 +143,15 @@ class SafetyRiskLabelGenerator:
         choices = ['Low', 'Medium', 'High']
         risk_class = np.select(conditions, choices, default='Medium')
         
-        # Classify safety bands: High safety = Low risk
-        safety_score = (100.0 - final_score).astype('float32')
-        p33_safe = np.percentile(safety_score, 33)
-        p66_safe = np.percentile(safety_score, 66)
-        safety_conditions = [
-            (safety_score < p33_safe),
-            (safety_score >= p33_safe) & (safety_score < p66_safe),
-            (safety_score >= p66_safe)
-        ]
-        safety_class = np.select(safety_conditions, ['Low', 'Medium', 'High'], default='Medium')
-        
         out_df = pd.DataFrame({
             'segment_id': df['segment_id'],
-            'safety_score': safety_score,
-            'risk_score_raw': final_score.astype('float32'),
-            'risk_score': final_score.astype('float32'),  # Preserved for backward compatibility
-            'risk_class': risk_class,
-            'safety_class': safety_class
+            'risk_score': final_score.astype('float32'),
+            'risk_class': risk_class
         })
         
         self.config.output_path.parent.mkdir(parents=True, exist_ok=True)
         out_df.to_parquet(self.config.output_path, index=False)
-        logger.info(f"COMPLETED: Generated {len(out_df)} labels (safety_score + risk_score_raw) -> {self.config.output_path}")
+        logger.info(f"COMPLETED: Generated {len(out_df)} labels -> {self.config.output_path}")
         
 if __name__ == "__main__":
     SafetyRiskLabelGenerator(SafetyLabelConfig()).build()

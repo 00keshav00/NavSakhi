@@ -92,19 +92,6 @@ export function enrichGeoJsonWithSelection(
         featureGeometry = seg.polyline.geometry;
       }
 
-      // Elevate active route colors to vibrant, unmistakable accents.
-      // Inactive routes use a subdued, low-contrast slate (#94A3B8) so they never compete with the active path.
-      let segmentColor: string;
-      if (isActive) {
-        if (seg?.color && seg.color !== "#0284C7") {
-          segmentColor = seg.color;
-        } else {
-          segmentColor = "#E13B7A"; // NavSakhi radiant brand rose
-        }
-      } else {
-        segmentColor = "#94A3B8";
-      }
-
       const feature: GeoJSON.Feature = {
         type: "Feature",
         geometry: featureGeometry,
@@ -117,10 +104,10 @@ export function enrichGeoJsonWithSelection(
           transportMode: seg?.transport_mode || "walk",
           origin: seg?.origin,
           destination: seg?.destination,
-          color: segmentColor,
-          isActive: Boolean(isActive),
-          isLegFocused: Boolean(isLegFocused),
-          isLegHovered: Boolean(isLegHovered),
+          color: seg?.color || (isActive ? "#8B5CF6" : "#94A3B8"),
+          isActive,
+          isLegFocused,
+          isLegHovered,
         },
       };
 
@@ -266,4 +253,53 @@ export function generateCameraIntentKey(
   const dKey = destCoords ? destCoords.slice(0, 2).join(",") : "none";
   const layout = isDesktop ? "desktop" : "mobile";
   return `${activeRouteId || "none"}_leg_${focusedLegIndex ?? "all"}_features_${featureCount}_src_${sKey}_dst_${dKey}_${layout}`;
+}
+
+/**
+ * Identifies weather-provider failure or unavailability alert messages that
+ * should be suppressed from the user-facing Journey Planner warning panel.
+ *
+ * Suppresses:
+ * - "Live weather data is currently unavailable from provider."
+ * - "Live weather information unavailable"
+ * - "Live weather information unavailable (rate limit cooldown)"
+ * - "Live weather provider is temporarily unreachable."
+ * - Any weather telemetry failure/unavailable warning.
+ *
+ * Preserves:
+ * - Transit availability notices ("No practical direct public transit route...")
+ * - Night activity or lighting guidance
+ * - Safety notices, road restrictions, or corridor advisories
+ * - Any non-weather warning
+ */
+export function isWeatherUnavailableWarning(warning: string): boolean {
+  if (!warning || typeof warning !== "string") return false;
+  const lower = warning.toLowerCase().trim();
+
+  // Must explicitly mention weather to be considered for weather-unavailable suppression
+  if (!lower.includes("weather")) {
+    return false;
+  }
+
+  // Must be an unavailability, provider outage, rate limit, or failure advisory
+  const isUnavailabilityAlert =
+    lower.includes("unavailable") ||
+    lower.includes("unreachable") ||
+    lower.includes("rate limit") ||
+    lower.includes("offline") ||
+    lower.includes("timed out") ||
+    lower.includes("timeout") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("provider error");
+
+  return isUnavailabilityAlert;
+}
+
+/**
+ * Filters a list of journey warnings, suppressing redundant weather-unavailable
+ * messages while strictly preserving legitimate routing, transit, and safety warnings.
+ */
+export function filterJourneyWarnings(warnings?: string[] | null): string[] {
+  if (!warnings || !Array.isArray(warnings)) return [];
+  return warnings.filter((w) => !isWeatherUnavailableWarning(w));
 }

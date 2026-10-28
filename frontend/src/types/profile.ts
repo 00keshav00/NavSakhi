@@ -1,4 +1,5 @@
 export interface ProfileStats {
+  completed_journeys?: number;
   safe_journeys: number;
   total_distance_km: number;
   avg_safety_score: number;

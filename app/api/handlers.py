@@ -38,24 +38,6 @@ def register_exception_handlers(app: FastAPI):
             ),
         )
 
-    from app.intelligence.journey.spatial_matcher import CompanionStoreError
-
-    @app.exception_handler(CompanionStoreError)
-    async def companion_store_exception_handler(request: Request, exc: CompanionStoreError):
-        from app.config.logging_config import logger
-        logger.error(f"Companion store unavailable in production: {exc}")
-        return JSONResponse(
-            status_code=503,
-            content=ErrorResponse(
-                success=False,
-                error=ErrorDetails(
-                    code="SERVICE_UNAVAILABLE",
-                    message="Journey safety scoring is temporarily unavailable. Spatial indices are initializing or missing.",
-                    details=None
-                )
-            ).model_dump(exclude_none=True),
-        )
-
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         from app.config.logging_config import logger

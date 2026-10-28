@@ -1,27 +1,31 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import SafeMap from "@/components/map/SafeMap";
+import SafeMap, { POI_CATEGORY_CONFIG, renderCategoryIcon } from "@/components/map/SafeMap";
 import { useJourney } from "@/hooks/useJourney";
-import { MultimodalRoute } from "@/types/journey";
+import { MultimodalRoute, RoutePOI, ActivityZone } from "@/types/journey";
 import { JourneySearchPanel } from "@/components/journey/JourneySearchPanel";
 import { RouteCard } from "@/components/journey/RouteCard";
 import { RouteDetailPanel } from "@/components/journey/RouteDetailPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { 
-  Navigation, Shield, AlertTriangle, ChevronUp, ChevronDown, 
+import {
+  Navigation, Shield, AlertTriangle, ChevronUp, ChevronDown,
   SlidersHorizontal, CheckCircle2, PanelLeftClose, PanelLeftOpen,
-  RotateCcw, SearchX
+  RotateCcw, SearchX, Info, X, MapPin, Phone, ExternalLink, Minimize2, Maximize2
 } from "lucide-react";
 
-import { enrichGeoJsonWithSelection } from "@/components/journey/route-sync-utils";
+import { enrichGeoJsonWithSelection, filterJourneyWarnings } from "@/components/journey/route-sync-utils";
 import { useLiveJourneyTracking } from "@/hooks/useLiveJourneyTracking";
 import { useActiveJourneyStore } from "@/store/activeJourneyStore";
+import { useAuthStore } from "@/store/authStore";
+import { savePendingJourneyDraft, getPendingJourneyDraft, clearPendingJourneyDraft } from "@/utils/pendingJourneyStorage";
+import { toast } from "sonner";
 
 export default function JourneyPage() {
-  const { data, isLoading, isError, isEmpty, error, planJourney, resetJourney } = useJourney();
+  const { data, isLoading, isError, isEmpty, error, planJourney, resetJourney, restoreJourney } = useJourney();
   const liveTracking = useLiveJourneyTracking();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   // Internal Navigation & Synchronized Selection States
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
@@ -32,17 +36,45 @@ export default function JourneyPage() {
   const [mobileSheetSnap, setMobileSheetSnap] = useState<"PEEK" | "HALF" | "EXPANDED">("HALF");
   const [hasSearched, setHasSearched] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [selectedPoi, setSelectedPoi] = useState<RoutePOI | null>(null);
+  const [selectedZone, setSelectedZone] = useState<ActivityZone | null>(null);
 
-  // Form Inputs Cache for Pill Display
+  // Form Inputs Cache for Pill Display & Persistence
   const [lastSearchSource, setLastSearchSource] = useState("");
   const [lastSearchDest, setLastSearchDest] = useState("");
+  const [lastPreferences, setLastPreferences] = useState<string[]>([]);
+  const [lastTravelTime, setLastTravelTime] = useState<string | undefined>(undefined);
 
   const routes: MultimodalRoute[] = useMemo(
     () => data?.recommended_routes || [],
     [data?.recommended_routes]
   );
   const zeroDistance = data?.zero_distance || false;
-  const warnings = data?.warnings || [];
+  const warnings = useMemo(
+    () => filterJourneyWarnings(data?.warnings),
+    [data?.warnings]
+  );
+
+  const handlePoiSelect = (poi: RoutePOI | null) => {
+    setSelectedPoi(poi);
+    if (poi) {
+      setSelectedZone(null);
+      if (!isDesktop) {
+        // Auto-collapse bottom sheet to PEEK so map and POI details are unobstructed!
+        setMobileSheetSnap("PEEK");
+      }
+    }
+  };
+
+  const handleZoneSelect = (zone: ActivityZone | null) => {
+    setSelectedZone(zone);
+    if (zone) {
+      setSelectedPoi(null);
+      if (!isDesktop) {
+        setMobileSheetSnap("PEEK");
+      }
+    }
+  };
 
   // Responsive desktop detection for layout-aware camera bounds padding
   useEffect(() => {
@@ -78,7 +110,7 @@ export default function JourneyPage() {
     );
   }, [routes, effectiveRouteId, focusedLegIndex, hoveredLegIndex]);
 
-  const handlePlanSearch = (params: {
+  const handlePlanSearch = useCallback((params: {
     source: string;
     destination: string;
     preferences: string[];
@@ -87,14 +119,21 @@ export default function JourneyPage() {
     setHasSearched(true);
     setLastSearchSource(params.source);
     setLastSearchDest(params.destination);
+    setLastPreferences(params.preferences || []);
+    setLastTravelTime(params.travelTime);
     setActiveRouteId(null);
     setFocusedLegIndex(null);
     setHoveredLegIndex(null);
     setViewState("RESULTS");
-    planJourney(params);
-  };
+    planJourney({
+      source: params.source,
+      destination: params.destination,
+      preferences: params.preferences,
+      travel_time: params.travelTime,
+    });
+  }, [planJourney]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     liveTracking.cancelTracking();
     useActiveJourneyStore.getState().clearActiveJourney();
     resetJourney();
@@ -103,7 +142,67 @@ export default function JourneyPage() {
     setHoveredLegIndex(null);
     setViewState("SEARCH");
     setHasSearched(false);
-  };
+    setLastPreferences([]);
+    setLastTravelTime(undefined);
+  }, [liveTracking, resetJourney]);
+
+  const handleSaveDraftBeforeAuth = useCallback(() => {
+    if (lastSearchSource && lastSearchDest) {
+      savePendingJourneyDraft({
+        source: lastSearchSource,
+        destination: lastSearchDest,
+        preferences: lastPreferences,
+        travelTime: lastTravelTime,
+        selectedRouteId: activeRoute?.id || activeRouteId || undefined,
+        routesData: data,
+      });
+    }
+  }, [lastSearchSource, lastSearchDest, lastPreferences, lastTravelTime, activeRoute, activeRouteId, data]);
+
+  // Restore pending guest journey draft after successful sign-in
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const draft = getPendingJourneyDraft();
+    if (!draft) return;
+
+    // Immediately clear so it is consumed only once and cannot replay unexpectedly
+    clearPendingJourneyDraft();
+
+    setLastSearchSource(draft.source);
+    setLastSearchDest(draft.destination);
+    setLastPreferences(draft.preferences || []);
+    setLastTravelTime(draft.travelTime);
+    setHasSearched(true);
+
+    const candidateRoutes = draft.routesData?.recommended_routes || [];
+    const hasValidSelectedRoute = Boolean(
+      draft.selectedRouteId && candidateRoutes.some((r) => r.id === draft.selectedRouteId)
+    );
+
+    if (draft.routesData && candidateRoutes.length > 0 && hasValidSelectedRoute) {
+      // Safely restore cached route plan and selected card
+      restoreJourney(draft.routesData);
+      setActiveRouteId(draft.selectedRouteId!);
+      setViewState("DETAIL");
+      setMobileSheetSnap("EXPANDED");
+      toast.info("Journey Restored", {
+        description: "Your route has been restored. Review your route details and click 'Start Monitored Journey' to begin live tracking.",
+      });
+    } else {
+      // If routes are expired or missing, restore search inputs and recalculate fresh routes
+      toast.info("Journey Inputs Restored", {
+        description: "Recalculating fresh route options for your saved journey...",
+      });
+      setViewState("RESULTS");
+      planJourney({
+        source: draft.source,
+        destination: draft.destination,
+        preferences: draft.preferences || [],
+        travel_time: draft.travelTime,
+      });
+    }
+  }, [isAuthenticated, planJourney, restoreJourney]);
 
   const handleRouteSelect = (routeId: string) => {
     if (routeId !== effectiveRouteId) {
@@ -140,6 +239,8 @@ export default function JourneyPage() {
         <SafeMap
           source={{ coordinates: data?.source_loc }}
           destination={{ coordinates: data?.dest_loc }}
+          sourceName={lastSearchSource}
+          destinationName={lastSearchDest}
           routeGeometry={activeGeoJson}
           hasSearched={hasSearched}
           isLoading={isLoading}
@@ -150,6 +251,11 @@ export default function JourneyPage() {
           isDesktop={isDesktop}
           liveLocation={liveTracking.latestTelemetry}
           nearbyPois={activeRoute?.nearby_pois}
+          activityZones={activeRoute?.activity_zones}
+          selectedPoi={selectedPoi}
+          selectedZone={selectedZone}
+          onPoiSelect={handlePoiSelect}
+          onZoneSelect={handleZoneSelect}
           onRouteClick={(props: Record<string, unknown>) => {
             if (typeof props?.routeId === "string") {
               handleRouteSelect(props.routeId);
@@ -396,6 +502,19 @@ export default function JourneyPage() {
                     </div>
                   )}
 
+                  {/* All Routes Low Night Indicators Notice */}
+                  {!isLoading && !isError && routes.length > 0 && routes.every(r => r.night_activity_score && r.night_activity_score.overall_score < 30 && r.night_activity_score.status !== "OUT_OF_BOUNDS") && (
+                    <div className="mx-4 mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2">
+                      <Info className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                      <div className="space-y-0.5">
+                        <span className="font-bold">Comparative Route Guidance:</span>
+                        <p className="text-[11px] leading-relaxed">
+                          All available routes exhibit limited nighttime activity indicators (&lt; 30 raw score). The system highlights the strongest relative option, but please review leg-level lighting, road type, and transit access before travelling.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Routes Scroll Area */}
                   {!isLoading && !isError && routes.length > 0 && (
                     <ScrollArea className="flex-1 min-h-0 p-4 overscroll-contain">
@@ -425,6 +544,7 @@ export default function JourneyPage() {
                   onLegSelect={handleLegSelect}
                   onLegHover={handleLegHover}
                   onBack={handleBackToResults}
+                  onSaveDraftBeforeAuth={handleSaveDraftBeforeAuth}
                   tracking={liveTracking}
                 />
               )}
@@ -433,14 +553,15 @@ export default function JourneyPage() {
         </motion.div>
       </div>
 
-      {/* 3. MOBILE RESPONSIVE BOTTOM SHEET (< 768px) */}
+      {/* 3. MOBILE RESPONSIVE BOTTOM SHEET & POI DETAILS (< 768px) */}
       <div className="md:hidden">
         {/* Top Floating Origin/Dest Bar */}
         <div className="absolute top-3 inset-x-3 z-20 pointer-events-auto">
-          <div 
+          <div
             onClick={() => {
               setViewState("SEARCH");
               setMobileSheetSnap("EXPANDED");
+              setSelectedPoi(null);
             }}
             className="flex items-center justify-between p-3 rounded-xl border border-border bg-card/95 backdrop-blur-xl shadow-lg cursor-pointer"
           >
@@ -456,44 +577,255 @@ export default function JourneyPage() {
           </div>
         </div>
 
-        {/* Draggable Bottom Sheet */}
+        {/* Priority A2: Mobile POI Detail Sheet (Stacked ABOVE collapsed journey bottom sheet at z-50) */}
+        {!isDesktop && selectedPoi && (
+          <div className="absolute inset-x-3 bottom-20 z-50 max-h-[55vh] flex flex-col bg-slate-950/98 backdrop-blur-2xl text-slate-100 rounded-2xl border border-slate-700 shadow-2xl p-4 space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="p-1 rounded-md bg-slate-800/80 border border-slate-700/80 shrink-0">
+                  {renderCategoryIcon(selectedPoi.category, "w-4 h-4 text-cyan-400")}
+                </span>
+                <div className="min-w-0">
+                  <span className="font-extrabold text-slate-300 uppercase tracking-wider text-[10px] block">
+                    {selectedPoi.category_label || selectedPoi.category}
+                  </span>
+                  <h4 className="font-bold text-white text-sm leading-snug truncate">
+                    {selectedPoi.name}
+                  </h4>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {selectedPoi.is_emergency ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    EMERGENCY
+                  </span>
+                ) : selectedPoi.opening_status === "OPEN" ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    OPEN
+                  </span>
+                ) : selectedPoi.opening_status === "CLOSED" ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                    CLOSED
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    UNKNOWN HOURS
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPoi(null)}
+                  className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors ml-1 cursor-pointer"
+                  aria-label="Close POI details"
+                  title="Close POI details"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Scrollable details */}
+            <ScrollArea className="flex-1 min-h-0 pr-1">
+              <div className="space-y-2.5 text-xs">
+                {selectedPoi.address && (
+                  <p className="text-[11px] text-slate-300 flex items-start gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                    <span>{selectedPoi.address}</span>
+                  </p>
+                )}
+
+                <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Distance to Route:</span>
+                    <span className="font-bold text-cyan-400 font-mono">
+                      {selectedPoi.distance_to_route_m} m
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Estimated Pass-Through:</span>
+                    <span className="font-semibold text-slate-200">
+                      {selectedPoi.estimated_pass_through_time || "En route"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="text-slate-400">Hours:</span>
+                    <span className="font-mono text-[10.5px] text-emerald-300 truncate max-w-[190px]">
+                      {selectedPoi.opening_hours || "Schedule unknown (Not published)"}
+                    </span>
+                  </div>
+                  {selectedPoi.phone && (
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Phone:</span>
+                      <a href={`tel:${selectedPoi.phone}`} className="font-semibold text-cyan-400 hover:underline flex items-center gap-1">
+                        <Phone className="w-3 h-3" />
+                        <span>{selectedPoi.phone}</span>
+                      </a>
+                    </div>
+                  )}
+                  {selectedPoi.website && (
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-400">Website:</span>
+                      <a
+                        href={selectedPoi.website.startsWith("http") ? selectedPoi.website : `https://${selectedPoi.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-cyan-400 hover:underline truncate max-w-[190px] flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        <span>{selectedPoi.website.replace(/^https?:\/\//, "")}</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-[10px] text-slate-400 flex items-center justify-between border-t border-slate-800/80 pt-1.5">
+                  <span>Source: OpenStreetMap (ODbL)</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPoi(null);
+                      setMobileSheetSnap("HALF");
+                    }}
+                    className="text-cyan-400 hover:underline font-bold"
+                  >
+                    View Route Options →
+                  </button>
+                </div>
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+
+        {/* Mobile Activity Zone Sheet */}
+        {!isDesktop && selectedZone && (
+          <div className="absolute inset-x-3 bottom-20 z-50 max-h-[45vh] flex flex-col bg-slate-950/98 backdrop-blur-2xl text-slate-100 rounded-2xl border border-amber-500/50 shadow-2xl p-4 space-y-2.5 animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-lg">✨</span>
+                <span className="font-extrabold text-amber-300 uppercase tracking-wider text-[11px]">
+                  Activity Area
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  {selectedZone.activity_level}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedZone(null)}
+                  className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors ml-1 cursor-pointer"
+                  aria-label="Close Activity Zone details"
+                  title="Close Activity Zone details"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <h4 className="font-bold text-white text-sm leading-snug">
+                {selectedZone.name}
+              </h4>
+              <p className="text-[11px] text-slate-300">
+                Spatial commercial cluster along the corridor.
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Cluster Radius:</span>
+                <span className="font-semibold text-slate-200 font-mono">~{selectedZone.radius_m} m</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Data Source:</span>
+                <span className="font-semibold text-slate-200">{selectedZone.source}</span>
+              </div>
+            </div>
+
+            <p className="italic text-slate-400 text-[9.5px] leading-tight border-t border-slate-800 pt-1.5">
+              {selectedZone.disclosure}
+            </p>
+          </div>
+        )}
+
+        {/* Priority A1: Coordinated Collapsible Bottom Sheet (Collapsed: 64px, Compact: 38vh, Expanded: 80vh) */}
         <motion.div
           animate={{
             height:
               mobileSheetSnap === "PEEK"
-                ? "90px"
+                ? "64px"
                 : mobileSheetSnap === "HALF"
-                ? "52vh"
-                : "85vh",
+                ? "38vh"
+                : "80vh",
           }}
           transition={{ type: "spring", damping: 28, stiffness: 280 }}
           className="absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl border-t border-border bg-card/98 backdrop-blur-2xl shadow-2xl overflow-hidden pb-safe"
         >
-          {/* Pull Handle / Header */}
-          <div 
-            onClick={() => {
-              setMobileSheetSnap(
-                mobileSheetSnap === "PEEK"
-                  ? "HALF"
-                  : mobileSheetSnap === "HALF"
-                  ? "EXPANDED"
-                  : "HALF"
-              );
-            }}
-            className="w-full pt-3 pb-2 flex flex-col items-center justify-center cursor-pointer shrink-0 select-none bg-secondary/20"
-          >
-            <div className="w-10 h-1.5 rounded-full bg-muted-foreground/30 mb-1" />
-            <div className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
-              <span>{viewState === "SEARCH" ? "Route Planner" : viewState === "DETAIL" ? "Route Details" : "Route Options"}</span>
-              {mobileSheetSnap === "EXPANDED" ? (
-                <ChevronDown className="w-3.5 h-3.5" />
+          {/* Action Header / Minimize / Restore Bar */}
+          <div className="w-full pt-2.5 pb-2 px-4 flex items-center justify-between shrink-0 select-none bg-secondary/30 border-b border-border/50">
+            {/* Left Status / Category indicator */}
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-primary shrink-0 animate-pulse" />
+              <span className="text-xs font-bold text-foreground truncate">
+                {viewState === "SEARCH"
+                  ? "Route Planner"
+                  : viewState === "DETAIL"
+                  ? (activeRoute?.route_name || "Route Details")
+                  : `${routes.length} Route Options`}
+              </span>
+              {activeRoute && mobileSheetSnap === "PEEK" && viewState !== "SEARCH" && (
+                <span className="text-[11px] font-semibold text-muted-foreground truncate hidden xs:inline">
+                  • {activeRoute.eta} ({activeRoute.distance})
+                </span>
+              )}
+            </div>
+
+            {/* Center Drag Handle */}
+            <div
+              onClick={() => {
+                setMobileSheetSnap(
+                  mobileSheetSnap === "PEEK"
+                    ? "HALF"
+                    : mobileSheetSnap === "HALF"
+                    ? "EXPANDED"
+                    : "HALF"
+                );
+              }}
+              className="w-10 h-1.5 rounded-full bg-muted-foreground/40 cursor-pointer hover:bg-muted-foreground/60 transition-colors mx-2"
+              title="Drag or tap to adjust sheet height"
+            />
+
+            {/* Right Explicit Minimize / Expand Controls */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {mobileSheetSnap !== "PEEK" ? (
+                <button
+                  type="button"
+                  onClick={() => setMobileSheetSnap("PEEK")}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-[11px] font-bold text-foreground border border-border shadow-xs transition-colors cursor-pointer"
+                  title="Minimize panel to inspect map"
+                  aria-label="Minimize panel to map"
+                >
+                  <Minimize2 className="w-3 h-3 text-muted-foreground" />
+                  <span>Map View</span>
+                </button>
               ) : (
-                <ChevronUp className="w-3.5 h-3.5" />
+                <button
+                  type="button"
+                  onClick={() => setMobileSheetSnap(viewState === "DETAIL" ? "EXPANDED" : "HALF")}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary hover:bg-primary/90 text-[11px] font-bold text-primary-foreground shadow-xs transition-colors cursor-pointer"
+                  title="Expand route options"
+                  aria-label="Expand route options"
+                >
+                  <span>{viewState === "SEARCH" ? "Plan" : `Routes (${routes.length})`}</span>
+                  <ChevronUp className="w-3 h-3" />
+                </button>
               )}
             </div>
           </div>
 
-          {/* Sheet Body */}
+          {/* Sheet Body (Rendered when expanded or half) */}
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
             {viewState === "SEARCH" && (
               <ScrollArea className="flex-1 min-h-0">
@@ -513,20 +845,29 @@ export default function JourneyPage() {
 
             {viewState === "RESULTS" && (
               <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                <div className="px-4 py-2 border-b border-border flex items-center justify-between text-xs shrink-0">
+                <div className="px-4 py-2 border-b border-border flex items-center justify-between text-xs shrink-0 bg-muted/20">
                   <span className="font-bold text-foreground">
                     {isLoading ? "Searching..." : `${routes.length} Available Routes`}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewState("SEARCH");
-                      setMobileSheetSnap("EXPANDED");
-                    }}
-                    className="font-semibold text-primary"
-                  >
-                    Edit Search
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMobileSheetSnap("PEEK")}
+                      className="font-medium text-muted-foreground hover:text-foreground text-[11px]"
+                    >
+                      Hide to Map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewState("SEARCH");
+                        setMobileSheetSnap("EXPANDED");
+                      }}
+                      className="font-semibold text-primary text-[11px]"
+                    >
+                      Edit Search
+                    </button>
+                  </div>
                 </div>
 
                 {isLoading && (
@@ -579,6 +920,7 @@ export default function JourneyPage() {
                 onLegSelect={handleLegSelect}
                 onLegHover={handleLegHover}
                 onBack={handleBackToResults}
+                onSaveDraftBeforeAuth={handleSaveDraftBeforeAuth}
                 tracking={liveTracking}
               />
             )}

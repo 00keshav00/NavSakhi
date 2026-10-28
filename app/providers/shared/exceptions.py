@@ -1,3 +1,5 @@
+from typing import Optional
+
 class ProviderError(Exception):
     """Base class for all provider exceptions."""
     pass
@@ -12,7 +14,9 @@ class ProviderAuthenticationError(ProviderError):
 
 class ProviderRateLimitError(ProviderError):
     """Raised when a provider rate limit is exceeded."""
-    pass
+    def __init__(self, message: str = "Provider rate limit exceeded", retry_after: Optional[int] = None):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 class ProviderUnavailableError(ProviderError):
     """Raised when a provider is down or unreachable."""
@@ -20,4 +24,8 @@ class ProviderUnavailableError(ProviderError):
 
 class ProviderResponseMappingError(ProviderError):
     """Raised when the mapping layer fails to parse a vendor response."""
+    pass
+
+class LocationNotFoundError(ProviderError):
+    """Raised when a location cannot be resolved by geocoding providers."""
     pass

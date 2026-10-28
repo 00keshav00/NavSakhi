@@ -18,7 +18,7 @@ export default function WorkspaceLayout({
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-foreground">
       <Header />
-      <main className="relative flex-1 overflow-y-auto pb-16 md:pb-0">
+      <main className="relative flex-1 min-h-0 overflow-y-auto pb-16 md:pb-0">
         {children}
         <FloatingAssistant />
       </main>

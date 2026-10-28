@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { journeyService } from "../api/services/journeyService";
 import { useAuthStore } from "../store/authStore";
+import { extractApiErrorMessage } from "../api/client";
 import { JourneyCreateRequest, JourneyPlanResponse } from "../types/journey";
 import { toast } from "sonner";
 
@@ -13,14 +14,22 @@ export const useJourney = () => {
 
   // Monotonically increasing request counter to reject stale out-of-order asynchronous responses
   const requestIdRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const planJourney = useCallback(async (request: JourneyCreateRequest) => {
+    // Abort any previous pending search request immediately to free network & server resources
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const currentRequestId = ++requestIdRef.current;
     setStatus("LOADING");
     setError(null);
 
     try {
-      const responseData = await journeyService.planJourney(request);
+      const responseData = await journeyService.planJourney(request, controller.signal);
 
       // If a newer search was submitted in the meantime, ignore this stale response
       if (currentRequestId !== requestIdRef.current) {
@@ -51,22 +60,44 @@ export const useJourney = () => {
         description: scoreDesc,
       });
     } catch (err: unknown) {
-      if (currentRequestId !== requestIdRef.current) {
+      // If request was aborted because user submitted a newer search, silently ignore
+      const errName = (err as { name?: string })?.name;
+      const isCanceled = errName === "CanceledError" || errName === "AbortError" || (err as { code?: string })?.code === "ERR_CANCELED";
+      if (isCanceled || currentRequestId !== requestIdRef.current) {
         return;
       }
-      const errorMsg = (err as Error).message || "An unexpected error occurred while planning your journey.";
+      const errorMsg = extractApiErrorMessage(err, "An unexpected error occurred while planning your journey.");
       setStatus("ERROR");
       setError(errorMsg);
       toast.error("Journey Planning Failed", {
         description: errorMsg,
       });
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   }, []);
 
   const resetJourney = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     requestIdRef.current += 1; // Invalidate any in-flight requests
     setData(null);
     setStatus("IDLE");
+    setError(null);
+  }, []);
+
+  const restoreJourney = useCallback((responseData: JourneyPlanResponse) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    requestIdRef.current += 1;
+    setData(responseData);
+    setStatus("SUCCESS");
     setError(null);
   }, []);
 
@@ -80,5 +111,6 @@ export const useJourney = () => {
     error,
     planJourney,
     resetJourney,
+    restoreJourney,
   };
 };

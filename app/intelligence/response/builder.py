@@ -1,7 +1,29 @@
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional, Tuple
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
+
+def compute_route_geometry_signature(coords: Any) -> str:
+    """
+    Computes a deterministic, collision-proof SHA-256 signature of a route coordinate sequence.
+    Normalizes coordinates to 6 decimal places (~0.11m precision).
+    Distinguishes distinct paths with identical endpoints, distances, or counts.
+    Distinguishes reversed routes.
+    """
+    if not coords or not isinstance(coords, (list, tuple)):
+        return "empty"
+    valid_points = []
+    for pt in coords:
+        if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+            try:
+                valid_points.append(f"{float(pt[0]):.6f},{float(pt[1]):.6f}")
+            except (ValueError, TypeError):
+                continue
+    if not valid_points:
+        return "empty"
+    payload = ";".join(valid_points)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 def get_mode_color(mode: str) -> str:
     m = mode.lower().strip()
@@ -72,7 +94,17 @@ class ResponseBuilder:
             )
         )
 
-    def build_journey_plan(self, final_context: Dict[str, Any], user_id: str, journey_id: str) -> Any:
+    def build_journey_plan(
+        self,
+        final_context: Dict[str, Any],
+        user_id: str,
+        journey_id: str,
+        timing_collector: Optional[Dict[str, float]] = None
+    ) -> Any:
+        import time
+        t_build_start = time.perf_counter()
+        t_poi_total = 0.0
+        t_night_total = 0.0
         from app.schemas.journey_schemas import (
             JourneyPlanResponse, SessionInfo, JourneyInformation,
             MultimodalRoute, RouteSegment, WeatherSummary, CommunitySummary, AIRecommendation,
@@ -80,12 +112,16 @@ class ResponseBuilder:
         )
         import datetime
         import copy
-        
+
         candidates = final_context.get("routes", [])
         source_name = final_context.get("source_name", "Current Location")
         dest_name = final_context.get("dest_name", "Destination")
-        
+
         if final_context.get("zero_distance"):
+            if timing_collector is not None:
+                timing_collector["poi_retrieval_ms"] = 0.0
+                timing_collector["night_activity_evaluation_ms"] = 0.0
+                timing_collector["response_dto_construction_ms"] = round((time.perf_counter() - t_build_start) * 1000, 2)
             return JourneyPlanResponse(
                 journey_id=journey_id,
                 session_info=SessionInfo(created_at=datetime.datetime.utcnow().isoformat(), status="ACTIVE"),
@@ -103,7 +139,8 @@ class ResponseBuilder:
                     reasoning="The source and destination are effectively identical.",
                     warnings=[],
                     suggested_actions=[]
-                )
+                ),
+                zero_distance=True,
             )
         
         def get_color(score: int, index: int) -> str:
@@ -113,17 +150,25 @@ class ResponseBuilder:
             return "#DC2626" # Red
             
         # The user requested 3 specific scenarios: Route A (Walk->Metro->Auto), Route B (Walk->Bus->Walk), Route C (Cab Direct)
+        from app.ml.predictor import get_ml_predictor
+        predictor = get_ml_predictor()
+        
         from app.intelligence.journey.recommender import global_recommender
         # Recommender handles objective ranking and missing data without mutating arrays
-        # Extract transport preference safely (default to ANY if not provided or missing from context)
-        pref = "ANY"
-        rec_payload = global_recommender.generate_recommendation(candidates, pref)
+        pref = final_context.get("preference", "ANY") if isinstance(final_context, dict) else "ANY"
+        rec_payload = (final_context.get("recommendation") if isinstance(final_context, dict) else None) or global_recommender.generate_recommendation(candidates, pref)
         
         # Determine actual roles
         recommended_routes = []
         if candidates:
             pass # ranking logic removed from here, driven by rec_payload
             
+        from app.services.poi_service import get_poi_service
+        from app.intelligence.journey.night_activity_scorer import night_activity_scorer
+        poi_service = get_poi_service()
+        poi_cache: Dict[Any, Tuple[Any, List[RoutePOI]]] = {}
+        night_cache: Dict[Any, Any] = {}
+
         for i, c in enumerate(candidates):
             if not c: continue
                 
@@ -273,8 +318,16 @@ class ResponseBuilder:
                 ))
             
             reasons = []
+            tradeoffs = []
             if is_rec:
                 reasons = ["Recommended dynamically computed option based on live telemetry."]
+            rec_obj = final_context.get("recommendation")
+            if rec_obj and hasattr(rec_obj, "explanation") and rec_obj.explanation:
+                expl = rec_obj.explanation
+                if is_rec and hasattr(expl, "tradeoffs") and expl.tradeoffs:
+                    tradeoffs.extend(expl.tradeoffs)
+            if not tradeoffs:
+                tradeoffs.append("Missing mapped POIs reflect dataset completeness, not real-time activity or danger.")
             
             c.route_metadata["ranking_tags"] = labels
             
@@ -321,21 +374,40 @@ class ResponseBuilder:
             else:
                 mode_cat = "Cab"
 
-            # Query verified safety facilities along the route corridor
-            from app.services.poi_service import get_poi_service
-            poi_service = get_poi_service()
-            # Bounded leg mapping: pass only essential leg_id and polyline geometry without full model_dump serialization
-            poi_legs = [
-                {"leg_id": s.leg_id, "polyline": s.polyline}
-                for s in segments
-            ] if segments else None
-            poi_query_res = poi_service.query_pois_near_route(
-                coords,
-                corridor_m=800.0,
-                legs=poi_legs,
-            )
-            raw_pois = poi_query_res.get("pois", [])
-            route_pois = [RoutePOI(**p) for p in raw_pois]
+            # Query verified safety facilities and commercial shops along the route corridor
+            geom_sig = compute_route_geometry_signature(coords)
+            corridor_m = 800.0
+            legs_sig = tuple((getattr(s, "transport_mode", ""), round(float(getattr(s, "distance_m", 0.0) or 0.0), 1), round(float(getattr(s, "duration_s", 0.0) or 0.0), 1)) for s in segments) if segments else ()
+            dur_sig = round(float(getattr(c, "duration", 0.0) or 0.0), 1)
+            poi_sig = (geom_sig, corridor_m, legs_sig, dur_sig)
+
+            t_p0 = time.perf_counter()
+            if poi_sig in poi_cache:
+                poi_query_res_raw, raw_pois_cached = poi_cache[poi_sig]
+                poi_query_res = dict(poi_query_res_raw)
+                route_pois = [RoutePOI(**p) for p in raw_pois_cached]
+            else:
+                poi_query_res = poi_service.query_pois_near_route(
+                    coords,
+                    corridor_m=corridor_m,
+                    legs=[s.model_dump() for s in segments] if segments else None,
+                    total_duration_s=float(getattr(c, "duration", 0.0) or 0.0)
+                )
+                raw_pois = poi_query_res.get("pois", [])
+                route_pois = [RoutePOI(**p) for p in raw_pois]
+                poi_cache[poi_sig] = (dict(poi_query_res), [p.copy() if isinstance(p, dict) else p for p in raw_pois])
+            t_poi_total += (time.perf_counter() - t_p0)
+
+            # Evaluate dedicated Night Activity Intelligence (v2.0)
+            t_n0 = time.perf_counter()
+            pass_through_hour = int(final_context.get("pass_through_hour", 22)) if isinstance(final_context, dict) else 22
+            night_sig = (geom_sig, pass_through_hour)
+            if night_sig in night_cache:
+                night_score = night_cache[night_sig].model_copy(deep=True)
+            else:
+                night_score = night_activity_scorer.evaluate_route(coords, pass_through_hour=pass_through_hour)
+                night_cache[night_sig] = night_score.model_copy(deep=True)
+            t_night_total += (time.perf_counter() - t_n0)
 
             # Extract genuine LightGBM TreeSHAP explainability
             raw_model_attr = c.route_metadata.get("model_explainability")
@@ -377,7 +449,10 @@ class ResponseBuilder:
                 model_explainability=legacy_contribs,
                 model_attribution=parsed_model_attr,
                 nearby_pois=route_pois,
+                activity_zones=poi_query_res.get("activity_zones", []),
+                night_activity_score=night_score,
                 recommendation_reason=reasons,
+                tradeoffs=tradeoffs,
                 segments=segments,
                 is_recommended=is_rec,
                 score_status=route_status,
@@ -386,10 +461,11 @@ class ResponseBuilder:
                 model_version=c.route_metadata.get("model_version", "2.0.0"),
                 target_disclosure=c.route_metadata.get("target_disclosure", "Synthetic environmental safety proxy (100.0 - risk_score_raw); not verified crime or victimization ground truth.")
             ))
-            # Ensure recommended route is placed first
-            recommended_routes.sort(key=lambda r: 0 if r.is_recommended else 1)
-            for idx, r in enumerate(recommended_routes):
-                r.rank = idx + 1
+
+        # Ensure recommended route is placed first
+        recommended_routes.sort(key=lambda r: 0 if r.is_recommended else 1)
+        for idx, r in enumerate(recommended_routes):
+            r.rank = idx + 1
                 
         recommended = recommended_routes[0] if recommended_routes else None
         
@@ -409,7 +485,13 @@ class ResponseBuilder:
             ai_title = "Objective Recommendation"
             ai_summary = rec_payload.explanation.primary_reason if rec_payload.explanation else "Analyzed verified infrastructure constraints."
             ai_reasoning = " ".join(rec_payload.explanation.tradeoffs) if rec_payload.explanation else "Determined via multi-factor backend verification."
-        
+
+        if timing_collector is not None:
+            t_dto_duration = max(0.0, (time.perf_counter() - t_build_start) - t_poi_total - t_night_total)
+            timing_collector["poi_retrieval_ms"] = round(t_poi_total * 1000, 2)
+            timing_collector["night_activity_evaluation_ms"] = round(t_night_total * 1000, 2)
+            timing_collector["response_dto_construction_ms"] = round(t_dto_duration * 1000, 2)
+
         return JourneyPlanResponse(
             journey_id=journey_id,
             session_info=SessionInfo(
@@ -446,44 +528,174 @@ class ResponseBuilder:
             warnings=final_context.get("warnings", []),
         )
         
-    def build_emergency_status(self, final_context: Dict[str, Any], session_id: str, user_id: str) -> Any:
-        from app.schemas.emergency_schemas import EmergencyResponse, LiveLocation, AgentStatus, EmergencyTimelineEvent, EmergencyContact, EmergencySafeZone, JourneyStatus
+    def build_emergency_status(self, final_context: Dict[str, Any], session_id: str, user_id: str, user: Any = None) -> Any:
+        from app.schemas.emergency_schemas import (
+            EmergencyResponse, LiveLocation, AgentStatus, 
+            EmergencyTimelineEvent, EmergencyContact, EmergencySafeZone, JourneyStatus
+        )
         
-        emergency = final_context.get("EmergencyAgent", {}).get("emergency_status", {})
+        # 1. Resolve authentic user
+        if not user:
+            user = final_context.get("user")
+        if not user and user_id:
+            from app.repositories.base import BaseRepository
+            user_dict = BaseRepository._global_store.get("users", {}).get(str(user_id))
+            if user_dict:
+                from app.models.user import User
+                user = User(**user_dict)
+
+        # 2. Resolve owner-scoped emergency contacts (never fabricated)
+        contacts = []
+        user_contacts = getattr(user, "emergency_contacts", None) if user else None
+        if user_contacts:
+            for idx, c in enumerate(user_contacts):
+                cid = getattr(c, "id", None) or (c.get("id") if isinstance(c, dict) else None) or f"c_{idx}"
+                cname = getattr(c, "name", None) or (c.get("name") if isinstance(c, dict) else "")
+                crel = getattr(c, "relationship", None) or (c.get("relationship") if isinstance(c, dict) else "Family") or "Family"
+                contacts.append(
+                    EmergencyContact(
+                        id=str(cid),
+                        name=cname,
+                        relationship=crel,
+                        notification_status="Pending"  # Awaiting manual user action/share
+                    )
+                )
+
+        # 3. Resolve location strictly from context or session (never hardcoded demo coordinates)
+        session = final_context.get("session")
+        active_journey = final_context.get("active_journey")
         
-        timeline = []
-        for t in emergency.get("timeline", []):
-            timeline.append(EmergencyTimelineEvent(**t))
-            
-        return EmergencyResponse(
-            session_id=session_id,
-            status="active",
-            live_location=LiveLocation(
-                coordinates=(80.2707, 13.0827),
-                address="Poonamallee High Rd, Chennai",
-                accuracy=15,
-                last_updated="Just now"
-            ),
-            agent_status=AgentStatus(
-                action="Staging Emergency Context & Safe Haven Routing",
-                recommendation="Stay in well-lit areas if possible. Keep device accessible.",
-                context="Emergency demonstration protocol initiated.",
-                confidence=90,
-                reason="Protocol prioritizes verified safe havens and designated contact sharing."
-            ),
-            timeline=timeline,
-            contacts=[
-                EmergencyContact(id="c1", name="Sarah Connor", relationship="Sister", notification_status="Pending")
-            ],
-            safe_zones=[
-                EmergencySafeZone(id="s1", type="Police", name="Periamet Police Station", distance="1.2 km", eta="4 mins", coordinates=(80.2730, 13.0815))
-            ],
-            journey_status=JourneyStatus(
+        raw_location = final_context.get("current_location") or final_context.get("location")
+        if not raw_location and session:
+            raw_location = getattr(session, "current_location", None)
+        if not raw_location and active_journey:
+            prog = getattr(active_journey, "progress", None)
+            if prog and getattr(prog, "current_location", None):
+                raw_location = prog.current_location.coordinates
+            elif getattr(active_journey, "source", None):
+                raw_location = active_journey.source.coordinates
+
+        coords = None
+        address_str = "Location unavailable (GPS permission required or coordinates not provided)"
+        accuracy_val = 0
+        last_updated_str = "Unavailable"
+
+        if raw_location:
+            if isinstance(raw_location, (list, tuple)) and len(raw_location) >= 2:
+                try:
+                    lon, lat = float(raw_location[0]), float(raw_location[1])
+                    if -180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0:
+                        coords = (lon, lat)
+                        address_str = f"{lat:.4f}° N, {lon:.4f}° E"
+                        accuracy_val = 10
+                        last_updated_str = "Just now"
+                except (ValueError, TypeError):
+                    pass
+            elif isinstance(raw_location, str):
+                from app.intelligence.journey.coordinator import parse_coordinate_pair
+                parsed = parse_coordinate_pair(raw_location)
+                if parsed:
+                    coords = parsed  # (lon, lat)
+                    address_str = f"{parsed[1]:.4f}° N, {parsed[0]:.4f}° E"
+                    accuracy_val = 10
+                    last_updated_str = "Just now"
+                elif raw_location.strip() and raw_location != "Unknown Location":
+                    address_str = raw_location.strip()
+                    accuracy_val = 50
+                    last_updated_str = "Just now"
+
+        # 4. Agent Status & Honest Recommendations
+        if contacts:
+            agent_status = AgentStatus(
+                action="Ready for Manual Emergency Sharing",
+                recommendation="Use your device's native share sheet to transmit coordinates to your designated contact, or dial 112 directly.",
+                context="Emergency command session active.",
+                confidence=100,
+                reason=f"{len(contacts)} emergency contact(s) configured. Manual dispatch required per user privacy protocol."
+            )
+        else:
+            agent_status = AgentStatus(
+                action="No Emergency Contacts Configured",
+                recommendation="No trusted contacts are configured. Please dial national emergency helpline 112 directly.",
+                context="No emergency contacts configured for this account.",
+                confidence=100,
+                reason="Emergency contact list is empty. Add contacts in Settings to enable emergency sharing."
+            )
+
+        # 5. Timeline Events (Truthful, non-fabricated)
+        timeline = [
+            EmergencyTimelineEvent(
+                id="e1",
+                timestamp="Just now",
+                status="completed",
+                description="Emergency command session initialized"
+            )
+        ]
+        if contacts:
+            timeline.append(
+                EmergencyTimelineEvent(
+                    id="e2",
+                    timestamp="Pending",
+                    status="pending",
+                    description=f"{len(contacts)} contact(s) ready for manual sharing via device sheet"
+                )
+            )
+        else:
+            timeline.append(
+                EmergencyTimelineEvent(
+                    id="e2",
+                    timestamp="Pending",
+                    status="pending",
+                    description="No emergency contacts configured. Please dial 112 directly."
+                )
+            )
+
+        # 6. Safe Zones (Empty if location unavailable; never fabricate Periamet Police Station)
+        safe_zones = []
+        if coords and final_context.get("safe_zones"):
+            for sz in final_context.get("safe_zones", []):
+                if isinstance(sz, EmergencySafeZone):
+                    safe_zones.append(sz)
+                elif isinstance(sz, dict):
+                    safe_zones.append(EmergencySafeZone(**sz))
+
+        # 7. Journey Status
+        if active_journey:
+            dest = getattr(active_journey, "destination", None) or "Active Destination"
+            if hasattr(dest, "display_name"):
+                dest_str = dest.display_name
+            elif hasattr(dest, "coordinates") and len(dest.coordinates) >= 2:
+                dest_str = f"{dest.coordinates[1]:.4f}, {dest.coordinates[0]:.4f}"
+            else:
+                dest_str = str(dest)
+            journey_status = JourneyStatus(
+                active_journey=True,
+                destination=dest_str,
+                distance_remaining="In Progress",
+                safety_score=None
+            )
+        else:
+            journey_status = JourneyStatus(
                 active_journey=False,
                 destination="None",
                 distance_remaining="0 km",
                 safety_score=None
             )
+
+        return EmergencyResponse(
+            session_id=session_id,
+            status="active",
+            live_location=LiveLocation(
+                coordinates=coords,
+                address=address_str,
+                accuracy=accuracy_val,
+                last_updated=last_updated_str
+            ),
+            agent_status=agent_status,
+            timeline=timeline,
+            contacts=contacts,
+            safe_zones=safe_zones,
+            journey_status=journey_status
         )
 
     @staticmethod
@@ -684,7 +896,13 @@ class ResponseBuilder:
         eta_str = j_state["eta"]
 
         query_lower = query.lower()
-        if any(w in query_lower for w in ["safe", "score", "rating"]):
+        llm = final_context.get("LLM", {})
+        raw_summary = llm.get("summary") if isinstance(llm, dict) else None
+
+        # Prioritize genuine LLM response / rich intent-sensitive fallback from ReasoningTool
+        if raw_summary and not any(kw in raw_summary.lower() for kw in ["98%", "optimal lighting", "low crowd density", "zero community incident", "system ready", "context active", "route scored"]):
+            response_text = raw_summary
+        elif any(w in query_lower for w in ["safe", "score", "my score", "current score", "active score"]):
             if not has_active:
                 response_text = (
                     "No active journey is currently being monitored. "
@@ -708,10 +926,10 @@ class ResponseBuilder:
                 response_text = f"The recorded weather along your route is {weather_str}."
             else:
                 response_text = "Live weather telemetry is not currently attached to your journey."
-        elif any(w in query_lower for w in ["police", "hospital", "station", "safe zone", "help"]):
+        elif any(w in query_lower for w in ["police", "hospital", "station", "safe zone", "help", "emergency"]):
             response_text = (
                 "Verified emergency resources and designated safe zones are accessible in the Emergency panel. "
-                "In an immediate threat, activate SOS to notify emergency services and designated contacts."
+                "In an immediate threat, activate SOS or call 112 (National Helpline) / 1091 (Women Helpline)."
             )
         elif any(w in query_lower for w in ["route", "destination", "eta", "progress"]):
             if has_active:
@@ -719,18 +937,61 @@ class ResponseBuilder:
             else:
                 response_text = "There is no active journey in progress. You can search and select routes in the Journey Planner."
         else:
-            llm = final_context.get("LLM", {})
-            raw_summary = llm.get("summary")
-            if raw_summary and not any(kw in raw_summary.lower() for kw in ["98%", "optimal lighting", "low crowd density", "zero community incident"]):
-                response_text = raw_summary
-            else:
-                response_text = "I am your NavSakhi Intelligence Coordinator. How can I assist you with your journey?"
+            response_text = (
+                "Hello! I am your NavSakhi Intelligence Coordinator. "
+                "You can ask me about safe route planning across Chennai, transport modes (Metro, Bus, Suburban rail), "
+                "emergency support, or how our safety scores are evaluated."
+            )
 
         suggestions = (
             ["Explain my safety score", "Check route progress", "Show nearby Safe Zones"]
             if has_active
             else ["Plan a new route", "Check emergency contacts", "Explain route safety scoring"]
         )
+
+        provider_val = llm.get("provider") if isinstance(llm, dict) else None
+        ai_status_val = llm.get("ai_status") if isinstance(llm, dict) else None
+
+        # Determine truthful response source
+        if provider_val == "gemini" and ai_status_val == "LIVE_SUCCESS":
+            resp_source = "gemini"
+            prov_summary = "Generated by Gemini AI companion"
+            gemini_health = ProviderHealthStatus(name="Gemini AI", status="Connected")
+        elif provider_val == "local_companion" or (isinstance(llm, dict) and llm.get("response_source") == "rule_based"):
+            resp_source = "rule_based"
+            prov_summary = "Processed by NavSakhi Travel Companion intent layer"
+            gemini_health = ProviderHealthStatus(name="Travel Companion Engine", status="Connected")
+        elif ai_status_val == "RATE_LIMITED_FALLBACK":
+            resp_source = "fallback"
+            prov_summary = "Operating in local verified boundaries (Gemini rate-limited 429)"
+            gemini_health = ProviderHealthStatus(name="Gemini AI", status="Rate Limited (429)")
+        elif ai_status_val == "CONFIG_MISSING_FALLBACK":
+            resp_source = "fallback"
+            prov_summary = "Operating in local verified boundaries (Gemini unconfigured)"
+            gemini_health = ProviderHealthStatus(name="Gemini AI", status="Unconfigured")
+        else:
+            resp_source = "fallback"
+            prov_summary = "Operating within local verified boundaries"
+            gemini_health = ProviderHealthStatus(name="Gemini AI", status="Offline / Fallback")
+
+        health_list = [
+            ProviderHealthStatus(name="Routing API (OSRM)", status="Connected"),
+            gemini_health
+        ]
+
+        llm_dict = llm if isinstance(llm, dict) else {}
+
+        # Determine truthful decision_source and model attribution
+        if llm_dict.get("decision_source"):
+            dec_source = str(llm_dict["decision_source"])
+        elif resp_source == "gemini":
+            dec_source = "gemini_direct" if llm_dict.get("attempt_count", 1) <= 1 else "gemini_failover"
+        elif resp_source == "rule_based":
+            dec_source = "safety_rules" if llm_dict.get("intent_category") == "SAFETY" else "small_talk_fallback"
+        else:
+            dec_source = "contextual_fallback"
+
+        model_id = llm_dict.get("model_identifier") if resp_source == "gemini" else None
 
         return AssistantResponse(
             message_id="msg_" + str(uuid.uuid4())[:8],
@@ -741,8 +1002,19 @@ class ResponseBuilder:
             reasoning=ReasoningContext(
                 summary=["Query processed against verified route context", "Bounded to empirical telemetry data"],
                 confidence=None,
-                decision_source="Journey Engine State",
-                provider_summary="Operating within local verified boundaries"
+                decision_source=dec_source,
+                provider_summary=prov_summary,
+                response_source=resp_source,
+                intent_category=llm_dict.get("intent_category"),
+                gemini_attempted=llm_dict.get("gemini_attempted", False),
+                model_identifier=model_id,
+                attempt_count=llm_dict.get("attempt_count", 0),
+                provider_latency_ms=llm_dict.get("provider_latency_ms"),
+                outcome_category=llm_dict.get("outcome_category", "unavailable"),
+                correlation_id=llm_dict.get("correlation_id"),
+                last_failed_model=llm_dict.get("last_failed_model"),
+                failed_model_candidates=llm_dict.get("failed_model_candidates", []),
+                safety_blocked_candidate=llm_dict.get("safety_blocked_candidate")
             ),
             context=JourneyContextState(
                 active_journey=has_active,
@@ -754,73 +1026,281 @@ class ResponseBuilder:
                 community_alerts=j_state["community_alerts"],
                 emergency_status=j_state["emergency_status"]
             ),
-            provider_health=[
-                ProviderHealthStatus(name="Routing API (OSRM)", status="Connected")
-            ],
+            provider_health=health_list,
             memory=MemoryState(
                 recent_journeys=j_state["recent_journeys"],
                 pinned_info=j_state["pinned_info"]
             ),
-            quick_suggestions=suggestions
+            quick_suggestions=suggestions,
+            response_source=resp_source
         )
         
-    def build_profile_response(self, final_context: Dict[str, Any], user_id: str) -> Any:
+    def build_profile_response(self, final_context: Dict[str, Any], user_id: str, user: Any = None) -> Any:
         from app.schemas.profile_schemas import (
             ProfileResponse, UserInfo, ProfileStats, 
             ProfileJourneyHistory, ProfileEmergencyContact, ProfileAchievement
         )
         
-        # Extract from ProfileAgent
+        # Extract from ProfileAgent or directly passed user
         profile_data = final_context.get("ProfileAgent", {}).get("profile", {})
         
+        full_name = "NavSakhi User"
+        email = ""
+        phone = "Not provided"
+        current_city = "Not provided"
+        member_since = "Not available"
+        emergency_contacts = []
+
+        if user:
+            ps = getattr(user, "profile_settings", {}) or {}
+            full_name = ps.get("full_name") or getattr(user, "username", "") or "NavSakhi User"
+            email = getattr(user, "email", "")
+            phone = ps.get("phone_number") or ps.get("phone") or "Not provided"
+            current_city = ps.get("current_city") or "Not provided"
+            created_at = getattr(user, "created_at", None)
+            if created_at:
+                try:
+                    member_since = created_at.strftime("%B %Y")
+                except Exception:
+                    member_since = str(created_at)[:7]
+            for idx, c in enumerate(getattr(user, "emergency_contacts", [])):
+                emergency_contacts.append(
+                    ProfileEmergencyContact(
+                        id=str(getattr(c, "id", f"c_{idx}")),
+                        name=getattr(c, "name", ""),
+                        relationship=getattr(c, "relationship", "Family") or "Family",
+                        phone=getattr(c, "phone_number", "") or getattr(c, "phone", ""),
+                        status="Active",
+                        is_primary=bool(getattr(c, "is_primary", False))
+                    )
+                )
+        elif profile_data:
+            full_name = profile_data.get("name") or "NavSakhi User"
+            email = profile_data.get("email") or ""
+            phone = profile_data.get("phone") or "Not provided"
+            current_city = profile_data.get("current_city") or "Not provided"
+            member_since = profile_data.get("join_date") or "Not available"
+            raw_contacts = profile_data.get("emergency_contacts", [])
+            for idx, c in enumerate(raw_contacts):
+                emergency_contacts.append(
+                    ProfileEmergencyContact(
+                        id=str(c.get("id", f"c_{idx}")),
+                        name=c.get("name", ""),
+                        relationship=c.get("relationship", "Family") or "Family",
+                        phone=c.get("phone") or c.get("phone_number", ""),
+                        status="Active",
+                        is_primary=bool(c.get("is_primary", False))
+                    )
+                )
+
         user_info = UserInfo(
-            full_name=profile_data.get("name", "Sarah Connor"),
-            email=profile_data.get("email", "sarah.connor@example.com"),
-            phone=profile_data.get("phone", "+1 (555) 019-8234"),
-            avatar_url=profile_data.get("avatar_url", ""),
-            current_city="Bengaluru",
-            member_since=profile_data.get("join_date", "January 2024"),
-            is_premium=True,
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            avatar_url="",
+            current_city=current_city,
+            member_since=member_since,
+            is_premium=False,
             is_online=True,
             last_active="Just now"
         )
         
+        # Genuine user-scoped metrics calculation from authentic records
+        j_metrics = final_context.get("journey_metrics") or final_context.get("ProfileAgent", {}).get("journey_metrics", {})
+        c_metrics = final_context.get("community_metrics") or final_context.get("ProfileAgent", {}).get("community_metrics", {})
+        raw_history = final_context.get("journey_history") or final_context.get("ProfileAgent", {}).get("journey_history", [])
+
+        # Fallback to query in-memory store if direct response builder invocation without agent
+        if not j_metrics and user_id:
+            from app.repositories.base import BaseRepository
+            from app.repositories.journey_repository import parse_distance_km, parse_safety_score
+            store = BaseRepository._global_store.get("journeys", {})
+            user_journeys = [
+                doc for doc in store.values()
+                if str(doc.get("user_id")) == str(user_id)
+            ]
+            completed = [
+                j for j in user_journeys
+                if (j.get("state", {}).get("current_state") if isinstance(j, dict) else getattr(getattr(j, "state", None), "current_state", None)) in ["COMPLETED", "completed"]
+            ]
+            distances = []
+            scores = []
+            for cj in completed:
+                # distance
+                d = None
+                p = cj.get("plan") if isinstance(cj, dict) else getattr(cj, "plan", None)
+                if p:
+                    sr = p.get("selected_route") if isinstance(p, dict) else getattr(p, "selected_route", None)
+                    if sr:
+                        d = parse_distance_km(sr.get("distance") if isinstance(sr, dict) else getattr(sr, "distance", None))
+                if d is None:
+                    routes = cj.get("planned_routes") if isinstance(cj, dict) else getattr(cj, "planned_routes", None) or []
+                    if routes:
+                        r0 = routes[0]
+                        d = parse_distance_km(r0.get("distance_km") or r0.get("distance") if isinstance(r0, dict) else getattr(r0, "distance_km", None) or getattr(r0, "distance", None))
+                if d is not None and d >= 0:
+                    distances.append(d)
+                # safety score
+                sc = None
+                if p:
+                    sr = p.get("selected_route") if isinstance(p, dict) else getattr(p, "selected_route", None)
+                    if sr:
+                        sc = parse_safety_score(sr.get("safety_score") if isinstance(sr, dict) else getattr(sr, "safety_score", None))
+                if sc is None:
+                    routes = cj.get("planned_routes") if isinstance(cj, dict) else getattr(cj, "planned_routes", None) or []
+                    if routes:
+                        r0 = routes[0]
+                        sc = parse_safety_score(r0.get("safety_score") if isinstance(r0, dict) else getattr(r0, "safety_score", None))
+                if sc is not None:
+                    scores.append(sc)
+            
+            j_metrics = {
+                "safe_journeys": len(completed),
+                "total_distance_km": round(sum(distances), 2),
+                "avg_safety_score": round(sum(scores) / len(scores), 1) if scores else 0.0,
+                "has_records": len(completed) > 0
+            }
+
+            # Also check community reports in store
+            c_store = BaseRepository._global_store.get("community_reports", {})
+            user_reports = [doc for doc in c_store.values() if str(doc.get("user_id")) == str(user_id)]
+            c_metrics = {
+                "community_reports_submitted": len(user_reports),
+                "verified_reports": sum(1 for r in user_reports if r.get("verification_status") == "VERIFIED"),
+                "helpful_votes": sum(int(r.get("upvotes", 0)) for r in user_reports),
+                "has_records": len(user_reports) > 0
+            }
+
+        completed_journeys = int(j_metrics.get("completed_journeys", j_metrics.get("safe_journeys", 0)))
+        safe_journeys = completed_journeys
+        total_dist = float(j_metrics.get("total_distance_km", 0.0))
+        avg_score = float(j_metrics.get("avg_safety_score", 0.0))
+        reports_sub = int(c_metrics.get("community_reports_submitted", 0))
+        reports_ver = int(c_metrics.get("verified_reports", 0))
+        helpful = int(c_metrics.get("helpful_votes", 0))
+
+        # Calculate reputation score honestly from actual user actions
+        reputation = (completed_journeys * 10) + (reports_ver * 25) + (helpful * 5)
+
+        # Truthful trust level based on verified participation
+        if completed_journeys >= 10 or reports_ver >= 5:
+            trust_level = "Trusted Contributor"
+        elif completed_journeys >= 3 or reports_ver >= 2:
+            trust_level = "Active Member"
+        elif completed_journeys >= 1 or reports_sub >= 1:
+            trust_level = "Verified Traveler"
+        else:
+            # For users with 0 journeys and 0 reports:
+            # Check if user account was created recently (< 30 days) or has no creation date
+            is_recent = False
+            if user and getattr(user, "created_at", None):
+                try:
+                    from datetime import datetime, timezone
+                    created = user.created_at
+                    if getattr(created, "tzinfo", None) is not None:
+                        now = datetime.now(timezone.utc)
+                    else:
+                        now = datetime.utcnow()
+                    if (now - created).days < 30:
+                        is_recent = True
+                except Exception:
+                    is_recent = True
+            else:
+                is_recent = True
+
+            if is_recent:
+                trust_level = "New Member"
+            else:
+                trust_level = "Member (No Journeys)"
+
         stats = ProfileStats(
-            safe_journeys=42,
-            total_distance_km=156.4,
-            avg_safety_score=97.5,
-            sos_triggered=0,
-            dangerous_routes_avoided=14,
-            ai_recommendations_followed=89,
-            community_reports_submitted=12,
-            verified_reports=10,
-            helpful_votes=45,
-            reputation_score=950,
-            trust_level="Level 3 Verified"
+            completed_journeys=completed_journeys,
+            safe_journeys=safe_journeys,
+            total_distance_km=total_dist,
+            avg_safety_score=avg_score,
+            sos_triggered=int(j_metrics.get("sos_triggered", 0)),
+            dangerous_routes_avoided=int(j_metrics.get("dangerous_routes_avoided", 0)),
+            ai_recommendations_followed=int(j_metrics.get("ai_recommendations_followed", completed_journeys)),
+            community_reports_submitted=reports_sub,
+            verified_reports=reports_ver,
+            helpful_votes=helpful,
+            reputation_score=reputation,
+            trust_level=trust_level
         )
-        
-        journey_history = [
-            ProfileJourneyHistory(
-                id="j_123", source="Home", destination="Office", 
-                date="2024-03-15", transport="Walking", safety_score=98, 
-                duration="15m", status="Completed"
-            )
-        ]
-        
-        emergency_contacts = [
-            ProfileEmergencyContact(
-                id="c1", name="John Connor", relationship="Brother", 
-                phone="+1 (555) 019-8235", status="Active", is_primary=True
-            )
-        ]
-        
+
+        # Build genuine journey history
+        journey_history = []
+        if raw_history:
+            for jh in raw_history:
+                if isinstance(jh, ProfileJourneyHistory):
+                    journey_history.append(jh)
+                elif isinstance(jh, dict):
+                    journey_history.append(ProfileJourneyHistory(**jh))
+        elif user_id:
+            from app.repositories.base import BaseRepository
+            store = BaseRepository._global_store.get("journeys", {})
+            user_journeys = [
+                doc for doc in store.values()
+                if str(doc.get("user_id")) == str(user_id)
+            ]
+            for j in user_journeys[:10]:
+                jid = str(j.get("_id") or j.get("id") or "")
+                src = j.get("source", {})
+                src_str = src.get("display_name") or ("Coordinates" if src.get("coordinates") else "Source")
+                dest = j.get("destination", {})
+                dest_str = dest.get("display_name") or ("Coordinates" if dest.get("coordinates") else "Destination")
+                ts = j.get("created_timestamp")
+                date_str = ts.strftime("%b %d, %Y") if hasattr(ts, "strftime") else "Recent"
+                p = j.get("plan", {})
+                mode = p.get("transport_mode", "WALK")
+                if hasattr(mode, "value"):
+                    mode = mode.value
+                score_val = 0
+                sr = p.get("selected_route", {})
+                if sr and sr.get("safety_score"):
+                    score_val = int(round(float(sr.get("safety_score"))))
+                dur_val = sr.get("duration") if sr else None
+                dur_str = f"{max(1, int(round(float(dur_val)/60)))} mins" if dur_val else "25 mins"
+                st = j.get("state", {}).get("current_state", "Completed")
+                if hasattr(st, "value"):
+                    st = st.value
+                journey_history.append(
+                    ProfileJourneyHistory(
+                        id=jid,
+                        source=src_str,
+                        destination=dest_str,
+                        date=date_str,
+                        transport=str(mode).capitalize(),
+                        safety_score=score_val,
+                        duration=dur_str,
+                        status=str(st).capitalize()
+                    )
+                )
+
         achievements = [
             ProfileAchievement(
-                id="a1", title="Safety First", icon="Shield", 
-                unlocked=True, date="2024-02-10"
+                id="a1",
+                title="First Step",
+                icon="Footprints",
+                unlocked=safe_journeys >= 1,
+                date="Unlocked" if safe_journeys >= 1 else None
+            ),
+            ProfileAchievement(
+                id="a2",
+                title="Safe Traveler",
+                icon="ShieldCheck",
+                unlocked=safe_journeys >= 5,
+                date="Unlocked" if safe_journeys >= 5 else None
+            ),
+            ProfileAchievement(
+                id="a3",
+                title="Community Guardian",
+                icon="Users",
+                unlocked=reports_sub >= 1,
+                date="Unlocked" if reports_sub >= 1 else None
             )
         ]
-        
+
         return ProfileResponse(
             user_info=user_info,
             stats=stats,
@@ -828,6 +1308,7 @@ class ResponseBuilder:
             emergency_contacts=emergency_contacts,
             achievements=achievements
         )
+
 
     def build_settings_response(self, final_context: Dict[str, Any], user_id: str) -> Any:
         from app.schemas.settings_schemas import (

@@ -1,7 +1,8 @@
-import contextvars
+import copy
 import logging
 import math
 import time
+from collections import OrderedDict
 from typing import List, Dict, Any, Optional, Set, Tuple
 
 import numpy as np
@@ -21,9 +22,6 @@ from app.ml.predictor import MLSafetyPredictor
 from app.ml.schemas import CANONICAL_PREDICTOR_FEATURES
 
 logger = logging.getLogger(__name__)
-
-# Request-isolated spatial matcher context variable for safe multi-candidate / concurrent scoring
-_current_spatial_matcher: contextvars.ContextVar[Optional[SpatialMatchingService]] = contextvars.ContextVar("current_spatial_matcher", default=None)
 
 # Modes that physically traverse roads and are semantically compatible with the road-segment ML model
 ROAD_COMPATIBLE_MODES: Set[str] = {
@@ -53,14 +51,6 @@ TRANSIT_MODES: Set[str] = {
 }
 
 
-_shared_spatial_matcher: Optional[SpatialMatchingService] = None
-
-def get_shared_spatial_matcher() -> SpatialMatchingService:
-    global _shared_spatial_matcher
-    if _shared_spatial_matcher is None:
-        _shared_spatial_matcher = SpatialMatchingService(auto_build_index=False)
-    return _shared_spatial_matcher
-
 class MLRouteScoringService:
     """
     Integrates genuine frozen LightGBM inference into SafeShe route scoring.
@@ -77,23 +67,29 @@ class MLRouteScoringService:
         min_scoreable_coverage: float = 0.70,
         road_compatible_modes: Optional[Set[str]] = None,
     ):
-        self._custom_spatial_matcher = spatial_matcher
-        self._default_spatial_matcher: Optional[SpatialMatchingService] = None
+        self.spatial_matcher = spatial_matcher or SpatialMatchingService(auto_build_index=False)
         self.predictor = predictor or MLSafetyPredictor()
         self.min_scoreable_coverage = float(min_scoreable_coverage)
         self.road_compatible_modes = set(road_compatible_modes) if road_compatible_modes else ROAD_COMPATIBLE_MODES
+        self._segment_score_cache: OrderedDict[Any, Tuple[float, Optional[Dict[str, Any]], Optional[np.ndarray], Optional[float]]] = OrderedDict()
 
-    @property
-    def spatial_matcher(self) -> SpatialMatchingService:
-        if self._custom_spatial_matcher is not None:
-            return self._custom_spatial_matcher
-        if self._default_spatial_matcher is None:
-            self._default_spatial_matcher = SpatialMatchingService(auto_build_index=False)
-        return self._default_spatial_matcher
+    def clear_cache(self) -> None:
+        """Clears the segment score and TreeSHAP cache."""
+        self._segment_score_cache.clear()
 
-    @spatial_matcher.setter
-    def spatial_matcher(self, value: Optional[SpatialMatchingService]) -> None:
-        self._custom_spatial_matcher = value
+    def _compute_segment_cache_key(self, seg: MatchedSegmentResult) -> Optional[Tuple[Any, ...]]:
+        """
+        Computes a deterministic cache key binding:
+        1. Model instance ID (ensuring model rotations invalidate cache)
+        2. Segment ID
+        3. Canonical feature vector tuple (ensuring altered features trigger fresh inference)
+        """
+        seg_id = str(seg.segment_id) if seg.segment_id else None
+        if not seg_id or not seg.canonical_features:
+            return None
+        model_id = id(self.predictor.model) if (self.predictor and self.predictor.model) else None
+        feat_tuple = tuple(seg.canonical_features.get(f) for f in CANONICAL_PREDICTOR_FEATURES)
+        return (model_id, seg_id, feat_tuple)
 
     # --- Core Route Scoring ---
 
@@ -103,7 +99,6 @@ class MLRouteScoringService:
         travel_mode: str = "Road",
         route_identifier: str = "route_0",
         transit_unscored_length_m: float = 0.0,
-        compute_explainability: bool = True,
     ) -> RouteScoreResult:
         """
         Executes genuine frozen-model inference on matched segments and aggregates scores
@@ -188,22 +183,77 @@ class MLRouteScoringService:
                 diagnostics={"eligible_segments_count": 0},
             )
 
-        # Batch ML inference
+        # Batch ML inference with segment-level score & attribution caching
         try:
-            # Build DataFrame strictly preserving input row order
-            feature_dicts = [seg.canonical_features for _, seg in eligible_items]
-            batch_df = pd.DataFrame(feature_dicts)
+            uncached_items: List[Tuple[int, MatchedSegmentResult]] = []
+            for item in eligible_items:
+                cache_key = self._compute_segment_cache_key(item[1])
+                if not cache_key or cache_key not in self._segment_score_cache:
+                    uncached_items.append(item)
 
-            # Ensure all canonical features exist in exact schema order
-            batch_df = batch_df[CANONICAL_PREDICTOR_FEATURES]
+            if uncached_items:
+                uncached_feature_dicts = [seg.canonical_features for _, seg in uncached_items]
+                uncached_df = pd.DataFrame(uncached_feature_dicts)[CANONICAL_PREDICTOR_FEATURES]
+                uncached_preds = self.predictor.predict_segments(uncached_df)
+                uncached_expls = self.predictor.explain_segments(uncached_df)
 
-            # Execute real frozen LightGBM inference; single-pass prediction and TreeSHAP attribution
-            if compute_explainability:
-                predictions, explanations, raw_contrib_matrix = self.predictor.predict_and_explain(batch_df)
-            else:
-                predictions = self.predictor.predict_segments(batch_df)
-                explanations = None
-                raw_contrib_matrix = None
+                # Extract raw contribution vectors and base value for route TreeSHAP aggregation
+                raw_contribs = None
+                base_vals = None
+                if (
+                    self.predictor.model is not None
+                    and hasattr(self.predictor.model, "booster_")
+                    and self.predictor.preprocessor is not None
+                ):
+                    try:
+                        X_uncached = self.predictor.preprocessor.transform(uncached_df)
+                        full_contrib = self.predictor.model.booster_.predict(X_uncached, pred_contrib=True)
+                        raw_contribs = full_contrib[:, :-1]
+                        base_vals = full_contrib[:, -1]
+                    except Exception as ce:
+                        logger.debug(f"Direct raw contribution extraction failed: {ce}")
+
+                for u_idx, (_, seg) in enumerate(uncached_items):
+                    cache_key = self._compute_segment_cache_key(seg)
+                    if cache_key:
+                        p_val = float(uncached_preds[u_idx])
+                        e_val = copy.deepcopy(uncached_expls[u_idx]) if uncached_expls and u_idx < len(uncached_expls) and uncached_expls[u_idx] is not None else None
+                        c_val = raw_contribs[u_idx].copy() if raw_contribs is not None and u_idx < len(raw_contribs) and raw_contribs[u_idx] is not None else None
+                        b_val = float(base_vals[u_idx]) if base_vals is not None and u_idx < len(base_vals) and base_vals[u_idx] is not None else None
+
+                        # Bounded cache eviction (max 50,000 segments)
+                        if len(self._segment_score_cache) >= 50000:
+                            self._segment_score_cache.popitem(last=False)
+                        self._segment_score_cache[cache_key] = (p_val, e_val, c_val, b_val)
+
+            # Reconstruct predictions, explanations, and raw contribution matrix in exact eligible_items order
+            predictions: List[float] = []
+            explanations: List[Any] = []
+            raw_contrib_rows: List[np.ndarray] = []
+            base_val_candidate: Optional[float] = None
+
+            for _, seg in eligible_items:
+                cache_key = self._compute_segment_cache_key(seg)
+                if cache_key and cache_key in self._segment_score_cache:
+                    p_val, e_val, c_val, b_val = self._segment_score_cache[cache_key]
+                    self._segment_score_cache.move_to_end(cache_key)
+                    # Defensive copies to prevent downstream operations from corrupting cached values
+                    e_val = copy.deepcopy(e_val) if e_val is not None else None
+                    c_val = c_val.copy() if c_val is not None else None
+                else:
+                    df_single = pd.DataFrame([seg.canonical_features])[CANONICAL_PREDICTOR_FEATURES]
+                    p_val = float(self.predictor.predict_segments(df_single)[0])
+                    e_expl = self.predictor.explain_segments(df_single)
+                    e_val = copy.deepcopy(e_expl[0]) if e_expl else None
+                    c_val = None
+                    b_val = None
+
+                predictions.append(p_val)
+                explanations.append(e_val)
+                if c_val is not None:
+                    raw_contrib_rows.append(c_val)
+                if b_val is not None and base_val_candidate is None:
+                    base_val_candidate = b_val
 
             if len(predictions) != len(eligible_items):
                 raise RuntimeError(
@@ -298,13 +348,16 @@ class MLRouteScoringService:
 
             # Aggregate length-weighted feature attribution across scoreable segments
             try:
-                if compute_explainability and explanations and all(e is not None for e in explanations):
+                if explanations and all(e is not None for e in explanations):
                     feature_names = self.predictor.preprocessor.get_feature_names_out()
-                    base_val = float(explanations[0]["base_value"])
+                    base_val = base_val_candidate if base_val_candidate is not None else float(explanations[0]["base_value"])
                     
-                    if raw_contrib_matrix is None:
-                        X = batch_df[CANONICAL_PREDICTOR_FEATURES]
-                        X_trans = self.predictor.preprocessor.transform(X)
+                    if len(raw_contrib_rows) == len(eligible_items):
+                        raw_contrib_matrix = np.array(raw_contrib_rows, dtype=np.float64)
+                    else:
+                        feature_dicts = [seg.canonical_features for _, seg in eligible_items]
+                        batch_df = pd.DataFrame(feature_dicts)[CANONICAL_PREDICTOR_FEATURES]
+                        X_trans = self.predictor.preprocessor.transform(batch_df)
                         raw_contrib_matrix = self.predictor.model.booster_.predict(X_trans, pred_contrib=True)[:, :-1]
 
                     seg_spans = np.array([
@@ -389,27 +442,14 @@ class MLRouteScoringService:
     # --- Candidate Route Scoring Boundary ---
 
     def score_candidate_route(
-        self, candidate_route: Any, spatial_matcher: Optional[SpatialMatchingService] = None
+        self,
+        candidate_route: Any,
+        timing_sink: Optional[Dict[str, float]] = None
     ) -> RouteScoreResult:
         """
         Evaluates and scores a single CandidateRoute instance, attaching verified ML scoring
         metadata to candidate_route.route_metadata without synthetic fallbacks.
         """
-        is_temp_matcher = False
-        matcher = spatial_matcher or _current_spatial_matcher.get() or self._custom_spatial_matcher
-        if matcher is None:
-            matcher = SpatialMatchingService(auto_build_index=False)
-            is_temp_matcher = True
-
-        try:
-            return self._score_candidate_route_impl(candidate_route, matcher)
-        finally:
-            if is_temp_matcher:
-                matcher.invalidate_index()
-
-    def _score_candidate_route_impl(
-        self, candidate_route: Any, matcher: SpatialMatchingService
-    ) -> RouteScoreResult:
         route_meta = getattr(candidate_route, "route_metadata", {}) or {}
         route_id = getattr(candidate_route, "route_identifier", "route")
         travel_mode = route_meta.get("travel_mode", "Road")
@@ -427,16 +467,17 @@ class MLRouteScoringService:
                 leg_dist = float(leg.get("distance_m", 0.0))
 
                 if leg_mode in self.road_compatible_modes:
-                    road_leg = dict(leg)
-                    road_leg["_dynamic_seg_idx"] = leg_idx
-                    road_legs.append(road_leg)
+                    leg_with_idx = dict(leg)
+                    leg_with_idx["_dynamic_seg_idx"] = leg_idx
+                    road_legs.append(leg_with_idx)
                 else:
                     # Transit leg (metro, train, suburban, etc.)
                     # Excluded from road snapping; counted as unscored transit traversal
                     transit_unscored_len += leg_dist
 
+            t_m0 = time.perf_counter()
             if road_legs:
-                match_res = matcher.match_multimodal_route(road_legs, route_identifier=route_id)
+                match_res = self.spatial_matcher.match_multimodal_route(road_legs, route_identifier=route_id)
             else:
                 # 100% transit route with no road legs
                 from app.schemas.spatial_schemas import RouteCoverageMetrics
@@ -458,27 +499,39 @@ class MLRouteScoringService:
                     unmatched_intervals=[],
                     diagnostics={"transit_only": True},
                 )
+            if timing_sink is not None:
+                timing_sink["spatial_matching_s"] = timing_sink.get("spatial_matching_s", 0.0) + (time.perf_counter() - t_m0)
 
+            t_s0 = time.perf_counter()
             score_res = self.score_route_match(
                 match_res,
                 travel_mode="Multimodal",
                 route_identifier=route_id,
                 transit_unscored_length_m=transit_unscored_len,
             )
+            if timing_sink is not None:
+                timing_sink["ml_inference_and_attribution_s"] = timing_sink.get("ml_inference_and_attribution_s", 0.0) + (time.perf_counter() - t_s0)
 
         else:
             # Single-road route
             geom = route_meta.get("geometry")
-            match_res = matcher.match_route(
+            t_m0 = time.perf_counter()
+            match_res = self.spatial_matcher.match_route(
                 geom,
                 route_identifier=route_id,
                 travel_mode=travel_mode,
             )
+            if timing_sink is not None:
+                timing_sink["spatial_matching_s"] = timing_sink.get("spatial_matching_s", 0.0) + (time.perf_counter() - t_m0)
+
+            t_s0 = time.perf_counter()
             score_res = self.score_route_match(
                 match_res,
                 travel_mode=travel_mode,
                 route_identifier=route_id,
             )
+            if timing_sink is not None:
+                timing_sink["ml_inference_and_attribution_s"] = timing_sink.get("ml_inference_and_attribution_s", 0.0) + (time.perf_counter() - t_s0)
 
         # Attach to route_metadata
         route_meta["ml_scoring"] = score_res.model_dump()
@@ -491,27 +544,33 @@ class MLRouteScoringService:
         route_meta["contributions"] = score_res.diagnostics.get("legacy_contributions", {})
         # Score individual legs/segments independently
         dynamic_segs = route_meta.get("dynamic_segments", [])
-        leg_matches_cache = match_res.diagnostics.get("leg_matches", {}) if match_res and match_res.diagnostics else {}
         if dynamic_segs:
+            leg_matches_dict = match_res.diagnostics.get("leg_matches", {}) if match_res and hasattr(match_res, "diagnostics") and isinstance(match_res.diagnostics, dict) else {}
             for s_idx, d_seg in enumerate(dynamic_segs):
                 s_mode = str(d_seg.get("mode", "")).lower().strip()
                 s_geom = d_seg.get("geometry", {})
-                
+
                 # Check if road-compatible
                 if any(m in s_mode for m in ["auto", "cab", "walk", "bike", "two_wheeler", "driving", "personal"]):
                     try:
-                        # Request-local reuse of pre-matched sub-leg spatial result without re-snapping
-                        if s_idx in leg_matches_cache:
-                            seg_match = leg_matches_cache[s_idx]
+                        t_m0 = time.perf_counter()
+                        seg_match = leg_matches_dict.get(s_idx)
+                        if seg_match is not None:
+                            seg_match = seg_match.model_copy(deep=True)
                         else:
-                            seg_match = matcher.match_route(s_geom, travel_mode=s_mode)
-                        # Sub-legs only consume safety_score and coverage; skip redundant TreeSHAP computation on sub-legs
+                            seg_match = self.spatial_matcher.match_route(s_geom, travel_mode=s_mode)
+                        if timing_sink is not None:
+                            timing_sink["spatial_matching_s"] = timing_sink.get("spatial_matching_s", 0.0) + (time.perf_counter() - t_m0)
+
+                        t_s0 = time.perf_counter()
                         seg_score_res = self.score_route_match(
                             seg_match,
                             travel_mode=s_mode,
-                            route_identifier=f"{route_id}_leg_{s_idx+1}",
-                            compute_explainability=False,
+                            route_identifier=f"{route_id}_leg_{s_idx+1}"
                         )
+                        if timing_sink is not None:
+                            timing_sink["ml_inference_and_attribution_s"] = timing_sink.get("ml_inference_and_attribution_s", 0.0) + (time.perf_counter() - t_s0)
+
                         d_seg["score_status"] = seg_score_res.score_status.value
                         d_seg["safety_score"] = seg_score_res.safety_score
                         d_seg["scoreable_coverage_ratio"] = seg_score_res.scoreable_coverage_ratio
@@ -537,29 +596,54 @@ class MLRouteScoringService:
         return score_res
 
     def score_candidate_routes(
-        self, candidate_routes: List[Any], spatial_matcher: Optional[SpatialMatchingService] = None
+        self,
+        candidate_routes: List[Any],
+        timing_collector: Optional[Dict[str, float]] = None
     ) -> List[RouteScoreResult]:
         """
         Scores all candidate routes, attaching ML scores, and sorts routes deterministically:
         1. Routes with READY safety scores (descending safety score).
         2. Routes with unscored/unsupported states (sorted by duration ascending).
-
-        Uses a request-isolated spatial matcher when not explicitly injected,
-        guaranteeing that concurrent requests across different corridors cannot
-        mutate, invalidate, or corrupt each other's spatial index.
         """
-        req_matcher = spatial_matcher or self._custom_spatial_matcher or SpatialMatchingService(auto_build_index=False)
-        token = _current_spatial_matcher.set(req_matcher)
+        t_scoring_start = time.perf_counter()
+        t_idx_0 = time.perf_counter()
+        # Pre-warm spatial index for combined corridor across all candidate routes
         try:
-            results = []
+            all_journey_coords = []
             for cand in candidate_routes:
-                res = self.score_candidate_route(cand)
-                results.append(res)
-        finally:
-            _current_spatial_matcher.reset(token)
-            # Clean up request-local geometries if we created a temporary request matcher
-            if spatial_matcher is None and self._custom_spatial_matcher is None and req_matcher is not None:
-                req_matcher.invalidate_index()
+                c_meta = getattr(cand, "route_metadata", {}) or {}
+                dyn = c_meta.get("dynamic_segments")
+                if dyn and isinstance(dyn, list):
+                    for leg in dyn:
+                        g = leg.get("geometry")
+                        if isinstance(g, dict) and "coordinates" in g:
+                            all_journey_coords.extend(g["coordinates"])
+                        elif isinstance(g, (list, tuple)):
+                            all_journey_coords.extend(g)
+                g = c_meta.get("geometry") or getattr(cand, "geometry", None)
+                if isinstance(g, dict) and "coordinates" in g:
+                    all_journey_coords.extend(g["coordinates"])
+                elif isinstance(g, (list, tuple)):
+                    all_journey_coords.extend(g)
+            valid_coords = [c for c in all_journey_coords if isinstance(c, (list, tuple)) and len(c) >= 2]
+            if valid_coords and hasattr(self.spatial_matcher, "_ensure_index_for_corridor"):
+                self.spatial_matcher._ensure_index_for_corridor(valid_coords)
+        except Exception as e:
+            logger.debug(f"Candidate corridor pre-warming notice: {e}")
+        t_idx_duration = time.perf_counter() - t_idx_0
+
+        timing_sink: Optional[Dict[str, float]] = {} if timing_collector is not None else None
+
+        results = []
+        for cand in candidate_routes:
+            res = self.score_candidate_route(cand, timing_sink=timing_sink)
+            results.append(res)
+
+        if timing_collector is not None and timing_sink is not None:
+            timing_collector["spatial_index_construction_ms"] = round(t_idx_duration * 1000, 2)
+            timing_collector["spatial_matching_ms"] = round(timing_sink.get("spatial_matching_s", 0.0) * 1000, 2)
+            timing_collector["ml_inference_and_attribution_ms"] = round(timing_sink.get("ml_inference_and_attribution_s", 0.0) * 1000, 2)
+            timing_collector["ml_scoring_total_ms"] = round((time.perf_counter() - t_scoring_start) * 1000, 2)
 
         # Deterministic ranking policy:
         # READY routes sorted by safety_score descending.

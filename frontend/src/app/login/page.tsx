@@ -15,6 +15,7 @@ import { useLogin } from "@/hooks/useLogin";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { getSafeRedirectUrl, getFriendlyRedirectInfo } from "@/utils/safeRedirect";
 
 // Zod Validation Schema
 const loginSchema = z.object({
@@ -26,9 +27,11 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 function LoginForm() {
-  const { login, isLoading, error } = useLogin();
+  const { login, loginAsTestUser, isLoading, error } = useLogin();
   const searchParams = useSearchParams();
-  const redirectTarget = searchParams.get("redirect");
+  const rawRedirect = searchParams.get("redirect");
+  const friendlyRedirect = rawRedirect ? getFriendlyRedirectInfo(rawRedirect) : null;
+  const safeRedirectTarget = rawRedirect ? getSafeRedirectUrl(rawRedirect) : undefined;
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -49,7 +52,7 @@ function LoginForm() {
       email: data.email,
       password: data.password,
       remember_me: data.rememberMe
-    }, redirectTarget || undefined);
+    }, safeRedirectTarget);
   };
 
   const handleForgotPassword = () => {
@@ -95,10 +98,10 @@ function LoginForm() {
         {/* Form Card */}
         <div className="glass-card rounded-3xl p-8 border border-border/50 shadow-2xl">
           
-          {redirectTarget && (
+          {friendlyRedirect && (
             <div className="mb-6 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3.5 flex items-center gap-2.5 text-amber-600 dark:text-amber-400 text-xs font-medium">
               <KeyRound size={18} className="shrink-0" />
-              <span>Authentication required to access <code className="bg-amber-500/20 px-1 py-0.5 rounded">{redirectTarget}</code>. Please sign in below.</span>
+              <span>{friendlyRedirect.message}</span>
             </div>
           )}
 
@@ -218,6 +221,17 @@ function LoginForm() {
               type="button"
               variant="outline"
               disabled={isLoading}
+              onClick={() => loginAsTestUser(safeRedirectTarget)}
+              className="w-full h-11 rounded-xl border-primary/30 bg-primary/5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors flex items-center justify-center gap-2"
+            >
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              Sign In with Local Test Account (Development Mode)
+            </Button>
+
+            <Button 
+              type="button"
+              variant="outline"
+              disabled={isLoading}
               onClick={handleGoogleUnavailable}
               className="w-full h-11 rounded-xl border-border/50 bg-background/30 backdrop-blur text-xs font-medium text-muted-foreground hover:bg-secondary transition-colors"
             >
@@ -237,7 +251,7 @@ function LoginForm() {
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
             <Link 
-              href={redirectTarget ? `/register?redirect=${redirectTarget}` : "/register"} 
+              href={safeRedirectTarget ? `/register?redirect=${encodeURIComponent(safeRedirectTarget)}` : "/register"} 
               className="font-bold text-primary hover:underline"
             >
               Create one
@@ -247,6 +261,16 @@ function LoginForm() {
           <Link href="/home" className="text-xs text-muted-foreground hover:text-foreground font-medium underline transition-colors">
             Continue exploring as Guest &rarr;
           </Link>
+
+          <div className="pt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground/80">
+            <Link href="/terms" className="hover:text-primary transition-colors underline">Terms</Link>
+            <span>&bull;</span>
+            <Link href="/privacy" className="hover:text-primary transition-colors underline">Privacy Policy</Link>
+            <span>&bull;</span>
+            <Link href="/limitations" className="hover:text-primary transition-colors underline">AI/ML Limitations</Link>
+            <span>&bull;</span>
+            <Link href="/safety-guidelines" className="hover:text-primary transition-colors underline">Emergency Helplines</Link>
+          </div>
         </div>
       </div>
     </div>

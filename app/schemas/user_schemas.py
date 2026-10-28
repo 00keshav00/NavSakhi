@@ -75,6 +75,9 @@ class UserResponse(BaseModel):
     preferences: Optional[UserPreferences] = None
     emergency_contacts: List[EmergencyContact] = []
     full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    current_city: Optional[str] = None
+    age: Optional[int] = None
     is_active: bool = True
     role: str = "user"
 
@@ -83,5 +86,98 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserResponse
 
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    phone: Optional[str] = None
+    current_city: Optional[str] = None
+    age: Optional[int] = None
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v_stripped = v.strip()
+            if len(v_stripped) < 2:
+                raise ValueError("Full name must be at least 2 characters long.")
+            return v_stripped
+        return v
+
+    @field_validator("phone_number", "phone")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            cleaned = re.sub(r"[\s\-\(\)]", "", v)
+            if not re.match(r"^\+?[0-9]{10,15}$", cleaned):
+                raise ValueError("Phone number must be a valid number (10 to 15 digits, optional + country code).")
+            return cleaned
+        return v
+
+    @field_validator("age")
+    @classmethod
+    def validate_age(cls, v: Optional[int]) -> Optional[int]:
+        if v is not None:
+            if v < 13 or v > 120:
+                raise ValueError("Age must be between 13 and 120.")
+        return v
+
+
+class EmergencyContactCreate(BaseModel):
+    name: str
+    phone_number: str
+    relationship: Optional[str] = "Family"
+    email: Optional[EmailStr] = None
+    is_primary: bool = False
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v_stripped = v.strip()
+        if len(v_stripped) < 2:
+            raise ValueError("Contact name must be at least 2 characters long.")
+        return v_stripped
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        cleaned = re.sub(r"[\s\-\(\)]", "", v)
+        if not re.match(r"^\+?[0-9]{10,15}$", cleaned):
+            raise ValueError("Phone number must be a valid number (10 to 15 digits, optional + country code).")
+        return cleaned
+
+class EmergencyContactUpdate(BaseModel):
+    name: Optional[str] = None
+    phone_number: Optional[str] = None
+    relationship: Optional[str] = None
+    email: Optional[EmailStr] = None
+    is_primary: Optional[bool] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v_stripped = v.strip()
+            if len(v_stripped) < 2:
+                raise ValueError("Contact name must be at least 2 characters long.")
+            return v_stripped
+        return v
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v.strip():
+            cleaned = re.sub(r"[\s\-\(\)]", "", v)
+            if not re.match(r"^\+?[0-9]{10,15}$", cleaned):
+                raise ValueError("Phone number must be a valid number (10 to 15 digits, optional + country code).")
+            return cleaned
+        return v
+
 class UserUpdate(BaseModel):
     preferences: Optional[UserPreferences] = None
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    phone: Optional[str] = None
+    current_city: Optional[str] = None
+    age: Optional[int] = None
+
+

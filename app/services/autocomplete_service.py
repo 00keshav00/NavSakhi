@@ -1,14 +1,11 @@
 """
 SafeShe Data-Driven Location Autocomplete Service
-Combines verified local transit nodes (Metro, Suburban rail, MTC bus stops, POIs, landmarks)
-with bounded OSM/Nominatim fallback to provide immediate, progressive place suggestions.
+Combines verified local transit nodes (Metro, Suburban rail, MTC bus stops, POIs)
+with OSM/Nominatim geocoding to provide rich, responsive, and categorized place suggestions.
 """
 
 import re
 import time
-import os
-import json
-import threading
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 import httpx
@@ -23,160 +20,125 @@ class LocationSuggestion(BaseModel):
     id: str = Field(..., description="Unique suggestion identifier")
     name: str = Field(..., description="Place or station name")
     secondary_text: str = Field(..., description="Locality, address or zone")
-    place_type: str = Field(..., description="METRO_STATION, RAILWAY_STATION, BUS_STOP, SAFETY_FACILITY, LANDMARK, LOCALITY, ADDRESS, COORDINATES")
+    place_type: str = Field(..., description="METRO_STATION, RAILWAY_STATION, BUS_STOP, SAFETY_FACILITY, LANDMARK, ADDRESS, COORDINATES")
     place_type_label: str = Field(..., description="User-facing badge label")
     latitude: float = Field(..., description="WGS84 Latitude")
     longitude: float = Field(..., description="WGS84 Longitude")
     formatted_coords: str = Field(..., description="Formatted 'lat, lon' string")
-    source: str = Field("VERIFIED_DATA", description="Source provider (LOCAL_TRANSIT, LOCAL_POI, LOCAL_LANDMARK, NOMINATIM, COORDINATES)")
+    source: str = Field("VERIFIED_DATA", description="Source provider (LOCAL_TRANSIT, LOCAL_POI, NOMINATIM, COORDINATES)")
 
 
 class AutocompleteService:
-    """
-    Provides categorized place suggestions with instant local-first matching
-    and non-blocking external Nominatim fallback enrichment.
-    """
+    """Provides categorized place suggestions with local transit boosting and Nominatim geocoding."""
 
     def __init__(self):
         self.nominatim_url = settings.nominatim_base_url or "https://nominatim.openstreetmap.org"
         self._cache: Dict[str, Tuple[float, List[LocationSuggestion]]] = {}
-        self._cache_ttl = 3600  # 1 hour
-        self._local_places_loaded = False
+        self._cache_ttl = 3600 # 1 hour
+        self._local_stations_loaded = False
         self._local_places: List[Dict[str, Any]] = []
-        self._lock = threading.Lock()
-
-    def warm_cache(self) -> None:
-        """Public pre-warm hook to load verified local places index into memory."""
-        self._ensure_local_places()
 
     def _ensure_local_places(self):
-        if self._local_places_loaded:
+        if self._local_stations_loaded:
             return
-        with self._lock:
-            if self._local_places_loaded:
-                return
-            self._load_local_places_impl()
 
-    def _load_local_places_impl(self):
         try:
-            places: List[Dict[str, Any]] = []
+            from app.intelligence.journey.multimodal_router import global_multimodal_router
+            from app.services.local_location_resolver import CANONICAL_CHENNAI_LANDMARKS
 
-            # 1. Metro stations
-            metro_path = os.path.join("transit_data", "processed", "metro_network.json")
-            if os.path.exists(metro_path):
-                try:
-                    with open(metro_path, "r", encoding="utf-8") as f:
-                        metro = json.load(f)
-                        for st in metro.get("stations", []):
-                            s_name = st.get("name", "Metro Station")
-                            s_raw = st.get("raw_name", "")
-                            places.append({
-                                "id": f"local_metro_{st.get('id', st.get('code', ''))}",
-                                "name": s_name,
-                                "secondary_text": "Chennai Metro Line",
-                                "place_type": "METRO_STATION",
-                                "place_type_label": "Metro Station",
-                                "latitude": float(st.get("lat", 0.0)),
-                                "longitude": float(st.get("lon", 0.0)),
-                                "search_terms": f"{s_name} {s_raw} metro station".lower(),
-                                "source": "LOCAL_TRANSIT"
-                            })
-                except Exception as e:
-                    logger.debug(f"Metro loading note: {e}")
+            # 0. Canonical Curated Chennai Landmarks (Campuses, Transport Hubs, Key Junctions)
+            for alias, (lon, lat, desc) in CANONICAL_CHENNAI_LANDMARKS.items():
+                p_name = desc.split(",")[0].strip() if "," in desc else alias.title()
+                p_type = "LANDMARK"
+                p_label = "Campus / Landmark"
+                if "metro" in alias or "metro" in desc.lower():
+                    p_type = "METRO_STATION"
+                    p_label = "Metro Station"
+                elif "railway" in alias or "rail" in desc.lower() or "central" in alias or "egmore" in alias:
+                    p_type = "RAILWAY_STATION"
+                    p_label = "Railway Station"
+                elif "bus" in alias or "bus" in desc.lower():
+                    p_type = "BUS_STOP"
+                    p_label = "Bus Station"
 
-            # 2. Suburban / MRTS stations
-            sub_path = os.path.join("transit_data", "processed", "suburban_network.json")
-            if os.path.exists(sub_path):
-                try:
-                    with open(sub_path, "r", encoding="utf-8") as f:
-                        sub = json.load(f)
-                        for st in sub.get("stations", []):
-                            s_name = st.get("name", "Railway Station")
-                            places.append({
-                                "id": f"local_rail_{st.get('id', st.get('code', ''))}",
-                                "name": s_name,
-                                "secondary_text": "Southern Railway Suburban / MRTS",
-                                "place_type": "RAILWAY_STATION",
-                                "place_type_label": "Railway Station",
-                                "latitude": float(st.get("lat", 0.0)),
-                                "longitude": float(st.get("lon", 0.0)),
-                                "search_terms": f"{s_name} railway station suburban train".lower(),
-                                "source": "LOCAL_TRANSIT"
-                            })
-                except Exception as e:
-                    logger.debug(f"Suburban loading note: {e}")
-
-            # 3. Comprehensive Bus Stops (all verified MTC stops)
-            bus_path = os.path.join("transit_data", "processed", "bus_network.json")
-            if os.path.exists(bus_path):
-                try:
-                    with open(bus_path, "r", encoding="utf-8") as f:
-                        bn = json.load(f)
-                        for st in bn.get("stops", []):
-                            s_name = st.get("name", "Bus Stop")
-                            places.append({
-                                "id": f"local_bus_{st.get('id', '')}",
-                                "name": s_name,
-                                "secondary_text": "MTC Chennai Bus Stop",
-                                "place_type": "BUS_STOP",
-                                "place_type_label": "Bus Stop",
-                                "latitude": float(st.get("lat", 0.0)),
-                                "longitude": float(st.get("lon", 0.0)),
-                                "search_terms": f"{s_name} mtc bus stop".lower(),
-                                "source": "LOCAL_TRANSIT"
-                            })
-                except Exception as e:
-                    logger.debug(f"Bus stops loading note: {e}")
-
-            # 4. Verified Safety POIs
-            poi_path = os.path.join("poi_data", "processed", "chennai_pois.json")
-            if os.path.exists(poi_path):
-                try:
-                    with open(poi_path, "r", encoding="utf-8") as f:
-                        pois = json.load(f)
-                        for poi in pois:
-                            p_name = poi.get("name", "Safety Facility")
-                            p_cat = poi.get("category", "facility")
-                            p_lbl = poi.get("category_label", "Safety Facility")
-                            places.append({
-                                "id": f"local_poi_{poi.get('poi_id', '')}",
-                                "name": p_name,
-                                "secondary_text": f"Verified {p_lbl}",
-                                "place_type": "SAFETY_FACILITY",
-                                "place_type_label": p_lbl,
-                                "latitude": float(poi.get("latitude", 0.0)),
-                                "longitude": float(poi.get("longitude", 0.0)),
-                                "search_terms": f"{p_name} {p_cat} {p_lbl}".lower(),
-                                "source": "LOCAL_POI"
-                            })
-                except Exception as e:
-                    logger.debug(f"POI loading note: {e}")
-
-            # 5. Major Chennai Hubs, Educational Landmarks & Common Aliases
-            known_landmarks = [
-                ("VIT Chennai", "Vellore Institute of Technology, Vandalur-Kelambakkam Rd", 12.84042, 80.15281, "LANDMARK", "University / Institute", "vit vellore institute technology chennai kelambakkam vandalur"),
-                ("T. Nagar", "Thyagaraya Nagar Commercial & Shopping District", 13.0418, 80.2341, "LOCALITY", "Locality", "t nagar thiyagaraya thyagarayanagar panagal park pondy bazaar"),
-                ("IIT Madras", "Indian Institute of Technology, Sardar Patel Road, Adyar", 12.9915, 80.2337, "LANDMARK", "University / Institute", "iit madras indian institute technology adyar"),
-                ("Anna University", "Guindy Campus, Sardar Patel Road", 13.0125, 80.2355, "LANDMARK", "University / Institute", "anna university guindy cept mit"),
-                ("Chennai Central", "Puratchi Thalaivar Dr. M.G.R. Central Railway Station", 13.0827, 80.2755, "RAILWAY_STATION", "Major Terminal", "chennai central railway station mgr central"),
-                ("Marina Beach", "Kamarajar Promenade, Triplicane / Mylapore", 13.0500, 80.2824, "LANDMARK", "Beach & Landmark", "marina beach promenade kamarajar salai"),
-                ("Chennai Airport", "Meenambakkam International & Domestic Terminal", 12.9941, 80.1709, "LANDMARK", "Airport", "chennai airport meenambakkam terminal"),
-            ]
-            for name, sec, lat, lon, ptype, plabel, terms in known_landmarks:
-                places.append({
-                    "id": f"local_hub_{re.sub(r'[^a-z0-9]', '_', name.lower())}",
-                    "name": name,
-                    "secondary_text": sec,
-                    "place_type": ptype,
-                    "place_type_label": plabel,
-                    "latitude": lat,
-                    "longitude": lon,
-                    "search_terms": terms.lower(),
-                    "source": "LOCAL_LANDMARK"
+                self._local_places.append({
+                    "id": f"local_landmark_{alias.replace(' ', '_')}",
+                    "name": p_name,
+                    "secondary_text": desc,
+                    "place_type": p_type,
+                    "place_type_label": p_label,
+                    "latitude": float(lat),
+                    "longitude": float(lon),
+                    "search_terms": f"{alias} {desc} {p_name}".lower(),
+                    "source": "VERIFIED_DATA"
                 })
 
-            self._local_places = places
-            self._local_places_loaded = True
+            # 1. Metro stations
+            for st in getattr(global_multimodal_router, "metro_stations", []):
+                self._local_places.append({
+                    "id": f"local_metro_{st.get('id', st.get('code', ''))}",
+                    "name": st.get("name", "Metro Station"),
+                    "secondary_text": "Chennai Metro Line",
+                    "place_type": "METRO_STATION",
+                    "place_type_label": "Metro Station",
+                    "latitude": float(st.get("lat", 0.0)),
+                    "longitude": float(st.get("lon", 0.0)),
+                    "search_terms": f"{st.get('name', '')} {st.get('raw_name', '')} metro".lower(),
+                    "source": "LOCAL_TRANSIT"
+                })
+
+            # 2. Suburban / MRTS stations
+            for st in getattr(global_multimodal_router, "suburban_stations", []):
+                self._local_places.append({
+                    "id": f"local_rail_{st.get('id', st.get('code', ''))}",
+                    "name": st.get("name", "Railway Station"),
+                    "secondary_text": "Southern Railway Suburban / MRTS",
+                    "place_type": "RAILWAY_STATION",
+                    "place_type_label": "Railway Station",
+                    "latitude": float(st.get("lat", 0.0)),
+                    "longitude": float(st.get("lon", 0.0)),
+                    "search_terms": f"{st.get('name', '')} railway station suburban train".lower(),
+                    "source": "LOCAL_TRANSIT"
+                })
+
+            # 3. Key Bus stops (stations with highest frequency or major junctions)
+            bus_stops = getattr(global_multimodal_router, "bus_stops", [])
+            for st in bus_stops[:400]: # top major bus stops
+                self._local_places.append({
+                    "id": f"local_bus_{st.get('id', '')}",
+                    "name": st.get("name", "Bus Stop"),
+                    "secondary_text": "MTC Chennai Bus Stop",
+                    "place_type": "BUS_STOP",
+                    "place_type_label": "Bus Stop",
+                    "latitude": float(st.get("lat", 0.0)),
+                    "longitude": float(st.get("lon", 0.0)),
+                    "search_terms": f"{st.get('name', '')} mtc bus stop".lower(),
+                    "source": "LOCAL_TRANSIT"
+                })
+
+            # 4. Safety facilities
+            from app.services.poi_service import get_poi_service
+            poi_service = get_poi_service()
+            for poi in poi_service.pois[:200]:
+                p_name = poi.get("name", "Safety Facility")
+                p_cat = poi.get("category", "facility")
+                p_lbl = poi.get("category_label", "Safety Facility")
+                p_lat = float(poi.get("latitude", 0.0))
+                p_lon = float(poi.get("longitude", 0.0))
+                p_id = poi.get("poi_id", str(time.time()))
+                self._local_places.append({
+                    "id": f"local_poi_{p_id}",
+                    "name": p_name,
+                    "secondary_text": f"Verified {p_lbl}",
+                    "place_type": "SAFETY_FACILITY",
+                    "place_type_label": p_lbl,
+                    "latitude": p_lat,
+                    "longitude": p_lon,
+                    "search_terms": f"{p_name} {p_cat} {p_lbl}".lower(),
+                    "source": "LOCAL_POI"
+                })
+
+            self._local_stations_loaded = True
             logger.info(f"Loaded {len(self._local_places)} verified local places into Autocomplete index.")
         except Exception as e:
             logger.warning(f"Could not initialize local autocomplete index: {e}")
@@ -184,11 +146,13 @@ class AutocompleteService:
     def _parse_coordinate_query(self, query: str) -> Optional[LocationSuggestion]:
         """Detects if user typed direct latitude, longitude coordinates."""
         q = query.strip()
+        # Pattern matching: 12.8448, 80.1527 or 12.8448 80.1527
         match = re.match(r"^([-+]?\d{1,2}(?:\.\d+)?)[,\s]+([-+]?\d{1,3}(?:\.\d+)?)$", q)
         if match:
             try:
                 val1 = float(match.group(1))
                 val2 = float(match.group(2))
+                # Distinguish lat from lon: In Chennai/India, Lat is ~10-14, Lon is ~79-81
                 if 8.0 <= val1 <= 38.0 and 68.0 <= val2 <= 98.0:
                     lat, lon = val1, val2
                 elif 8.0 <= val2 <= 38.0 and 68.0 <= val1 <= 98.0:
@@ -234,13 +198,12 @@ class AutocompleteService:
             return "LOCALITY", "Locality"
         return "ADDRESS", "Address"
 
-    async def get_suggestions(self, query: str, limit: int = 8) -> List[LocationSuggestion]:
+    async def get_suggestions(self, query: str, limit: int = 6) -> List[LocationSuggestion]:
         """
         Returns structured, accessible location suggestions for a query.
-        Local verified places return in <50ms; optional Nominatim acts as non-blocking enrichment.
         """
         clean_q = query.strip()
-        if not clean_q:
+        if not clean_q or len(clean_q) < 2:
             return []
 
         # 1. Check for explicit coordinates
@@ -256,45 +219,42 @@ class AutocompleteService:
             if (now - ts) < self._cache_ttl:
                 return cached_res[:limit]
 
-        # 3. Fast In-Memory Local Search (always prioritized)
-        self._ensure_local_places()
-        norm_q = re.sub(r'[^a-z0-9\s]', '', cache_key).strip()
-        q_tokens = [t for t in norm_q.split() if t]
-
-        matches: List[Tuple[int, Dict[str, Any]]] = []
-        for p in self._local_places:
-            nl = p["name"].lower()
-            norm_name = re.sub(r'[^a-z0-9\s]', '', nl)
-            score = 0
-
-            # Exact match
-            if norm_name == norm_q or nl == cache_key:
-                score = 150
-            # Full prefix match
-            elif nl.startswith(cache_key) or norm_name.startswith(norm_q):
-                score = 100
-            # Word-initial prefix match (e.g. 'VIT' in 'VIT Chennai' or 'Vit University')
-            elif any(w.startswith(norm_q) for w in norm_name.split()):
-                score = 80
-            # Search terms contain token prefix
-            elif any(w.startswith(norm_q) for w in p["search_terms"].split()):
-                score = 60
-            # All query tokens present in name or terms
-            elif q_tokens and all(token in norm_name or token in p["search_terms"] for token in q_tokens):
-                score = 40
-            # Substring match (for queries >= 2 chars)
-            elif len(norm_q) >= 2 and norm_q in norm_name:
-                score = 30
-
-            if score > 0:
-                matches.append((score, p))
-
-        matches.sort(key=lambda x: -x[0])
-
         suggestions: List[LocationSuggestion] = []
         seen_coords = set()
 
-        for score, p in matches:
+        # 3. Match against local verified transport nodes
+        self._ensure_local_places()
+        q_tokens = [t for t in cache_key.split() if len(t) >= 2]
+        
+        local_matches = []
+        for p in self._local_places:
+            score = 0
+            name_lower = p["name"].lower()
+            terms_lower = p["search_terms"].lower()
+            name_words = re.findall(r"\b\w+\b", name_lower)
+            terms_words = re.findall(r"\b\w+\b", terms_lower)
+
+            if cache_key == name_lower:
+                score += 100
+            elif cache_key in terms_words:
+                score += 85
+            elif name_lower.startswith(cache_key):
+                score += 65
+            elif terms_lower.startswith(cache_key):
+                score += 50
+            elif any(w.startswith(cache_key) for w in name_words):
+                score += 40
+            elif len(cache_key) >= 4 and cache_key in name_lower:
+                score += 25
+            elif len(cache_key) >= 4 and all(token in terms_lower for token in q_tokens):
+                score += 15
+
+            if score > 0:
+                local_matches.append((score, p))
+
+        # Sort local matches by score
+        local_matches.sort(key=lambda x: -x[0])
+        for _, p in local_matches[:limit]:
             coord_key = (round(p["latitude"], 4), round(p["longitude"], 4))
             if coord_key not in seen_coords:
                 seen_coords.add(coord_key)
@@ -309,73 +269,8 @@ class AutocompleteService:
                     formatted_coords=f"{p['latitude']:.5f}, {p['longitude']:.5f}",
                     source=p["source"]
                 ))
-                if len(suggestions) >= limit:
-                    break
 
-        # Fast path: Return immediately whenever at least one verified local place matches
-        # or if query is a single character, ensuring zero external network latency delay.
-        if len(suggestions) >= 1 or len(clean_q) < 2:
-            self._cache[cache_key] = (now, suggestions)
-            return suggestions[:limit]
-
-        # 4. Optional External Nominatim Fallback / Enrichment (Strict 1.2s timeout)
-        try:
-            async with httpx.AsyncClient(timeout=1.2) as client:
-                params = {
-                    "q": clean_q,
-                    "format": "json",
-                    "limit": limit,
-                    "addressdetails": 1,
-                    "countrycodes": "in",
-                    "viewbox": "79.90,13.35,80.35,12.70",
-                    "bounded": 0
-                }
-                headers = {"User-Agent": "NavSakhi/1.0 (LocationSearch)"}
-                resp = await client.get(f"{self.nominatim_url}/search", params=params, headers=headers)
-
-                if resp.status_code == 200:
-                    data = resp.json()
-                    for item in data:
-                        try:
-                            lat = float(item.get("lat"))
-                            lon = float(item.get("lon"))
-                            coord_key = (round(lat, 4), round(lon, 4))
-                            if coord_key in seen_coords:
-                                continue
-                            seen_coords.add(coord_key)
-
-                            raw_display = item.get("display_name", "")
-                            parts = [p.strip() for p in raw_display.split(",") if p.strip()]
-                            name = parts[0] if parts else clean_q
-
-                            addr = item.get("address", {})
-                            locality_parts = []
-                            for k in ["suburb", "neighbourhood", "city_district", "road", "city"]:
-                                if k in addr and addr[k] not in locality_parts and addr[k] != name:
-                                    locality_parts.append(addr[k])
-
-                            secondary_text = ", ".join(locality_parts[:3]) if locality_parts else (", ".join(parts[1:4]) if len(parts) > 1 else "Chennai Region")
-                            pt_type, pt_label = self._classify_osm_type(item)
-
-                            suggestions.append(LocationSuggestion(
-                                id=f"nom_{item.get('osm_type', 'node')}_{item.get('osm_id', int(time.time()))}",
-                                name=name,
-                                secondary_text=secondary_text,
-                                place_type=pt_type,
-                                place_type_label=pt_label,
-                                latitude=lat,
-                                longitude=lon,
-                                formatted_coords=f"{lat:.5f}, {lon:.5f}",
-                                source="NOMINATIM"
-                            ))
-                            if len(suggestions) >= limit:
-                                break
-                        except (ValueError, TypeError):
-                            continue
-        except Exception as net_err:
-            logger.debug(f"Optional Nominatim enrichment note: {net_err}")
-
-        # Cache valid results
+        # Cache valid local results
         self._cache[cache_key] = (now, suggestions)
         return suggestions[:limit]
 
@@ -384,8 +279,3 @@ class AutocompleteService:
 
 # Global singleton instance
 global_autocomplete_service = AutocompleteService()
-
-
-def get_global_autocomplete_service() -> AutocompleteService:
-    """Returns the shared global AutocompleteService singleton."""
-    return global_autocomplete_service

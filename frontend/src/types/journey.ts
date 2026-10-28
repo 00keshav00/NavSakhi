@@ -31,7 +31,7 @@ export interface RoutePOI {
   poi_id: string;
   osm_id?: number | null;
   name: string;
-  category: "police" | "hospital" | "clinic" | "pharmacy" | "fire_station" | string;
+  category: "police" | "hospital" | "clinic" | "pharmacy" | "fire_station" | "retail_shop" | "restaurant" | "cafe" | "supermarket" | "convenience" | "food_retail" | "fast_food" | "hotel" | "fuel" | string;
   category_label: string;
   latitude: number;
   longitude: number;
@@ -39,6 +39,18 @@ export interface RoutePOI {
   nearest_route_leg_id?: string | null;
   proximity_tier: "IMMEDIATELY_BESIDE" | "ALONG_CORRIDOR" | string;
   is_emergency?: boolean;
+  is_shop?: boolean;
+  provenance_type?: "mapped_public_facility" | "independently_verified_facility" | "mapped_commercial_business" | "public_surveillance" | string;
+  verification_status?: "MAPPED_PUBLIC_FACILITY" | "INDEPENDENTLY_VERIFIED" | "MAPPED_COMMERCIAL_CONTEXT" | "MAPPED_SURVEILLANCE" | string;
+  safety_role?: "emergency_safe_haven" | "public_police_station" | "medical_emergency_facility" | "public_health_support" | "fire_and_rescue_service" | "commercial_activity" | "surveillance_infrastructure" | string;
+  is_verified_safety_facility?: boolean;
+  is_safe_haven_eligible?: boolean;
+  opening_status?: "OPEN" | "CLOSED" | "UNKNOWN" | string;
+  opening_hours?: string | null;
+  estimated_pass_through_time?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  website?: string | null;
   operator?: string | null;
   source: string;
   last_verified_at?: string | null;
@@ -73,6 +85,18 @@ export interface RouteFare {
   is_official: boolean;
 }
 
+export interface ActivityZone {
+  zone_id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radius_m: number;
+  activity_level: "HIGH" | "MODERATE" | string;
+  shop_count: number;
+  source: string;
+  disclosure: string;
+}
+
 export interface MultimodalRoute {
   id: string;
   rank: number;
@@ -89,6 +113,8 @@ export interface MultimodalRoute {
   model_explainability: Record<string, string>;
   model_attribution?: RouteModelAttribution | null;
   nearby_pois?: RoutePOI[];
+  activity_zones?: ActivityZone[];
+  night_activity_score?: NightActivityScore;
   recommendation_reason: string[];
   ranking_labels?: string[];
   strengths: string[];
@@ -99,6 +125,31 @@ export interface MultimodalRoute {
   score_basis?: string | null;
   model_version?: string | null;
   target_disclosure?: string | null;
+  tradeoffs?: string[];
+  user_preference_match?: string | null;
+}
+
+export interface NightActivityScore {
+  overall_score: number;
+  coverage_score: number;
+  isolation_penalty: number;
+  density_score: number;
+  corridor_continuity_score?: number;
+  open_volume_score?: number;
+  emergency_score: number;
+  transit_access_score?: number;
+  confidence_score: number;
+  data_confidence_score?: number;
+  normalized_score?: number;
+  concern_level?: "HIGH_CONCERN" | "LIMITED_INDICATORS" | "SUPPORTED_INDICATORS";
+  surveillance_cameras_count?: number;
+  corridor_open_places_count?: number;
+  total_corridor_places_count?: number;
+  corridor_unknown_hours_count?: number;
+  longest_dark_gap_meters?: number;
+  formula_version?: string;
+  is_out_of_bounds?: boolean;
+  status?: string;
 }
 
 export interface SessionInfo {

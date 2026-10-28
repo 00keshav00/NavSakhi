@@ -23,6 +23,7 @@ import {
   Train
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Footer } from "@/components/layout/Footer";
 import { Section, Container, Grid } from "@/components/ui/craft";
 import { ContainerScroll } from "@/components/ui/container-scroll-animation";
 import { ImagesScrollingAnimation } from "@/components/ui/images-scrolling-animation";
@@ -515,23 +516,8 @@ export function LandingView() {
         </Container>
       </Section>
 
-      {/* Footer with Official Brand Identity */}
-      <footer className="border-t border-border/80 bg-card/60 backdrop-blur-md px-4 sm:px-8 py-8 text-center text-xs text-muted-foreground space-y-3">
-        <div className="flex items-center justify-center gap-2">
-          <div className="relative h-8 w-32 flex items-center justify-center">
-            <Image 
-              src="/images/navsakhi/navsakhi_logo_official.png" 
-              alt="NavSakhi Logo" 
-              width={140} 
-              height={45} 
-              className="h-7 w-auto object-contain" 
-            />
-          </div>
-        </div>
-        <p className="max-w-md mx-auto">
-          NavSakhi &bull; Personal Software Project &amp; Working Prototype &bull; Multimodal Chennai Transit Routing &bull; Environmental Risk Proxies.
-        </p>
-      </footer>
+      {/* Official Comprehensive Footer with Legal & Transparency Links */}
+      <Footer />
     </div>
   );
 }

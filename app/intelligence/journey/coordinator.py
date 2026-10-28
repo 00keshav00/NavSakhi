@@ -1,18 +1,65 @@
-import time
 from typing import Dict, Any, Optional
 import logging
-import asyncio
-import asyncio as _asyncio
 from app.agents.workflow_manager import WorkflowManager
 from app.ml.normalizer import DataNormalizer
 from app.ml.features import FeatureEngineer
-from app.ml.predictor import MLSafetyPredictor, SafeSheMLPredictor, get_ml_safety_predictor
+from app.ml.predictor import MLSafetyPredictor, SafeSheMLPredictor, get_ml_predictor
 from app.services.ml_route_scoring_service import MLRouteScoringService
 from app.intelligence.decision.engine import DecisionEngine
 from app.tools.specialized.reasoning_tool import ReasoningTool
 from app.intelligence.response.builder import ResponseBuilder
 
+from typing import Dict, Any, Optional, Tuple
+
 logger = logging.getLogger(__name__)
+
+
+def parse_coordinate_pair(text: str) -> Optional[Tuple[float, float]]:
+    """
+    Parses an input string to check if it represents an explicit coordinate pair.
+    Returns canonical (longitude, latitude) if valid, None otherwise.
+
+    Requirements:
+    - Exactly two comma-separated values.
+    - Both values must be valid numeric floats (supporting signs and decimals).
+    - Latitude must be in [-90.0, 90.0], Longitude must be in [-180.0, 180.0].
+    - Handles India/Chennai lon/lat ordering properly.
+    """
+    if not text or not isinstance(text, str):
+        return None
+    cleaned = text.strip()
+    parts = cleaned.split(",")
+    if len(parts) != 2:
+        return None
+    try:
+        v0 = float(parts[0].strip())
+        v1 = float(parts[1].strip())
+    except (ValueError, TypeError):
+        return None
+
+    # Check geographic range validity
+    # In India (lat ~8-38, lon ~68-98):
+    if 68.0 <= v0 <= 98.0 and 8.0 <= v1 <= 38.0:
+        lon, lat = v0, v1
+    elif 8.0 <= v0 <= 38.0 and 68.0 <= v1 <= 98.0:
+        lat, lon = v0, v1
+    elif -90.0 <= v0 <= 90.0 and -180.0 <= v1 <= 180.0:
+        lat, lon = v0, v1
+    elif -180.0 <= v0 <= 180.0 and -90.0 <= v1 <= 90.0:
+        lon, lat = v0, v1
+    else:
+        return None
+
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return None
+
+    return (lon, lat)
+
+
+def is_coordinate_pair(text: str) -> bool:
+    """Returns True if text represents a valid numerical coordinate pair."""
+    return parse_coordinate_pair(text) is not None
+
 
 class JourneyIntelligenceCoordinator:
     """
@@ -20,11 +67,11 @@ class JourneyIntelligenceCoordinator:
     Orchestrates the Agentic AI Pipeline without executing logic itself.
     """
     
-    def __init__(self, ml_predictor: Optional[MLSafetyPredictor] = None):
+    def __init__(self):
         self.workflow_manager = WorkflowManager()
         self.normalizer = DataNormalizer()
         self.feature_engineer = FeatureEngineer()
-        self.ml_predictor = ml_predictor or get_ml_safety_predictor()
+        self.ml_predictor = get_ml_predictor()
         self.ml_route_scorer = MLRouteScoringService(predictor=self.ml_predictor)
         self.decision_engine = DecisionEngine()
         self.reasoning_tool = ReasoningTool()
@@ -72,7 +119,11 @@ class JourneyIntelligenceCoordinator:
         llm_context = {
             "decision": decision,
             "ml_prediction": ml_prediction,
-            "agent_results": agent_results
+            "agent_results": agent_results,
+            "query": initial_context.get("query"),
+            "history": initial_context.get("history"),
+            "active_journey": initial_context.get("active_journey"),
+            "workflow_type": workflow_type
         }
         
         if workflow_type in ["journey_plan", "assistant"]:
@@ -119,63 +170,101 @@ class JourneyIntelligenceCoordinator:
         import datetime
         ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
         ist_dt = datetime.datetime.now(ist_tz)
-        try:
-            parts = request.source.split(",") if "," in request.source else []
-            if len(parts) == 2:
-                try:
-                    lat, lon = float(parts[0].strip()), float(parts[1].strip())
-                    source_loc = Location(type="Point", coordinates=[lon, lat])
-                except ValueError:
-                    source_loc = await loc_provider.forward_geocode(request.source)
-            elif "Detecting" in request.source or "Current" in request.source:
-                source_loc = Location(type="Point", coordinates=[77.5946, 12.9716])
-            else:
-                source_loc = await loc_provider.forward_geocode(request.source)
-        except Exception as e:
-            logger.error(f"Geocoding source failed: {str(e)}")
-            source_loc = Location(type="Point", coordinates=[77.5946, 12.9716])
-            
-        # Parse Destination
-        try:
-            if "," in request.destination:
-                parts = request.destination.split(",")
-                try:
-                    lat, lon = float(parts[0].strip()), float(parts[1].strip())
-                    dest_loc = Location(type="Point", coordinates=[lon, lat])
-                except ValueError:
-                    dest_loc = await loc_provider.forward_geocode(request.destination)
-            else:
-                dest_loc = await loc_provider.forward_geocode(request.destination)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Could not find destination: {str(e)}")
-            
-        # Optional: reverse geocode for display names - run source and dest concurrently
-        import asyncio as _asyncio
-        _GEOCODE_TIMEOUT_S = 5.0
-        async def _safe_reverse(loc):
-            try:
-                return await _asyncio.wait_for(
-                    loc_provider.reverse_geocode(loc),
-                    timeout=_GEOCODE_TIMEOUT_S
-                )
-            except Exception:
-                return None
-        _src_addr, _dst_addr = await _asyncio.gather(
-            _safe_reverse(source_loc),
-            _safe_reverse(dest_loc)
+        from app.providers.shared.exceptions import (
+            ProviderRateLimitError,
+            ProviderTimeoutError,
+            ProviderUnavailableError,
+            LocationNotFoundError,
         )
-        if _src_addr is not None:
-            source_name = _src_addr.display_name.split(",")[0]
-            source_full = _src_addr.display_name.lower()
-        else:
-            source_name = "Current Location"
-            source_full = ""
-        if _dst_addr is not None:
-            dest_name = _dst_addr.display_name.split(",")[0]
-            dest_full = _dst_addr.display_name.lower()
-        else:
-            dest_name = request.destination
-            dest_full = ""
+
+        async def _resolve_location_param(raw_input: str, role: str) -> Location:
+            cleaned = (raw_input or "").strip()
+            if not cleaned:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"{role.capitalize()} location cannot be empty."
+                )
+
+            # Check if input is a valid coordinate pair
+            coords = parse_coordinate_pair(cleaned)
+            if coords is not None:
+                lon, lat = coords
+                return Location(type="Point", coordinates=[lon, lat])
+
+            if "detecting" in cleaned.lower() or "current" in cleaned.lower():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Cannot determine {role} location from '{cleaned}'. Please provide coordinates (latitude, longitude) or select a verified place."
+                )
+
+            try:
+                return await asyncio.wait_for(loc_provider.forward_geocode(cleaned), timeout=4.0)
+            except asyncio.TimeoutError:
+                logger.warning(f"Geocoding provider timed out for {role} '{cleaned}'")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions."
+                )
+            except ProviderRateLimitError as e:
+                logger.warning(f"Nominatim rate limit during {role} geocoding: retry_after={e.retry_after}")
+                headers = {"Retry-After": str(e.retry_after)} if e.retry_after else None
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions.",
+                    headers=headers
+                )
+            except (ProviderTimeoutError, ProviderUnavailableError) as e:
+                logger.warning(f"Geocoding provider unavailable during {role} geocoding: {e}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions."
+                )
+            except LocationNotFoundError:
+                sanitized_query = cleaned[:80].replace("\n", " ")
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Could not find {role} location '{sanitized_query}'. Please verify the place name or select a verified place from suggestions."
+                )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.exception(f"Unexpected error resolving {role} location '{cleaned}': {e}")
+                raise HTTPException(
+                    status_code=503,
+                    detail="Location search is temporarily unavailable. Please retry shortly or select a verified place from suggestions."
+                )
+
+        import asyncio
+        import time
+        import uuid
+        correlation_id = f"corr_{uuid.uuid4().hex[:12]}"
+        t_pipeline_start = time.perf_counter()
+        stage_timings: Dict[str, float] = {}
+
+        t_loc_0 = time.perf_counter()
+        source_loc, dest_loc = await asyncio.gather(
+            _resolve_location_param(request.source, "source"),
+            _resolve_location_param(request.destination, "destination")
+        )
+
+        async def _resolve_display_name(loc: Location, raw_text: str, default_label: str) -> str:
+            is_coords = is_coordinate_pair(raw_text)
+            is_detecting = "detecting" in raw_text.lower() or "current" in raw_text.lower()
+            if not (is_coords or is_detecting):
+                return raw_text
+            try:
+                addr = await asyncio.wait_for(loc_provider.reverse_geocode(loc), timeout=1.5)
+                return addr.display_name.split(",")[0]
+            except Exception:
+                return default_label
+
+        source_name, dest_name = await asyncio.gather(
+            _resolve_display_name(source_loc, request.source, "Current Location"),
+            _resolve_display_name(dest_loc, request.destination, "Destination")
+        )
+        stage_timings["location_resolution_ms"] = round((time.perf_counter() - t_loc_0) * 1000, 2)
+        source_full = source_name.lower()
+        dest_full = dest_name.lower()
 
         # Determine if context is a campus/university
         is_campus = any(keyword in source_full or keyword in dest_full for keyword in ["university", "college", "campus", "institute"])
@@ -183,7 +272,6 @@ class JourneyIntelligenceCoordinator:
                 # Get Routes Dynamically
         try:
             import asyncio
-            import asyncio as _asyncio
             import datetime
             
             current_hour = datetime.datetime.utcnow().hour
@@ -216,239 +304,186 @@ class JourneyIntelligenceCoordinator:
                     "zero_distance": True,
                     "warnings": ["Already at destination"]
                 }
-                return self.response_builder.build_journey_plan(final_context, getattr(request, 'user_id', "u_1"), journey_id)
+                resp = self.response_builder.build_journey_plan(
+                    final_context, getattr(request, 'user_id', "u_1"), journey_id, timing_collector=stage_timings
+                )
+                from app.config.settings import settings
+                if (getattr(settings, "environment", "") or "").strip().lower() == "staging":
+                    stage_timings["total_duration_ms"] = round((time.perf_counter() - t_pipeline_start) * 1000, 2)
+                    resp.meta = {"stage_timings": dict(stage_timings)}
+                return resp
 
             warnings = []
 
-            # --- LIVE WEATHER + PRIMARY OSRM DRIVING in parallel ---
-            # Weather (Open-Meteo) and the primary driving OSRM call are independent;
-            # run them concurrently to save ~2-4 s of sequential latency.
-            _OSRM_TIMEOUT_S = 6.0
-            _WEATHER_TIMEOUT_S = 6.0
-
-            async def _safe_weather():
-                try:
-                    return await _asyncio.wait_for(
-                        global_weather_provider.get_live_weather(s_lat, s_lon),
-                        timeout=_WEATHER_TIMEOUT_S
-                    )
-                except Exception:
-                    return {"available": False}
-
-            async def _safe_driving():
-                try:
-                    return await _asyncio.wait_for(
-                        route_provider.get_routes(source_loc, dest_loc, mode="driving", alternatives="true"),
-                        timeout=_OSRM_TIMEOUT_S
-                    )
-                except Exception as _e:
-                    logger.error(f"OSRM driving route query failed: {_e}")
-                    return []
-
-            weather_data, driving_routes = await _asyncio.gather(
-                _safe_weather(),
-                _safe_driving()
-            )
-
-            # --- LIVE WEATHER INTEGRATION (Open-Meteo Verified Live Provider) ---
-            if not weather_data.get("available"):
-                warnings.append("Live weather data is currently unavailable from provider.")
-            if weather_data.get("hazards"):
-                warnings.extend(weather_data["hazards"])
+            # --- CONCURRENT WEATHER ENRICHMENT TASK ---
+            # Launched in background to prevent external weather delay from blocking critical routing path
+            weather_task = asyncio.create_task(global_weather_provider.get_live_weather(s_lat, s_lon))
 
             # --- PHASE 1: DIVERSE VERIFIED ROAD CANDIDATES VIA OSRM ---
+            t_road_0 = time.perf_counter()
             road_cands = []
             direct_road_dist_m = dist_m * 1.3
             direct_road_dur_s = (dist_m * 1.3) / 10.0
+            
+            try:
+                # 1. Driving route(s) via OSRM
+                driving_routes = await route_provider.get_routes(source_loc, dest_loc, mode="driving", alternatives="true")
+                for idx, r in enumerate(driving_routes):
+                    r.route_metadata = r.route_metadata or {}
+                    if idx == 0:
+                        direct_road_dist_m = float(r.distance)
+                        direct_road_dur_s = float(r.duration)
+                        r.route_metadata["travel_mode"] = "Personal Vehicle"
+                        r.route_metadata["route_name"] = "Personal Vehicle"
+                    else:
+                        r.route_metadata["travel_mode"] = "Cab Direct"
+                        r.route_metadata["route_name"] = f"Alternative Road Route {idx}"
+                    road_cands.append(r)
 
-            # 1. Process driving routes
-            for idx, r in enumerate(driving_routes):
-                r.route_metadata = r.route_metadata or {}
-                if idx == 0:
-                    direct_road_dist_m = float(r.distance)
-                    direct_road_dur_s = float(r.duration)
-                    r.route_metadata["travel_mode"] = "Personal Vehicle"
-                    r.route_metadata["route_name"] = "Personal Vehicle"
-                else:
-                    r.route_metadata["travel_mode"] = "Cab Direct"
-                    r.route_metadata["route_name"] = f"Alternative Road Route {idx}"
-                road_cands.append(r)
-
-            # 2. Secondary Road Corridor via waypoint offset if only 1 driving route returned
-            # (must run after driving result is available)
-            if len(driving_routes) == 1 and dist_km >= 0.8:
-                try:
-                    dx = d_lon - s_lon
-                    dy = d_lat - s_lat
-                    vec_len = (dx*dx + dy*dy)**0.5
-                    if vec_len > 0:
-                        px = -dy / vec_len
-                        py = dx / vec_len
-                        offset_deg = min(0.0035, max(0.0015, vec_len * 0.15))
-                        wp_lon = (s_lon + d_lon)/2 + px * offset_deg
-                        wp_lat = (s_lat + d_lat)/2 + py * offset_deg
-                        via_loc = Location(type="Point", coordinates=[wp_lon, wp_lat])
-                        alt_routes = await _asyncio.wait_for(
-                            route_provider.get_routes(
+                # 2. Secondary Road Corridor via waypoint offset if only 1 driving route returned
+                if len(driving_routes) == 1 and dist_km >= 0.8:
+                    try:
+                        dx = d_lon - s_lon
+                        dy = d_lat - s_lat
+                        vec_len = (dx*dx + dy*dy)**0.5
+                        if vec_len > 0:
+                            px = -dy / vec_len
+                            py = dx / vec_len
+                            offset_deg = min(0.0035, max(0.0015, vec_len * 0.15))
+                            wp_lon = (s_lon + d_lon)/2 + px * offset_deg
+                            wp_lat = (s_lat + d_lat)/2 + py * offset_deg
+                            via_loc = Location(type="Point", coordinates=[wp_lon, wp_lat])
+                            alt_routes = await route_provider.get_routes(
                                 source_loc, dest_loc, mode="driving", alternatives="false", waypoints=[via_loc]
-                            ),
-                            timeout=_OSRM_TIMEOUT_S
-                        )
-                        if alt_routes:
-                            alt_r = alt_routes[0]
-                            if alt_r.distance <= driving_routes[0].distance * 1.6:
-                                alt_r.route_metadata = alt_r.route_metadata or {}
-                                alt_r.route_metadata["travel_mode"] = "Cab Direct"
-                                alt_r.route_metadata["route_name"] = "Alternative Road Corridor"
-                                road_cands.append(alt_r)
+                            )
+                            if alt_routes:
+                                alt_r = alt_routes[0]
+                                if alt_r.distance <= driving_routes[0].distance * 1.6:
+                                    alt_r.route_metadata = alt_r.route_metadata or {}
+                                    alt_r.route_metadata["travel_mode"] = "Cab Direct"
+                                    alt_r.route_metadata["route_name"] = "Alternative Road Corridor"
+                                    road_cands.append(alt_r)
+                    except Exception as e:
+                        logger.debug(f"Waypoint alternative routing attempt: {e}")
+            except Exception as e:
+                logger.error(f"OSRM driving route query failed: {e}")
+
+            # 3. Two-Wheeler candidate
+            try:
+                bike_routes = await route_provider.get_routes(source_loc, dest_loc, mode="bike", alternatives="false")
+                if bike_routes:
+                    b_cand = bike_routes[0]
+                    b_cand.route_metadata = b_cand.route_metadata or {}
+                    b_cand.route_metadata["travel_mode"] = "Two Wheeler"
+                    b_cand.route_metadata["route_name"] = "Two Wheeler"
+                    # Realistic city traffic two-wheeler pace (~28 km/h or ~7.8 m/s)
+                    b_cand.duration = max(b_cand.distance / 7.8, b_cand.duration)
+                    road_cands.append(b_cand)
+            except Exception as e:
+                logger.debug(f"OSRM bike route query failed: {e}")
+
+            # 4. Walking candidate if trip is walkable (<= 4.0 km)
+            if dist_km <= 4.0:
+                try:
+                    foot_routes = await route_provider.get_routes(source_loc, dest_loc, mode="foot", alternatives="false")
+                    if foot_routes:
+                        f_cand = foot_routes[0]
+                        f_cand.route_metadata = f_cand.route_metadata or {}
+                        f_cand.route_metadata["travel_mode"] = "Walking"
+                        f_cand.route_metadata["route_name"] = "Walking"
+                        # Realistic pedestrian pace (~4.8 km/h or 1.35 m/s)
+                        f_cand.duration = max(f_cand.distance / 1.35, f_cand.duration)
+                        road_cands.append(f_cand)
                 except Exception as e:
-                    logger.debug(f"Waypoint alternative routing attempt: {e}")
+                    logger.debug(f"OSRM foot route query failed: {e}")
 
-            # 3 & 4. Bike and Walking candidates — independent of driving result, run concurrently
-            async def _safe_bike():
-                try:
-                    return await _asyncio.wait_for(
-                        route_provider.get_routes(source_loc, dest_loc, mode="bike", alternatives="false"),
-                        timeout=_OSRM_TIMEOUT_S
-                    )
-                except Exception as _e:
-                    logger.debug(f"OSRM bike route query failed: {_e}")
-                    return []
+            stage_timings["road_routing_ms"] = round((time.perf_counter() - t_road_0) * 1000, 2)
 
-            async def _safe_foot():
-                if dist_km > 4.0:
-                    return []
-                try:
-                    return await _asyncio.wait_for(
-                        route_provider.get_routes(source_loc, dest_loc, mode="foot", alternatives="false"),
-                        timeout=_OSRM_TIMEOUT_S
-                    )
-                except Exception as _e:
-                    logger.debug(f"OSRM foot route query failed: {_e}")
-                    return []
-
-            bike_routes, foot_routes = await _asyncio.gather(_safe_bike(), _safe_foot())
-
-            if bike_routes:
-                b_cand = bike_routes[0]
-                b_cand.route_metadata = b_cand.route_metadata or {}
-                b_cand.route_metadata["travel_mode"] = "Two Wheeler"
-                b_cand.route_metadata["route_name"] = "Two Wheeler"
-                # Realistic city traffic two-wheeler pace (~28 km/h or ~7.8 m/s)
-                b_cand.duration = max(b_cand.distance / 7.8, b_cand.duration)
-                road_cands.append(b_cand)
-
-            if foot_routes:
-                f_cand = foot_routes[0]
-                f_cand.route_metadata = f_cand.route_metadata or {}
-                f_cand.route_metadata["travel_mode"] = "Walking"
-                f_cand.route_metadata["route_name"] = "Walking"
-                # Realistic pedestrian pace (~4.8 km/h or 1.35 m/s)
-                f_cand.duration = max(f_cand.distance / 1.35, f_cand.duration)
-                road_cands.append(f_cand)
-
+            t_transit_0 = time.perf_counter()
             fully_validated_routes = []
             can_attempt_transit = wants_public and (direct_road_dist_m > 0)
 
             if can_attempt_transit:
-                # 2A. Optional Gemini Mobility Strategy Validation
-                # Hard wall-clock cap: asyncio.wait_for bounded to 3.5s ensures dynamic planning
-                # cannot consume excessive latency budget or trigger gateway timeouts.
-                GEMINI_DYNAMIC_PLANS_BUDGET_S = 3.5
-                gemini_strategies = []
-                try:
-                    import asyncio
-                    gemini_strategies = await asyncio.wait_for(
-                        self.reasoning_tool.generate_dynamic_plans(
-                            source_full, dest_full, dist_km, pref_list,
-                            deadline=time.time() + GEMINI_DYNAMIC_PLANS_BUDGET_S
-                        ),
-                        timeout=GEMINI_DYNAMIC_PLANS_BUDGET_S
-                    )
-                except asyncio.TimeoutError:
-                    logger.info(
-                        f"Gemini dynamic planning exceeded {GEMINI_DYNAMIC_PLANS_BUDGET_S}s budget; "
-                        "proceeding with verified multimodal transit corridor discovery."
-                    )
-                    gemini_strategies = []
-                except Exception as e:
-                    logger.info(f"Gemini dynamic planning skipped: {e}")
-                    gemini_strategies = []
-
-                try:
-                    for strategy in gemini_strategies:
-                        req_time = getattr(request, 'travel_time', None) or datetime.datetime.now().isoformat()
-                        val_result = global_validator.validate_strategy(strategy, source_loc.coordinates, dest_loc.coordinates, req_time)
-                        
-                        if val_result["validation"]["status"] == "VALID" and val_result.get("segments"):
-                            geom_complete = True
-                            total_dist = 0
-                            total_dur = 0
-                            all_coords = []
-                            seg_list = []
+                # 2A. Optional Gemini Mobility Strategy Validation (ISOLATED TO STRATEGY B EXPERIMENT ONLY)
+                # By default under production Strategy A, transit candidate routing is 100% deterministic with 0 external calls.
+                from app.config.settings import settings
+                configured_strat = getattr(request, "strategy", None) or getattr(settings, "routing_strategy", "STRATEGY_A") or "STRATEGY_A"
+                if getattr(settings, "enable_experimental_strategy_b", False) and str(configured_strat).upper() == "STRATEGY_B":
+                    try:
+                        gemini_strategies = await self.reasoning_tool.generate_dynamic_plans(source_name, dest_name, dist_km, pref_list)
+                        for strategy in gemini_strategies:
+                            req_time = getattr(request, 'travel_time', None) or datetime.datetime.now().isoformat()
+                            val_result = global_validator.validate_strategy(strategy, source_loc.coordinates, dest_loc.coordinates, req_time)
                             
-                            for seg in val_result.get("segments", []):
-                                mode = seg.get("mode")
-                                if mode in ["metro", "suburban", "mrts", "train"]:
-                                    if not seg.get("geometry_complete"):
-                                        geom_complete = False
-                                        break
-                                    total_dist += seg.get("distance_m", 0)
-                                    total_dur += seg.get("duration_s", 0)
-                                    seg_coords = seg.get("geometry", {}).get("coordinates", [])
-                                    for pt in seg_coords:
-                                        if not all_coords or all_coords[-1] != pt:
-                                            all_coords.append(pt)
-                                    seg_list.append(seg)
-                                elif mode in ["auto", "cab", "walk", "two_wheeler"]:
-                                    try:
-                                        s_pt = ensure_lon_lat(seg["start_coordinates"])
-                                        e_pt = ensure_lon_lat(seg["end_coordinates"])
-                                        s_loc = Location(type="Point", coordinates=s_pt)
-                                        e_loc = Location(type="Point", coordinates=e_pt)
-                                        osrm_mode = "foot" if mode == "walk" else "driving"
-                                        acc_routes = await route_provider.get_routes(s_loc, e_loc, mode=osrm_mode, alternatives="false")
-                                        if acc_routes:
-                                            seg_geom = acc_routes[0].route_metadata.get("geometry", {})
-                                            seg["geometry"] = seg_geom
-                                            seg["distance_m"] = acc_routes[0].distance
-                                            seg["duration_s"] = acc_routes[0].duration
-                                            seg["geometry_complete"] = True
-                                            total_dist += acc_routes[0].distance
-                                            total_dur += acc_routes[0].duration
-                                            seg_coords = seg_geom.get("coordinates", [])
-                                            for pt in seg_coords:
-                                                if not all_coords or all_coords[-1] != pt:
-                                                    all_coords.append(pt)
-                                            seg_list.append(seg)
-                                        else:
+                            if val_result["validation"]["status"] == "VALID" and val_result.get("segments"):
+                                geom_complete = True
+                                total_dist = 0
+                                total_dur = 0
+                                all_coords = []
+                                seg_list = []
+                                
+                                for seg in val_result.get("segments", []):
+                                    mode = seg.get("mode")
+                                    if mode in ["metro", "suburban", "mrts", "train"]:
+                                        if not seg.get("geometry_complete"):
                                             geom_complete = False
                                             break
-                                    except Exception as e:
-                                        logger.warning(f"Failed to route dynamic access leg: {e}")
-                                        geom_complete = False
-                                        break
-                            
-                            # Detour sanity: Multimodal total distance must not exceed 1.55x direct road
-                            if geom_complete and len(all_coords) >= 2 and total_dist <= direct_road_dist_m * 1.55:
-                                from app.models.journey import CandidateRoute
-                                cand = CandidateRoute(
-                                    route_identifier=strategy.get("strategy_id", f"gemini_{len(fully_validated_routes)}"),
-                                    distance=total_dist,
-                                    duration=total_dur,
-                                    recommendation_status="AVAILABLE"
-                                )
-                                cand.route_metadata = {
-                                    "geometry": {"type": "LineString", "coordinates": all_coords},
-                                    "travel_mode": "Multimodal" if any(s.get("mode") in ["metro", "suburban", "train", "mrts", "bus"] for s in seg_list) else "Cab Direct",
-                                    "dynamic_segments": seg_list,
-                                    "route_name": strategy.get("strategy_name", "Transit Route"),
-                                    "cost": "Estimated",
-                                    "distinctness_status": "DISTINCT"
-                                }
-                                fully_validated_routes.append(cand)
-                except Exception as e:
-                    logger.info(f"Gemini dynamic planning validation: {e}")
+                                        total_dist += seg.get("distance_m", 0)
+                                        total_dur += seg.get("duration_s", 0)
+                                        seg_coords = seg.get("geometry", {}).get("coordinates", [])
+                                        for pt in seg_coords:
+                                            if not all_coords or all_coords[-1] != pt:
+                                                all_coords.append(pt)
+                                        seg_list.append(seg)
+                                    elif mode in ["auto", "cab", "walk", "two_wheeler"]:
+                                        try:
+                                            s_pt = ensure_lon_lat(seg["start_coordinates"])
+                                            e_pt = ensure_lon_lat(seg["end_coordinates"])
+                                            s_loc = Location(type="Point", coordinates=s_pt)
+                                            e_loc = Location(type="Point", coordinates=e_pt)
+                                            osrm_mode = "foot" if mode == "walk" else "driving"
+                                            acc_routes = await route_provider.get_routes(s_loc, e_loc, mode=osrm_mode, alternatives="false")
+                                            if acc_routes:
+                                                seg_geom = acc_routes[0].route_metadata.get("geometry", {})
+                                                seg["geometry"] = seg_geom
+                                                seg["distance_m"] = acc_routes[0].distance
+                                                seg["duration_s"] = acc_routes[0].duration
+                                                seg["geometry_complete"] = True
+                                                total_dist += acc_routes[0].distance
+                                                total_dur += acc_routes[0].duration
+                                                seg_coords = seg_geom.get("coordinates", [])
+                                                for pt in seg_coords:
+                                                    if not all_coords or all_coords[-1] != pt:
+                                                        all_coords.append(pt)
+                                                seg_list.append(seg)
+                                            else:
+                                                geom_complete = False
+                                                break
+                                        except Exception as e:
+                                            logger.warning(f"Failed to route dynamic access leg: {e}")
+                                            geom_complete = False
+                                            break
+                                
+                                # Detour sanity: Multimodal total distance must not exceed 1.55x direct road
+                                if geom_complete and len(all_coords) >= 2 and total_dist <= direct_road_dist_m * 1.55:
+                                    from app.models.journey import CandidateRoute
+                                    cand = CandidateRoute(
+                                        route_identifier=strategy.get("strategy_id", f"gemini_{len(fully_validated_routes)}"),
+                                        distance=total_dist,
+                                        duration=total_dur,
+                                        recommendation_status="AVAILABLE"
+                                    )
+                                    cand.route_metadata = {
+                                        "geometry": {"type": "LineString", "coordinates": all_coords},
+                                        "travel_mode": "Multimodal" if any(s.get("mode") in ["metro", "suburban", "train", "mrts", "bus"] for s in seg_list) else "Cab Direct",
+                                        "dynamic_segments": seg_list,
+                                        "route_name": strategy.get("strategy_name", "Transit Route"),
+                                        "cost": "Estimated",
+                                        "distinctness_status": "DISTINCT"
+                                    }
+                                    fully_validated_routes.append(cand)
+                    except Exception as e:
+                        logger.info(f"Gemini dynamic planning validation: {e}")
 
                 # 2B. Mode-Matched Verified Transit Graph Corridor Search (Primary Deterministic Engine)
                 from app.intelligence.journey.transit_validator import global_index, TransportNode
@@ -458,19 +493,22 @@ class JourneyIntelligenceCoordinator:
                 # Query generic data-driven multimodal routing engine across Bus, Metro, Suburban, and MRTS
                 if wants_public:
                     try:
-                        data_driven_cands = await global_multimodal_router.search_candidates(
-                            source_loc=source_loc,
-                            dest_loc=dest_loc,
-                            direct_road_dist_m=direct_road_dist_m,
-                            direct_road_dur_s=direct_road_dur_s,
-                            route_provider=route_provider,
-                            ist_dt=ist_dt,
-                            preferences=pref_list
+                        data_driven_cands = await asyncio.wait_for(
+                            global_multimodal_router.search_candidates(
+                                source_loc=source_loc,
+                                dest_loc=dest_loc,
+                                direct_road_dist_m=direct_road_dist_m,
+                                direct_road_dur_s=direct_road_dur_s,
+                                route_provider=route_provider,
+                                ist_dt=ist_dt,
+                                preferences=pref_list
+                            ),
+                            timeout=4.5
                         )
                         for ddc in data_driven_cands:
                             fully_validated_routes.append(ddc)
                     except Exception as e:
-                        logger.warning(f"Generic multimodal router error: {e}")
+                        logger.warning(f"Generic multimodal router error or timeout: {e}")
 
                 has_transit_candidate = any(
                     any(s.get("mode") in ["metro", "suburban", "train", "mrts", "bus"] for s in c.route_metadata.get("dynamic_segments", []))
@@ -509,10 +547,10 @@ class JourneyIntelligenceCoordinator:
                             dest_candidates.sort(key=lambda n: haversine_m(d_lat, d_lon, n.latitude, n.longitude))
 
                             mode_found = False
-                            for orig_st in orig_candidates[:5]:
+                            for orig_st in orig_candidates[:2]:
                                 if mode_found:
                                     break
-                                for dest_st in dest_candidates[:5]:
+                                for dest_st in dest_candidates[:2]:
                                     if orig_st.name == dest_st.name:
                                         continue
                                         
@@ -697,7 +735,10 @@ class JourneyIntelligenceCoordinator:
             if not fully_validated_routes and wants_public:
                 warnings.append("No practical direct public transit route is available between these locations without excessive detours. Showing verified road alternatives.")
 
+            stage_timings["transit_discovery_ms"] = round((time.perf_counter() - t_transit_0) * 1000, 2)
+
             # --- DEDUPLICATION ACROSS ALL CANDIDATES ---
+            t_dedup_0 = time.perf_counter()
             all_raw_candidates = fully_validated_routes + road_cands
             all_raw_candidates = deduplicate_routes(all_raw_candidates)
 
@@ -728,50 +769,95 @@ class JourneyIntelligenceCoordinator:
                 })
                 candidates.append(cand)
 
+            stage_timings["candidate_creation_ms"] = round((time.perf_counter() - t_dedup_0) * 1000, 2)
+
             if not candidates:
                 from fastapi import HTTPException
-                raise HTTPException(status_code=400, detail="Invalid route: Source and Destination are too close or unroutable.")
+                if dist_km < 0.5:
+                    raise HTTPException(status_code=400, detail="Invalid route: Source and Destination are too close or unroutable.")
+                raise HTTPException(status_code=503, detail="Routing provider is temporarily unavailable. Please retry shortly.")
 
-            # Genuine ML inference and length-weighted aggregation (No synthetic variance or heuristics)
-            self.ml_route_scorer.score_candidate_routes(candidates)
+            t_scoring_0 = time.perf_counter()
+            self.ml_route_scorer.score_candidate_routes(candidates, timing_collector=stage_timings)
+            stage_timings["lightgbm_scoring_ms"] = round((time.perf_counter() - t_scoring_0) * 1000, 2)
+
+            # Strategy Resolution: Production Lock-In -> STRATEGY_A (Deterministic)
+            # Strategy B is experimental only and strictly disabled unless enable_experimental_strategy_b is True.
+            from app.config.settings import settings
+            configured_strategy = getattr(request, "strategy", None) or getattr(settings, "routing_strategy", "STRATEGY_A") or "STRATEGY_A"
+            configured_strategy = str(configured_strategy).upper()
+
+            recommendation_payload = None
+            strategy_metrics = None
+            if getattr(settings, "enable_experimental_strategy_b", False) and configured_strategy == "STRATEGY_B":
+                try:
+                    from app.intelligence.journey.strategy_b import StrategyBOrchestrator
+                    sb_orch = StrategyBOrchestrator()
+                    recommendation_payload, interpreted_prefs, strategy_metrics = await sb_orch.execute_strategy_b(candidates, pref_list)
+                except Exception as e:
+                    logger.warning(f"Strategy B execution fallback to Strategy A: {e}")
+                    from app.intelligence.journey.recommender import global_recommender
+                    recommendation_payload = global_recommender.generate_recommendation(candidates, pref_list[0] if pref_list else "ANY")
+                    strategy_metrics = {"strategy_used": "STRATEGY_A", "fallback_used": True, "error": str(e)}
+            else:
+                from app.intelligence.journey.recommender import global_recommender
+                primary_pref = pref_list[0] if pref_list else "ANY"
+                recommendation_payload = global_recommender.generate_recommendation(candidates, primary_pref)
+                strategy_metrics = {
+                    "strategy_used": "STRATEGY_A",
+                    "gemini_calls": 0,
+                    "gemini_latency_ms": 0.0,
+                    "fallback_used": False
+                }
+
+            # --- AWAIT CONCURRENT WEATHER ENRICHMENT ---
+            t_weather_0 = time.perf_counter()
+            try:
+                weather_data = await asyncio.wait_for(weather_task, timeout=0.5)
+            except Exception as e:
+                logger.warning(f"Live weather lookup skipped or timed out: {e}")
+                weather_data = {"available": False, "status": "UNAVAILABLE", "hazards": []}
+
+            if not weather_data.get("available"):
+                warnings.append("Live weather data is currently unavailable from provider.")
+            if weather_data.get("hazards"):
+                warnings.extend(weather_data["hazards"])
+            stage_timings["weather_enrichment_ms"] = round((time.perf_counter() - t_weather_0) * 1000, 2)
 
             # --- PHASE 4: GEMINI OBJECTIVE EXPLANATION (Ground Truth Context Only) ---
-            # Hard wall-clock cap: asyncio.wait_for ensures Gemini never blocks the route
-            # response for more than GEMINI_EXPLANATION_BUDGET_S seconds, preventing
-            # Render's 30s gateway from returning 502 when all Gemini models time out.
-            GEMINI_EXPLANATION_BUDGET_S = 5.0
+            t_gemini_0 = time.perf_counter()
             ai_explanation = None
             try:
+                from app.tools.specialized.reasoning_tool import sanitize_privacy_context
+                clean_source_display = sanitize_privacy_context(source_name)
+                clean_dest_display = sanitize_privacy_context(dest_name)
                 routes_summary = []
                 for c in candidates[:4]:
                     routes_summary.append({
                         "route_name": c.route_metadata.get("route_name", "Route"),
                         "travel_mode": c.route_metadata.get("travel_mode", "Road"),
-                        "distance_km": c.distance / 1000.0,
+                        "distance_km": round(c.distance / 1000.0, 2),
                         "eta_min": int(c.duration / 60.0),
                         "safety_score": c.route_metadata.get("safety_score")
                     })
-                import asyncio
                 ai_explanation = await asyncio.wait_for(
                     self.reasoning_tool.explain_journey_recommendations(
-                        source=source_name,
-                        dest=dest_name,
+                        source=clean_source_display,
+                        dest=clean_dest_display,
                         verified_routes=routes_summary,
                         preferences=pref_list,
-                        weather=weather_data,
-                        deadline=time.time() + GEMINI_EXPLANATION_BUDGET_S
+                        weather=weather_data
                     ),
-                    timeout=GEMINI_EXPLANATION_BUDGET_S,
-                )
-            except asyncio.TimeoutError:
-                logger.info(
-                    f"Gemini route explanation exceeded {GEMINI_EXPLANATION_BUDGET_S}s budget; "
-                    "serving static fallback to prevent gateway timeout."
+                    timeout=2.0
                 )
             except Exception as e:
-                logger.info(f"Gemini route explanation generation skipped: {e}")
+                logger.info(f"Gemini route explanation generation skipped or timed out: {e}")
+            stage_timings["gemini_generation_ms"] = round((time.perf_counter() - t_gemini_0) * 1000, 2)
 
             user_id = getattr(request, 'user_id', "u_1")
+            strategy_metrics["stage_timings_ms"] = stage_timings
+            strategy_metrics["correlation_id"] = correlation_id
+
             final_context = {
                 "source_name": source_name,
                 "dest_name": dest_name,
@@ -780,9 +866,40 @@ class JourneyIntelligenceCoordinator:
                 "routes": candidates,
                 "warnings": warnings,
                 "weather": weather_data,
-                "ai_explanation": ai_explanation
+                "ai_explanation": ai_explanation,
+                "recommendation": recommendation_payload,
+                "strategy_metrics": strategy_metrics,
+                "preference": pref_list[0] if pref_list else "ANY"
             }
-            return self.response_builder.build_journey_plan(final_context, user_id, journey_id)
+            t_resp_0 = time.perf_counter()
+            resp = self.response_builder.build_journey_plan(
+                final_context, user_id, journey_id, timing_collector=stage_timings
+            )
+            stage_timings["response_construction_ms"] = round((time.perf_counter() - t_resp_0) * 1000, 2)
+            stage_timings["total_duration_ms"] = round((time.perf_counter() - t_pipeline_start) * 1000, 2)
+            self.last_stage_timings = stage_timings
+            self.last_strategy_metrics = strategy_metrics
+
+            from app.config.settings import settings
+            if (getattr(settings, "environment", "") or "").strip().lower() == "staging":
+                resp.meta = {"stage_timings": dict(stage_timings)}
+            else:
+                resp.meta = None
+
+            logger.info(
+                f"[{correlation_id}] Journey pipeline complete in {stage_timings['total_duration_ms']}ms: "
+                f"location={stage_timings.get('location_resolution_ms')}ms, "
+                f"road={stage_timings.get('road_routing_ms')}ms, "
+                f"transit={stage_timings.get('transit_discovery_ms')}ms, "
+                f"candidates={len(candidates)}, "
+                f"scoring={stage_timings.get('lightgbm_scoring_ms')}ms, "
+                f"weather={stage_timings.get('weather_enrichment_ms')}ms, "
+                f"gemini={stage_timings.get('gemini_generation_ms')}ms, "
+                f"resp={stage_timings.get('response_construction_ms')}ms"
+            )
+            return resp
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Routing failed: {e}")
             from fastapi import HTTPException
@@ -825,7 +942,7 @@ class JourneyIntelligenceCoordinator:
             journey_history=journey_history
         )
 
-    async def process_assistant_chat(self, user_id: str, query: str, journey_repo: Optional[Any] = None) -> Any:
+    async def process_assistant_chat(self, user_id: str, query: str, journey_repo: Optional[Any] = None, history: Optional[Any] = None) -> Any:
         active_journey = None
         journey_history = []
         if journey_repo:
@@ -838,6 +955,7 @@ class JourneyIntelligenceCoordinator:
         context = {
             "user_id": user_id, 
             "query": query, 
+            "history": history,
             "active_journey": active_journey, 
             "journey_history": journey_history
         }
@@ -850,15 +968,91 @@ class JourneyIntelligenceCoordinator:
             journey_history=journey_history
         )
 
-    async def build_emergency_status(self, session_id: str, user_id: str) -> Any:
-        context = {"user_id": user_id, "session_id": session_id}
-        final_context = await self.execute_pipeline("emergency", context)
-        return self.response_builder.build_emergency_status(final_context, session_id, user_id)
+    async def build_emergency_status(
+        self,
+        session_id: str,
+        user_id: str,
+        user_repo: Any = None,
+        journey_repo: Any = None
+    ) -> Any:
+        from app.services.emergency_session_service import emergency_session_registry
+        try:
+            from app.db.connection import get_database
+        except Exception:
+            get_database = lambda: None
 
-    async def build_profile_response(self, user_id: str) -> Any:
-        context = {"user_id": user_id}
+        session = emergency_session_registry.get_session(session_id)
+        user = None
+        if user_repo:
+            try:
+                user = await user_repo.get_by_id(user_id)
+            except Exception:
+                user = None
+        if not user:
+            db = get_database()
+            if db is not None:
+                try:
+                    from app.repositories.user_repository import UserRepository
+                    repo = UserRepository(db)
+                    user = await repo.get_by_id(user_id)
+                except Exception:
+                    pass
+            if not user:
+                from app.repositories.base import BaseRepository
+                user_dict = BaseRepository._global_store.get("users", {}).get(str(user_id))
+                if user_dict:
+                    from app.models.user import User
+                    user = User(**user_dict)
+
+        active_journey = None
+        if session and session.journey_id:
+            if not journey_repo:
+                db = get_database()
+                if db is not None:
+                    from app.repositories.journey_repository import JourneyRepository
+                    journey_repo = JourneyRepository(db)
+            if journey_repo:
+                try:
+                    active_journey = await journey_repo.get_by_id(session.journey_id)
+                except Exception:
+                    pass
+
+        location = None
+        if session and session.current_location:
+            location = session.current_location
+
+        context = {
+            "user_id": user_id,
+            "session_id": session_id,
+            "user": user,
+            "session": session,
+            "active_journey": active_journey,
+            "current_location": location
+        }
+        final_context = await self.execute_pipeline("emergency", context)
+        final_context["user"] = user
+        final_context["session"] = session
+        final_context["active_journey"] = active_journey
+        if location:
+            final_context["current_location"] = location
+
+        return self.response_builder.build_emergency_status(final_context, session_id, user_id, user=user)
+
+    async def build_profile_response(
+        self,
+        user_id: str,
+        user: Any = None,
+        journey_repo: Any = None,
+        community_repo: Any = None
+    ) -> Any:
+        context = {
+            "user_id": user_id,
+            "user": user,
+            "journey_repo": journey_repo,
+            "community_repo": community_repo
+        }
         final_context = await self.execute_pipeline("profile", context)
-        return self.response_builder.build_profile_response(final_context, user_id)
+        return self.response_builder.build_profile_response(final_context, user_id, user=user)
 
     async def build_settings_response(self, user_id: str) -> Any:
         context = {"user_id": user_id}

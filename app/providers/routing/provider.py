@@ -17,7 +17,7 @@ class OSRMRoutingProvider(RoutingProvider):
     """
     def __init__(self):
         # Using SafeShe's existing configuration system
-        self.base_url = settings.osrm_base_url or "http://router.project-osrm.org"
+        self.base_url = settings.osrm_base_url or "https://router.project-osrm.org"
         self.http = SharedHTTPClient(timeout_ms=5000)
 
     @staticmethod
@@ -38,7 +38,7 @@ class OSRMRoutingProvider(RoutingProvider):
             raise ProviderResponseMappingError(f"Failed to map route: {str(e)}")
 
     @ProviderCache.cached(ttl_seconds=settings.routing_cache_ttl)
-    @with_retry(max_retries=3, base_delay_ms=200)
+    @with_retry(max_retries=1, base_delay_ms=100)
     async def get_routes(self, source: Location, destination: Location, mode: str, alternatives: Any = 3, waypoints: List[Location] = None) -> List[CandidateRoute]:
         # Normalize routing mode for OSRM profiles (only driving, foot, bike supported)
         normalized_mode = str(mode).lower()

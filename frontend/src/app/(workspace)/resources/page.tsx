@@ -10,6 +10,7 @@ import {
   Sparkles, Phone, ShieldCheck, Info, Compass, HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Footer } from "@/components/layout/Footer";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -351,6 +352,9 @@ export default function ResourcesPage() {
           The emergency contacts and legal rights compiled here are sourced from authoritative government bodies including the National Commission for Women (NCW), Tamil Nadu Police, and Indian Penal Code / CrPC statutes. In any active life-threatening situation, dial 112 immediately.
         </p>
       </section>
+
+      {/* Official Footer with Disclosures & Navigation Links */}
+      <Footer />
 
     </div>
   );

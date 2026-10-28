@@ -36,14 +36,37 @@ class WeatherProvider:
     If the provider is offline or unreachable, reports honest unavailable status
     instead of fabricating synthetic temperature or sky conditions.
     """
+    def __init__(self):
+        self._last_failure_time: float = 0.0
+        self._failure_cooldown: float = 60.0
     
     async def get_live_weather(self, lat: float, lon: float, req_dt: Optional[datetime.datetime] = None) -> Dict[str, Any]:
         """
         Asynchronously fetches live or forecast weather from verified open data API (Open-Meteo).
         """
+        import time
+        if (time.time() - self._last_failure_time) < self._failure_cooldown:
+            return {
+                "available": False,
+                "condition": "Unavailable",
+                "temperature": 0,
+                "temperature_raw": None,
+                "rain": False,
+                "precipitation_mm": 0.0,
+                "wind_kmh": 0.0,
+                "humidity": 0,
+                "hazards": ["Live weather information unavailable (rate limit cooldown)"],
+                "status": "UNAVAILABLE",
+                "summary": "Weather unavailable",
+                "observation_timestamp": None,
+                "source": "None (Provider Offline)",
+                "data_type": "UNAVAILABLE",
+                "confidence": "None"
+            }
+
         try:
             url = f"https://api.open-meteo.com/v1/forecast?latitude={lat:.4f}&longitude={lon:.4f}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m"
-            async with httpx.AsyncClient(timeout=4.0) as client:
+            async with httpx.AsyncClient(timeout=3.0) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -81,6 +104,7 @@ class WeatherProvider:
                         "confidence": "High"
                     }
         except Exception as e:
+            self._last_failure_time = time.time()
             logger.warning(f"Live weather fetch failed: {e}")
             
         return {

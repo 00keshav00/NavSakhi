@@ -16,6 +16,7 @@ class JourneyCreate(BaseModel):
     destination: str
     preferences: Optional[List[str]] = None
     travel_time: Optional[str] = None
+    strategy: Optional[str] = Field(None, description="STRATEGY_A or STRATEGY_B")
 
 import math
 
@@ -45,18 +46,30 @@ class RouteSegment(BaseModel):
 
 
 class RoutePOI(BaseModel):
-    """Verified safety facility record located along a route corridor."""
+    """Verified safety facility or activity shop record located along a route corridor."""
     poi_id: str = Field(..., description="Stable unique identifier for the facility")
     osm_id: Optional[int] = Field(None, description="OpenStreetMap element identifier")
     name: str = Field(..., description="Genuine facility name or category label")
-    category: str = Field(..., description="Facility category (police, hospital, clinic, pharmacy, fire_station)")
+    category: str = Field(..., description="Facility category (police, hospital, clinic, pharmacy, fire_station, retail_shop, restaurant, etc.)")
     category_label: str = Field(..., description="Human-readable category title")
     latitude: float = Field(..., description="WGS84 latitude coordinate")
     longitude: float = Field(..., description="WGS84 longitude coordinate")
     distance_to_route_m: float = Field(..., description="Shortest orthogonal distance to route geometry in meters")
     nearest_route_leg_id: Optional[str] = Field(None, description="Identifier of the nearest journey leg")
     proximity_tier: str = Field("ALONG_CORRIDOR", description="IMMEDIATELY_BESIDE (<=100m) or ALONG_CORRIDOR")
-    is_emergency: bool = Field(False, description="Whether facility provides emergency medical or rescue services")
+    is_emergency: bool = Field(False, description="Whether facility provides emergency medical, rescue, or police services")
+    is_shop: bool = Field(False, description="Whether facility is an everyday commercial shop, restaurant, or activity location")
+    provenance_type: Optional[str] = Field("mapped_commercial_business", description="mapped_public_facility, independently_verified_facility, mapped_commercial_business, or public_surveillance")
+    verification_status: Optional[str] = Field("MAPPED_COMMERCIAL_CONTEXT", description="MAPPED_PUBLIC_FACILITY, INDEPENDENTLY_VERIFIED, MAPPED_COMMERCIAL_CONTEXT, or MAPPED_SURVEILLANCE")
+    safety_role: Optional[str] = Field("commercial_activity", description="emergency_safe_haven, public_police_station, medical_emergency_facility, public_health_support, fire_and_rescue_service, commercial_activity, or surveillance_infrastructure")
+    is_verified_safety_facility: Optional[bool] = Field(False, description="True only for facilities with documented independent ground audit verification")
+    is_safe_haven_eligible: Optional[bool] = Field(False, description="True only for facilities meeting verified emergency shelter criteria")
+    opening_status: Optional[str] = Field("UNKNOWN", description="OPEN, CLOSED, or UNKNOWN evaluated at estimated pass-through time")
+    opening_hours: Optional[str] = Field(None, description="Raw OSM opening hours specification")
+    estimated_pass_through_time: Optional[str] = Field(None, description="Estimated local time when traveler passes near this POI")
+    address: Optional[str] = Field(None, description="Street address or mapped locality")
+    phone: Optional[str] = Field(None, description="Contact phone number if mapped")
+    website: Optional[str] = Field(None, description="Official website if mapped")
     operator: Optional[str] = Field(None, description="Facility managing organization or authority")
     source: str = Field("OpenStreetMap (ODbL 1.0)", description="Authoritative data source and license")
     last_verified_at: Optional[str] = Field(None, description="Verification or dataset update timestamp")
@@ -94,6 +107,29 @@ class RouteFare(BaseModel):
     is_official: bool = Field(False, description="True only when backed by authoritative published tariff")
 
 
+class NightActivityScoreResponse(BaseModel):
+    overall_score: float = Field(..., description="Raw heuristic night activity score [0-100]")
+    coverage_score: float = Field(0.0, description="Active spatial coverage contribution [0-25]")
+    isolation_penalty: float = Field(0.0, description="Isolation gap penalty subtracted from score")
+    density_score: float = Field(0.0, description="Corridor continuity and density score [0-20]")
+    corridor_continuity_score: Optional[float] = Field(None, description="Corridor continuity [0-20]")
+    open_volume_score: Optional[float] = Field(None, description="Open commercial places vitality [0-20]")
+    emergency_score: float = Field(0.0, description="Proximity to emergency / public help facilities [0-15]")
+    transit_access_score: Optional[float] = Field(None, description="Transit access / main corridor factor [0-10]")
+    confidence_score: float = Field(0.0, description="Data confidence score [0-10]")
+    data_confidence_score: Optional[float] = Field(None, description="Data confidence score [0-10]")
+    normalized_score: Optional[float] = Field(None, description="Piecewise normalized display guidance index [0-100]")
+    concern_level: Optional[str] = Field(None, description="HIGH_CONCERN (<=10), LIMITED_INDICATORS (10-30), SUPPORTED_INDICATORS (>=30)")
+    surveillance_cameras_count: Optional[int] = Field(0, description="Publicly mapped surveillance cameras along corridor")
+    corridor_open_places_count: Optional[int] = Field(0, description="Confirmed open places at pass-through time")
+    total_corridor_places_count: Optional[int] = Field(0, description="Total mapped places within corridor")
+    corridor_unknown_hours_count: Optional[int] = Field(0, description="Places with unknown/unverified opening hours")
+    longest_dark_gap_meters: Optional[float] = Field(0.0, description="Longest gap between active places in meters")
+    formula_version: Optional[str] = Field("v2.0", description="Heuristic scoring formula version")
+    is_out_of_bounds: Optional[bool] = Field(False, description="True if route is outside CMA boundary")
+    status: Optional[str] = Field("CALCULATED", description="CALCULATED, OUT_OF_BOUNDS, or DATA_UNAVAILABLE")
+
+
 class MultimodalRoute(BaseModel):
     id: str = ""
     rank: int
@@ -110,7 +146,10 @@ class MultimodalRoute(BaseModel):
     model_explainability: Dict[str, str] = Field(default_factory=dict, description="Feature contributions from ML model (legacy string dict)")
     model_attribution: Optional[RouteModelAttribution] = Field(None, description="Genuine LightGBM TreeSHAP feature attribution")
     nearby_pois: List[RoutePOI] = Field(default_factory=list, description="Verified facilities within route corridor")
+    activity_zones: List[Dict[str, Any]] = Field(default_factory=list, description="Commercial activity zones along route corridor")
+    night_activity_score: Optional[NightActivityScoreResponse] = Field(None, description="Dedicated heuristic Night Activity Assessment")
     recommendation_reason: List[str] = Field(default_factory=list, description="Why this route is recommended")
+    tradeoffs: List[str] = Field(default_factory=list, description="Truthful comparative route trade-offs and data coverage disclosures")
     strengths: List[str] = Field(default_factory=list, description="Backwards compatibility")
     segments: List[RouteSegment]
     is_recommended: bool = False
@@ -195,6 +234,7 @@ class JourneyPlanResponse(BaseModel):
     dest_loc: Optional[List[float]] = None
     zero_distance: Optional[bool] = False
     warnings: Optional[List[str]] = None
+    meta: Optional[Dict[str, Any]] = None
 
 class JourneyResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

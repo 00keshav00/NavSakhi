@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class AgentStatus(BaseModel):
@@ -10,6 +10,17 @@ class ReasoningContext(BaseModel):
     confidence: Optional[float] = None
     decision_source: str
     provider_summary: str
+    response_source: Optional[str] = None  # "gemini" | "fallback" | "rule_based"
+    intent_category: Optional[str] = None
+    gemini_attempted: Optional[bool] = None
+    model_identifier: Optional[str] = None
+    attempt_count: Optional[int] = None
+    provider_latency_ms: Optional[float] = None
+    outcome_category: Optional[str] = None  # "success" | "rate_limited" | "timeout" | "invalid_response" | "unavailable" | "skipped"
+    correlation_id: Optional[str] = None
+    last_failed_model: Optional[str] = None
+    failed_model_candidates: List[str] = Field(default_factory=list)
+    safety_blocked_candidate: Optional[str] = None
 
 class JourneyContextState(BaseModel):
     active_journey: bool
@@ -40,3 +51,4 @@ class AssistantResponse(BaseModel):
     provider_health: List[ProviderHealthStatus]
     memory: MemoryState
     quick_suggestions: List[str]
+    response_source: Optional[str] = None

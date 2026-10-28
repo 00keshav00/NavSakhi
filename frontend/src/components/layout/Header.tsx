@@ -7,7 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { 
   Sun, Moon, ShieldAlert, User, LogOut, Settings as SettingsIcon,
-  ChevronDown, Search, BookOpen, Compass, Info, ShieldCheck, AlertTriangle
+  ChevronDown, Search, BookOpen, Compass, Info, ShieldCheck, AlertTriangle,
+  HelpCircle, Sparkles
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { toast } from "sonner";
@@ -24,8 +25,10 @@ import {
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const currentTheme = resolvedTheme || theme;
+  const nextTheme = currentTheme === "dark" ? "light" : "dark";
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSosInfoOpen, setIsSosInfoOpen] = useState(false);
   const user = useAuthStore((state) => state.user);
@@ -96,21 +99,21 @@ export function Header() {
           {mounted && (
             <button
               type="button"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(nextTheme)}
               className="relative p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border transition-colors overflow-hidden"
-              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
-              aria-label="Toggle Color Theme"
+              title={`Switch to ${nextTheme === "dark" ? "Dark" : "Light"} Mode`}
+              aria-label={`Switch to ${nextTheme === "dark" ? "Dark" : "Light"} Mode`}
             >
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
-                  key={theme}
+                  key={currentTheme}
                   initial={{ rotate: -90, scale: 0.6, opacity: 0 }}
                   animate={{ rotate: 0, scale: 1, opacity: 1 }}
                   exit={{ rotate: 90, scale: 0.6, opacity: 0 }}
                   transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
                   className="flex items-center justify-center"
                 >
-                  {theme === "dark" ? (
+                  {currentTheme === "dark" ? (
                     <Sun size={17} className="text-amber-400" />
                   ) : (
                     <Moon size={17} className="text-foreground/80" />
@@ -158,14 +161,63 @@ export function Header() {
                         onClick={() => setIsProfileOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
                       >
-                        <User size={15} className="text-primary" /> Profile
+                        <User size={15} className="text-primary" /> Profile Overview
                       </Link>
                       <Link
                         href="/settings"
                         onClick={() => setIsProfileOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
                       >
-                        <SettingsIcon size={15} className="text-muted-foreground" /> Settings
+                        <SettingsIcon size={15} className="text-muted-foreground" /> Settings &amp; Contacts
+                      </Link>
+                      <Link
+                        href="/safety-guidelines"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <ShieldCheck size={15} className="text-emerald-500" /> Safety Guidelines
+                      </Link>
+                      <Link
+                        href="/help"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <HelpCircle size={15} className="text-indigo-500" /> Help &amp; Support
+                      </Link>
+                      <Link
+                        href="/limitations"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <Sparkles size={15} className="text-amber-500" /> AI &amp; ML Limitations
+                      </Link>
+                      <Link
+                        href="/terms"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <BookOpen size={15} className="text-blue-500" /> Terms &amp; Conditions
+                      </Link>
+                      <Link
+                        href="/privacy"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <Info size={15} className="text-purple-500" /> Privacy Policy
+                      </Link>
+                      <Link
+                        href="/accessibility"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <ShieldAlert size={15} className="text-teal-500" /> Accessibility Statement
+                      </Link>
+                      <Link
+                        href="/about"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-foreground hover:bg-secondary rounded-xl transition-colors"
+                      >
+                        <Compass size={15} className="text-rose-500" /> About NavSakhi
                       </Link>
                     </div>
 

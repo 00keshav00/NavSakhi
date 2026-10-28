@@ -29,9 +29,9 @@ class EmergencySafeZone(BaseModel):
     coordinates: Tuple[float, float]
 
 class LiveLocation(BaseModel):
-    coordinates: Tuple[float, float]
+    coordinates: Optional[Tuple[float, float]] = None
     address: str
-    accuracy: int
+    accuracy: int = 0
     last_updated: str
 
 class AgentStatus(BaseModel):

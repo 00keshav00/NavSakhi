@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public workspace routes accessible to guests without account creation:
-  // - Landing page, Login
+  // - Landing page, Login, Register
   // - Public Dashboard (/home) with weather and overview
   // - Journey planner (/journey) with map, transit network, and road safety scoring
   // - AI Assistant (/assistant) for general safety inquiries
@@ -17,6 +17,7 @@ export function middleware(request: NextRequest) {
   const isPublicRoute =
     pathname === '/' ||
     pathname.startsWith('/login') ||
+    pathname.startsWith('/register') ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml' ||
     pathname === '/manifest.json' ||
@@ -25,7 +26,14 @@ export function middleware(request: NextRequest) {
     pathname === '/home' ||
     pathname === '/journey' ||
     pathname === '/assistant' ||
-    pathname === '/community';
+    pathname === '/community' ||
+    pathname === '/terms' ||
+    pathname === '/privacy' ||
+    pathname === '/limitations' ||
+    pathname === '/safety-guidelines' ||
+    pathname === '/about' ||
+    pathname === '/help' ||
+    pathname === '/accessibility';
 
   // Protect account-specific routes:
   // - Emergency SOS workflow (/emergency)
@@ -38,8 +46,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // If a user is authenticated and tries to access login, redirect to workspace
-  if (token && pathname.startsWith('/login')) {
+  // If a user is authenticated and tries to access login or register, redirect to workspace
+  if (token && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
     return NextResponse.redirect(new URL('/home', request.url));
   }
 

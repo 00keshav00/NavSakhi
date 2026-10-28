@@ -2,7 +2,7 @@
 
 import { MultimodalRoute } from "@/types/journey";
 import { RouteScoreBadge } from "./RouteScoreBadge";
-import { Footprints, Train, Bus, Car, Bike, ChevronRight, Check } from "lucide-react";
+import { Footprints, Train, Bus, Car, Bike, ChevronRight, Check, Moon, Camera, AlertTriangle } from "lucide-react";
 
 import { motion } from "framer-motion";
 
@@ -100,7 +100,7 @@ export function RouteCard({
           </div>
         </div>
 
-        {/* ETA & Distance */}
+        {/* ETA, Distance & Fare Provenance */}
         <div className="text-right shrink-0">
           <div className="text-lg font-black text-foreground tracking-tight">
             {route.eta}
@@ -108,16 +108,39 @@ export function RouteCard({
           <div className="text-xs text-muted-foreground font-medium">
             {route.distance}
           </div>
-          {route.cost && (
-            <div className="text-[11px] font-bold text-foreground/85 mt-0.5">
-              {route.fare?.display_text || route.cost}
+          {route.fare ? (
+            <div className="mt-1 flex flex-col items-end">
+              <span className={`text-[11px] font-bold ${
+                route.fare.fare_type === "OFFICIAL_FARE"
+                  ? "text-emerald-500 dark:text-emerald-400"
+                  : route.fare.fare_type === "METERED_VARIABLE"
+                  ? "text-sky-500 dark:text-sky-400"
+                  : "text-foreground/80"
+              }`}>
+                {route.fare.display_text}
+              </span>
+              <span className="text-[9.5px] text-muted-foreground font-medium">
+                {route.fare.fare_type === "OFFICIAL_FARE"
+                  ? "Official fare"
+                  : route.fare.fare_type === "ESTIMATED_FARE"
+                  ? "Estimated"
+                  : route.fare.fare_type === "METERED_VARIABLE"
+                  ? "Metered"
+                  : route.fare.fare_type === "NOT_APPLICABLE"
+                  ? "Personal vehicle"
+                  : "Fare unavailable"}
+              </span>
             </div>
-          )}
+          ) : route.cost ? (
+            <div className="text-[11px] font-bold text-foreground/80 mt-0.5">
+              {route.cost}
+            </div>
+          ) : null}
         </div>
       </div>
 
       {/* Safety Score Section */}
-      <div className="mt-3 pt-3 border-t border-border/60">
+      <div className="mt-3 pt-3 border-t border-border/60 flex flex-col gap-2">
         <RouteScoreBadge
           score={route.safety_score}
           scoreStatus={route.score_status}
@@ -125,6 +148,39 @@ export function RouteCard({
           size="sm"
           showCoverage={true}
         />
+
+        {route.night_activity_score && route.night_activity_score.status !== "OUT_OF_BOUNDS" && (
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+            <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
+              <Moon className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Night Activity Index:</span>
+              <span className="font-bold text-foreground">
+                {Math.round(route.night_activity_score.normalized_score ?? route.night_activity_score.overall_score)}
+              </span>
+              <span className="text-[10px] text-muted-foreground">
+                (raw {Math.round(route.night_activity_score.overall_score)})
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              {route.night_activity_score.concern_level === "HIGH_CONCERN" && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                  <AlertTriangle className="w-2.5 h-2.5" /> High Concern
+                </span>
+              )}
+              {route.night_activity_score.concern_level === "LIMITED_INDICATORS" && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  Limited Indicators
+                </span>
+              )}
+              {route.night_activity_score.surveillance_cameras_count && route.night_activity_score.surveillance_cameras_count > 0 ? (
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded bg-secondary text-muted-foreground border border-border">
+                  <Camera className="w-2.5 h-2.5" /> {route.night_activity_score.surveillance_cameras_count}
+                </span>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom Footer: Ranking Badges & Detail Button */}

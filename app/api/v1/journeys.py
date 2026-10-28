@@ -13,6 +13,25 @@ def _verify_journey_ownership(journey, user_id: str) -> None:
     if str(journey.user_id) != str(user_id):
         raise ForbiddenException("You do not have permission to access or modify this journey.")
 
+def _enrich_staging_response_telemetry(plan_response: JourneyPlanResponse) -> Optional[Dict[str, Any]]:
+    from app.config.settings import settings
+    if (getattr(settings, "environment", "") or "").strip().lower() != "staging":
+        return None
+
+    meta = getattr(plan_response, "meta", None)
+    if not meta or not isinstance(meta, dict) or "stage_timings" not in meta:
+        return None
+
+    import time
+    t_ser_0 = time.perf_counter()
+    _ = plan_response.model_dump(mode="json")
+    ser_ms = round((time.perf_counter() - t_ser_0) * 1000, 2)
+
+    meta["stage_timings"]["response_serialization_ms"] = ser_ms
+    if "total_duration_ms" in meta["stage_timings"]:
+        meta["stage_timings"]["total_duration_ms"] = round(meta["stage_timings"]["total_duration_ms"] + ser_ms, 2)
+    return meta
+
 router = APIRouter()
 
 @router.post("/", response_model=StandardResponse[JourneyPlanResponse])
@@ -25,7 +44,8 @@ async def create_journey(
         plan_response = await journey_service.create_journey(user_id, data)
     else:
         plan_response = await journey_service.plan_guest_journey(data)
-    return StandardResponse(success=True, data=plan_response)
+    meta = _enrich_staging_response_telemetry(plan_response)
+    return StandardResponse(success=True, data=plan_response, meta=meta)
 
 @router.post("/guest/plan", response_model=StandardResponse[JourneyPlanResponse])
 async def plan_guest_journey(
@@ -38,7 +58,8 @@ async def plan_guest_journey(
     Does not persist user journey documents or require session state.
     """
     plan_response = await journey_service.plan_guest_journey(data)
-    return StandardResponse(success=True, data=plan_response)
+    meta = _enrich_staging_response_telemetry(plan_response)
+    return StandardResponse(success=True, data=plan_response, meta=meta)
  
 @router.get("/active", response_model=StandardResponse[Optional[JourneyResponse]])
 async def get_active_journey(
@@ -203,6 +224,8 @@ async def monitor_journey(
     route_dur = 0.0
     route_score = None
     route_geom = {"type": "FeatureCollection", "features": []}
+    nearby_pois = []
+    activity_zones = []
 
     if target_route:
         raw_dist = target_route.get("distance", 0.0)
@@ -240,6 +263,39 @@ async def monitor_journey(
                 features.append(poly)
         if features:
             route_geom = {"type": "FeatureCollection", "features": features}
+
+        # Extract corridor POIs and commercial establishments for active route
+        raw_pois = target_route.get("nearby_pois") or []
+        activity_zones = target_route.get("activity_zones") or []
+
+        # If planned route has no precalculated POIs, query from spatial service on demand
+        if not raw_pois and features:
+            route_coords = []
+            for feat in features:
+                geom = feat.get("geometry", feat) if isinstance(feat, dict) else None
+                if isinstance(geom, dict):
+                    coords = geom.get("coordinates", [])
+                    if coords:
+                        route_coords.extend(coords)
+            if route_coords:
+                try:
+                    from app.services.poi_service import get_poi_service
+                    poi_res = get_poi_service().query_pois_near_route(
+                        route_coords, corridor_m=800.0, max_pois_per_category=25, max_total_pois=150
+                    )
+                    raw_pois = poi_res.get("pois", [])
+                    if not activity_zones:
+                        activity_zones = poi_res.get("activity_zones", [])
+                except Exception as poi_err:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Error querying corridor POIs for monitor: {poi_err}")
+
+        # Ensure serialized dicts
+        for p in raw_pois:
+            if hasattr(p, "model_dump"):
+                nearby_pois.append(p.model_dump())
+            elif isinstance(p, dict):
+                nearby_pois.append(p)
 
     # 3. Determine telemetry and progress state
     prog = journey.progress
@@ -348,7 +404,9 @@ async def monitor_journey(
             "weather_impact": "Neutral",
             "community_impact": "Neutral",
             "risk_factors": [],
-            "geometry": route_geom
+            "geometry": route_geom,
+            "nearby_pois": nearby_pois,
+            "activity_zones": activity_zones,
         },
         "current_location": current_loc
     }

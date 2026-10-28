@@ -8,12 +8,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { journeyService } from "@/api/services/journeyService";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActiveJourneyStore } from "@/store/activeJourneyStore";
 import { useAuthStore } from "@/store/authStore";
 import { 
   ArrowLeft, ShieldCheck, Footprints, Train, Bus, Car, Bike, 
   Leaf, Info, Navigation, Play, Pause, Square, CheckCircle2, Layers,
-  AlertTriangle, Radio, TrendingUp, TrendingDown, Building2, Check
+  AlertTriangle, Radio, TrendingUp, TrendingDown, Building2, Check,
+  Moon, Camera, Clock, ShieldAlert
 } from "lucide-react";
 
 interface RouteDetailPanelProps {
@@ -25,6 +27,7 @@ interface RouteDetailPanelProps {
   onLegSelect?: (legIndex: number | null) => void;
   onLegHover?: (legIndex: number | null) => void;
   onSegmentFocus?: (segmentIndex: number) => void;
+  onSaveDraftBeforeAuth?: () => void;
   tracking?: {
     lifecycleState: string;
     permissionState: string;
@@ -56,8 +59,10 @@ export function RouteDetailPanel({
   onLegSelect,
   onLegHover,
   onSegmentFocus,
+  onSaveDraftBeforeAuth,
   tracking,
 }: RouteDetailPanelProps) {
+  const router = useRouter();
   const [isStartingInternal, setIsStartingInternal] = useState(false);
   const [hasStartedInternal, setHasStartedInternal] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -337,6 +342,44 @@ export function RouteDetailPanel({
               )}
             </div>
 
+            {/* Truthful Route Trade-offs & Local Knowledge Respect */}
+            <div className="bg-card border border-border rounded-xl p-3.5 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-primary" />
+                  <span>Route Trade-Offs &amp; Coverage Context</span>
+                </h4>
+                {route.is_recommended && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    Recommended Route
+                  </span>
+                )}
+              </div>
+
+              {route.recommendation_reason && route.recommendation_reason.length > 0 && (
+                <p className="text-xs text-foreground font-medium bg-primary/5 p-2 rounded-lg border border-primary/15">
+                  {route.recommendation_reason.join(" ")}
+                </p>
+              )}
+
+              <div className="space-y-1.5 text-xs">
+                {(route.tradeoffs && route.tradeoffs.length > 0 ? route.tradeoffs : [
+                  "Missing mapped POIs reflect dataset completeness, not real-time activity or danger."
+                ]).map((tradeoff, ti) => (
+                  <div key={ti} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                    <span className="text-primary mt-0.5">•</span>
+                    <span>{tradeoff}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-[10px] text-muted-foreground/90 italic pt-1 border-t border-border/40 space-y-0.5">
+                <p>
+                  <strong>Local Knowledge Note:</strong> If you know a local market, general store corridor, or familiar route that our OpenStreetMap records do not reflect, your preference is fully supported. Unmapped areas are never assumed to be unsafe.
+                </p>
+              </div>
+            </div>
+
             {/* Machine Learning Feature Attribution (Genuine LightGBM TreeSHAP) */}
             <div className="space-y-2 pt-1 border-t border-border/60">
               <div className="flex items-center justify-between">
@@ -424,6 +467,236 @@ export function RouteDetailPanel({
               )}
             </div>
           </div>
+
+          {/* Dedicated Night Activity Intelligence Assessment (Heuristic v2.0) */}
+          {route.night_activity_score && (
+            <div className="bg-card border border-border rounded-xl p-3.5 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  <Moon className="w-4 h-4 text-indigo-500" />
+                  <span>Night Activity Assessment</span>
+                </div>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 font-bold">
+                  {route.night_activity_score.formula_version || "v2.0"}
+                </span>
+              </div>
+
+              {/* Normalized Score Display & Raw Score Transparency */}
+              <div className="flex items-end justify-between p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/15">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                    Normalized Route-Guidance Index
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-2xl font-black text-foreground">
+                      {route.night_activity_score.normalized_score !== undefined
+                        ? route.night_activity_score.normalized_score.toFixed(1)
+                        : route.night_activity_score.overall_score.toFixed(1)}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-semibold">/ 100</span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] text-muted-foreground block font-medium">Underlying Raw Score</span>
+                  <span className="text-sm font-bold font-mono text-foreground">
+                    {route.night_activity_score.overall_score.toFixed(1)} / 100
+                  </span>
+                </div>
+              </div>
+
+              {/* Concern Level Banner */}
+              {route.night_activity_score.is_out_of_bounds ? (
+                <div className="p-2.5 rounded-lg bg-muted/40 border border-border/80 text-xs flex items-start gap-2 text-muted-foreground">
+                  <Info className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed">
+                    <span className="font-bold text-foreground">Coverage Boundary:</span> This route is outside the Chennai Metropolitan Area (CMA) OpenStreetMap extract. Night activity and camera data are unavailable for this region.
+                  </p>
+                </div>
+              ) : route.night_activity_score.concern_level === "HIGH_CONCERN" ? (
+                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-xs flex items-start gap-2 text-rose-700 dark:text-rose-400">
+                  <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold uppercase tracking-wide text-[11px] block">
+                      HIGH CONCERN — Weak Night Indicators
+                    </span>
+                    <p className="text-[10.5px] leading-relaxed">
+                      Raw night activity score is &le; 10. Available nighttime activity indicators are very weak or sparse along this corridor. This does not prove the route will cause harm, but indicates minimal commercial/pedestrian vitality.
+                    </p>
+                  </div>
+                </div>
+              ) : route.night_activity_score.concern_level === "LIMITED_INDICATORS" ? (
+                <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs flex items-start gap-2 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-[11px] block">Limited Supporting Indicators</span>
+                    <p className="text-[10.5px] leading-relaxed">
+                      Raw night activity score is between 10 and 30. Noticeable stretches lack confirmed open places or verified facilities at pass-through time.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-xs flex items-start gap-2 text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold text-[11px] block">Supported Night Corridor</span>
+                    <p className="text-[10.5px] leading-relaxed">
+                      Corridor demonstrates active open places, transit proximity, and mapped help facilities along its length.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 6 Component Breakdown Bars (Summing to 100 max) */}
+              <div className="space-y-2 pt-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Scoring Component Contributions (Max 100 pts)
+                </span>
+
+                <div className="space-y-1.5 text-xs">
+                  {/* 1. Active Spatial Coverage (25 max) */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">Active Spatial Coverage</span>
+                      <span className="font-mono font-semibold text-foreground">
+                        {route.night_activity_score.coverage_score.toFixed(1)} / 25
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full"
+                        style={{ width: `${Math.min(100, (route.night_activity_score.coverage_score / 25) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Corridor Continuity & Anti-Isolation (20 max) */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">Corridor Continuity &amp; Anti-Isolation</span>
+                      <span className="font-mono font-semibold text-foreground">
+                        {(route.night_activity_score.corridor_continuity_score ?? route.night_activity_score.density_score).toFixed(1)} / 20
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full"
+                        style={{ width: `${Math.min(100, (((route.night_activity_score.corridor_continuity_score ?? route.night_activity_score.density_score)) / 20) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3. Open Places & Vitality (20 max) */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">Open Places &amp; Commercial Vitality</span>
+                      <span className="font-mono font-semibold text-foreground">
+                        {(route.night_activity_score.open_volume_score ?? route.night_activity_score.density_score).toFixed(1)} / 20
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full"
+                        style={{ width: `${Math.min(100, (((route.night_activity_score.open_volume_score ?? route.night_activity_score.density_score)) / 20) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 4. Emergency & Public Help Proximity (15 max) */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">Emergency &amp; Public Help Proximity</span>
+                      <span className="font-mono font-semibold text-foreground">
+                        {route.night_activity_score.emergency_score.toFixed(1)} / 15
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full"
+                        style={{ width: `${Math.min(100, (route.night_activity_score.emergency_score / 15) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 5. Transit Access & Main Corridor (10 max) */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">Transit Access &amp; Main Corridor</span>
+                      <span className="font-mono font-semibold text-foreground">
+                        {(route.night_activity_score.transit_access_score ?? 5.0).toFixed(1)} / 10
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full"
+                        style={{ width: `${Math.min(100, (((route.night_activity_score.transit_access_score ?? 5.0)) / 10) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 6. Data Confidence & Hours Completeness (10 max) */}
+                  <div className="space-y-0.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">Data Confidence &amp; Hours Completeness</span>
+                      <span className="font-mono font-semibold text-foreground">
+                        {(route.night_activity_score.data_confidence_score ?? route.night_activity_score.confidence_score).toFixed(1)} / 10
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full"
+                        style={{ width: `${Math.min(100, (((route.night_activity_score.data_confidence_score ?? route.night_activity_score.confidence_score)) / 10) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Corridor Context Statistics */}
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/60 text-xs">
+                <div className="p-2 rounded-lg bg-secondary/40 border border-border/70">
+                  <span className="text-[10px] text-muted-foreground block">Confirmed Open Places</span>
+                  <span className="font-bold text-foreground text-sm">
+                    {route.night_activity_score.corridor_open_places_count ?? 0}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block mt-0.5">
+                    at estimated pass-through time
+                  </span>
+                </div>
+
+                <div className="p-2 rounded-lg bg-secondary/40 border border-border/70">
+                  <span className="text-[10px] text-muted-foreground block">Longest Low-Activity Gap</span>
+                  <span className="font-bold text-foreground text-sm">
+                    {Math.round(route.night_activity_score.longest_dark_gap_meters ?? 0)} m
+                  </span>
+                  <span className="text-[10px] text-muted-foreground block mt-0.5">
+                    continuous corridor stretch
+                  </span>
+                </div>
+              </div>
+
+              {/* Mapped Surveillance Cameras Badge & Disclaimer */}
+              <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/70 space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px]">
+                    <Camera className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Publicly Mapped Surveillance Cameras</span>
+                  </div>
+                  <span className="font-bold font-mono text-primary text-xs">
+                    {route.night_activity_score.surveillance_cameras_count ?? 0} mapped
+                  </span>
+                </div>
+                <p className="text-[9.5px] text-muted-foreground leading-relaxed italic">
+                  Mapped camera locations are sourced from OpenStreetMap records. NavSakhi cannot verify operational status, live feed recording, or active law-enforcement monitoring.
+                </p>
+              </div>
+
+              {/* Transparent Normalization Disclosure */}
+              <p className="text-[9.5px] text-muted-foreground leading-relaxed pt-1 border-t border-border/40">
+                <span className="font-semibold text-foreground">Score Normalization Disclosure:</span> The display index is a piecewise linear mapping of raw night activity heuristic evidence (0&ndash;10 maps to 0&ndash;40; 10&ndash;100 maps to 40&ndash;100). It is a comparative route indicator, not a statistical guarantee of personal safety.
+              </p>
+            </div>
+          )}
 
           {/* Sequential Multimodal Segments Timeline */}
           <div className="space-y-2 pt-1">
@@ -766,14 +1039,19 @@ export function RouteDetailPanel({
           </div>
         ) : !isAuthenticated ? (
           <div className="space-y-2">
-            <Link href="/login?redirect=/journey" className="block w-full">
-              <Button
-                className="w-full h-11 text-sm font-bold shadow-md shadow-primary/20 flex items-center justify-center gap-2"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                <span>Sign In to Start Live Tracking</span>
-              </Button>
-            </Link>
+            <Button
+              type="button"
+              onClick={() => {
+                if (onSaveDraftBeforeAuth) {
+                  onSaveDraftBeforeAuth();
+                }
+                router.push("/login?redirect=/journey");
+              }}
+              className="w-full h-11 text-sm font-bold shadow-md shadow-primary/20 flex items-center justify-center gap-2"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              <span>Sign In to Start Live Tracking</span>
+            </Button>
             <p className="text-[10px] text-muted-foreground text-center">
               Guest preview active. Sign in to start personalized GPS telemetry & alert contacts.
             </p>

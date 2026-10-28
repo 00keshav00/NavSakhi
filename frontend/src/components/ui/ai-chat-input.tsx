@@ -34,15 +34,36 @@ export function AIChatInput({
   className,
 }: AIChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const wasFocusedRef = useRef(false);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (value.trim() && !isTyping) {
+        wasFocusedRef.current = true;
         onSubmit();
+        setTimeout(() => textareaRef.current?.focus(), 0);
       }
     }
   };
+
+  // Restore focus to textarea once typing/streaming completes unless user explicitly moved elsewhere
+  useEffect(() => {
+    if (!isTyping && wasFocusedRef.current) {
+      const activeEl = document.activeElement;
+      const isOtherInteractive =
+        activeEl &&
+        activeEl !== document.body &&
+        activeEl !== textareaRef.current &&
+        (activeEl.tagName === "BUTTON" ||
+          activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "A" ||
+          activeEl.getAttribute("role") === "button");
+      if (!isOtherInteractive) {
+        textareaRef.current?.focus();
+      }
+    }
+  }, [isTyping]);
 
   // Auto-resize textarea height based on content
   useEffect(() => {
@@ -119,6 +140,14 @@ export function AIChatInput({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={() => {
+                wasFocusedRef.current = true;
+              }}
+              onBlur={(e) => {
+                if (e.relatedTarget && (e.relatedTarget as HTMLElement).tagName === "BUTTON") {
+                  wasFocusedRef.current = false;
+                }
+              }}
               disabled={isTyping}
               placeholder={placeholder || defaultPlaceholder}
               className="w-full resize-none bg-transparent px-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden disabled:opacity-60 max-h-36 leading-relaxed font-medium"
@@ -131,7 +160,10 @@ export function AIChatInput({
               type="button"
               variant="ghost"
               size="icon"
-              onClick={() => onChange("")}
+              onClick={() => {
+                onChange("");
+                textareaRef.current?.focus();
+              }}
               className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
               title="Clear input"
               aria-label="Clear text input"
@@ -143,7 +175,13 @@ export function AIChatInput({
           {/* Submit Button */}
           <Button
             type="button"
-            onClick={onSubmit}
+            onClick={() => {
+              if (value.trim() && !isTyping) {
+                wasFocusedRef.current = true;
+                onSubmit();
+                setTimeout(() => textareaRef.current?.focus(), 0);
+              }
+            }}
             disabled={!value.trim() || isTyping}
             size="icon"
             className="h-10 w-10 shrink-0 rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 transition-transform active:scale-95 disabled:opacity-40 disabled:scale-100"

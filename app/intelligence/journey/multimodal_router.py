@@ -290,33 +290,15 @@ class MultimodalRouter:
                 if len(bus_geom_coords) < 2 or bus_dist_m < 400:
                     continue
 
-                # Access and Egress legs via OSRM - run concurrently
-                import asyncio as _asyncio
-                async def _get_bus_acc():
-                    try:
-                        return await route_provider.get_routes(
-                            source_loc, Location(type="Point", coordinates=[o_st["lon"], o_st["lat"]]),
-                            mode="foot", alternatives="false"
-                        )
-                    except Exception:
-                        return []
-
-                async def _get_bus_egr():
-                    try:
-                        return await route_provider.get_routes(
-                            Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]), dest_loc,
-                            mode="foot", alternatives="false"
-                        )
-                    except Exception:
-                        return []
-
-                try:
-                    acc_routes, egr_routes = await _asyncio.wait_for(
-                        _asyncio.gather(_get_bus_acc(), _get_bus_egr()),
-                        timeout=8.0
-                    )
-                except Exception:
-                    acc_routes, egr_routes = [], []
+                # Access and Egress legs via OSRM
+                acc_routes = await route_provider.get_routes(
+                    source_loc, Location(type="Point", coordinates=[o_st["lon"], o_st["lat"]]),
+                    mode="foot", alternatives="false"
+                )
+                egr_routes = await route_provider.get_routes(
+                    Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]), dest_loc,
+                    mode="foot", alternatives="false"
+                )
 
                 if acc_routes and egr_routes:
                     acc_r = acc_routes[0]
@@ -517,34 +499,14 @@ class MultimodalRouter:
                     acc_disp = itin["acc_disp"]
                     egr_disp = itin["egr_disp"]
 
-                    # Access and Egress legs via OSRM - run concurrently
-                    async def _get_itin_acc():
-                        try:
-                            return await route_provider.get_routes(
-                                source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
-                                mode=itin["acc_osrm"], alternatives="false"
-                            )
-                        except Exception:
-                            return []
-
-                    async def _get_itin_egr():
-                        try:
-                            return await route_provider.get_routes(
-                                Location(type="Point", coordinates=[dest_st["lon"], dest_st["lat"]]), dest_loc,
-                                mode=itin["egr_osrm"], alternatives="false"
-                            )
-                        except Exception:
-                            return []
-
-                    try:
-                        acc_r_list, egr_r_list = await _asyncio.wait_for(
-                            _asyncio.gather(_get_itin_acc(), _get_itin_egr()),
-                            timeout=8.0
-                        )
-                    except Exception:
-                        acc_r_list, egr_r_list = [], []
-                    acc_r = acc_r_list
-                    egr_r = egr_r_list
+                    acc_r = await route_provider.get_routes(
+                        source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
+                        mode=itin["acc_osrm"], alternatives="false"
+                    )
+                    egr_r = await route_provider.get_routes(
+                        Location(type="Point", coordinates=[dest_st["lon"], dest_st["lat"]]), dest_loc,
+                        mode=itin["egr_osrm"], alternatives="false"
+                    )
                     if not acc_r or not egr_r:
                         continue
 
@@ -686,15 +648,19 @@ class MultimodalRouter:
 
                             # Scan earlier stops in the bus pattern for rail transfer proximity (within 800m)
                             for st_idx in range(0, d_idx):
+                                if transfer_found:
+                                    break
                                 tr_sid = pat[st_idx]
                                 tr_bus_stop = self.bus_stop_map.get(tr_sid)
                                 if not tr_bus_stop:
                                     continue
 
                                 nearby_rail = self.query_nearby_stations(
-                                    tr_bus_stop["lat"], tr_bus_stop["lon"], rail_mode, max_dist_m=800, k=3
+                                    tr_bus_stop["lat"], tr_bus_stop["lon"], rail_mode, max_dist_m=800, k=2
                                 )
                                 for tr_rail_st in nearby_rail:
+                                    if transfer_found:
+                                        break
                                     combo_key = (orig_stations[0]["name"], tr_rail_st["name"], s_num)
                                     if combo_key in seen_combos:
                                         continue
@@ -740,12 +706,30 @@ class MultimodalRouter:
                                             source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
                                             mode="foot", alternatives="false"
                                         )
-                                        # Transfer walk from rail station to bus stand
-                                        tr_walk_routes = await route_provider.get_routes(
-                                            Location(type="Point", coordinates=[tr_rail_st["lon"], tr_rail_st["lat"]]),
-                                            Location(type="Point", coordinates=[tr_bus_stop["lon"], tr_bus_stop["lat"]]),
-                                            mode="foot", alternatives="false"
-                                        )
+                                        
+                                        # Transfer walk from rail station to bus stand (synthesize if <= 500m to avoid external network delay)
+                                        tr_walk_dist = haversine_m(tr_rail_st["lat"], tr_rail_st["lon"], tr_bus_stop["lat"], tr_bus_stop["lon"])
+                                        if tr_walk_dist <= 500.0:
+                                            class SyntheticTransferWalk:
+                                                distance = tr_walk_dist
+                                                duration = max(60.0, tr_walk_dist / 1.2)
+                                                route_metadata = {
+                                                    "geometry": {
+                                                        "type": "LineString",
+                                                        "coordinates": [
+                                                            [tr_rail_st["lon"], tr_rail_st["lat"]],
+                                                            [tr_bus_stop["lon"], tr_bus_stop["lat"]]
+                                                        ]
+                                                    }
+                                                }
+                                            tr_walk_routes = [SyntheticTransferWalk()]
+                                        else:
+                                            tr_walk_routes = await route_provider.get_routes(
+                                                Location(type="Point", coordinates=[tr_rail_st["lon"], tr_rail_st["lat"]]),
+                                                Location(type="Point", coordinates=[tr_bus_stop["lon"], tr_bus_stop["lat"]]),
+                                                mode="foot", alternatives="false"
+                                            )
+                                            
                                         # Egress walk from destination bus stop to final destination
                                         egr_routes = await route_provider.get_routes(
                                             Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]),

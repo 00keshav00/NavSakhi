@@ -1,11 +1,28 @@
 from fastapi import APIRouter, Depends, Query
 from typing import List
 from app.schemas.responses import StandardResponse
-from app.schemas.community_schemas import CommunityReportCreate, CommunityReportResponse
+from app.schemas.community_schemas import (
+    CommunityReportCreate,
+    CommunityReportResponse,
+    CommunityIntelligenceResponse
+)
 from app.services.community_service import CommunityService
 from app.api.dependencies import get_community_service, get_current_user_id
 
 router = APIRouter()
+
+@router.get("/intelligence", response_model=StandardResponse[CommunityIntelligenceResponse])
+async def get_community_intelligence(
+    type: str = Query("All"),
+    verification: str = Query("All"),
+    community_service: CommunityService = Depends(get_community_service)
+):
+    """
+    Returns aggregated community intelligence telemetry, statistics,
+    trending insights, heatmap points, and filtered incident feed.
+    """
+    intelligence = await community_service.get_intelligence(report_type=type, verification_filter=verification)
+    return StandardResponse(success=True, data=intelligence)
 
 @router.post("/", response_model=StandardResponse[CommunityReportResponse], status_code=201)
 async def create_report(
@@ -29,3 +46,4 @@ async def get_nearby_reports(
     # Use model_validate so Pydantic resolves field aliases correctly
     data = [CommunityReportResponse.model_validate(report.model_dump(by_alias=True)) for report in reports]
     return StandardResponse(success=True, data=data)
+

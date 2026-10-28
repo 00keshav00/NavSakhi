@@ -75,10 +75,13 @@ export default function EmergencyPage() {
   };
 
   // Previewed Emergency Message Text
-  const previewLat = userCoords?.lat ?? (data?.live_location?.coordinates ? data.live_location.coordinates[1] : 13.0827);
-  const previewLng = userCoords?.lng ?? (data?.live_location?.coordinates ? data.live_location.coordinates[0] : 80.2707);
-  const mapLink = `https://www.google.com/maps?q=${previewLat},${previewLng}`;
-  const emergencyMessage = `[NavSakhi Emergency SOS Alert] Urgent assistance requested. My location is: ${previewLat}° N, ${previewLng}° E. Live map link: ${mapLink}`;
+  const previewLat = userCoords?.lat ?? (data?.live_location?.coordinates ? data.live_location.coordinates[1] : null);
+  const previewLng = userCoords?.lng ?? (data?.live_location?.coordinates ? data.live_location.coordinates[0] : null);
+  const hasCoordinates = previewLat !== null && previewLat !== undefined && previewLng !== null && previewLng !== undefined;
+  const mapLink = hasCoordinates ? `https://www.google.com/maps?q=${previewLat},${previewLng}` : "";
+  const emergencyMessage = hasCoordinates
+    ? `[NavSakhi Emergency SOS Alert] Urgent assistance requested. My location is: ${previewLat}° N, ${previewLng}° E. Live map link: ${mapLink}`
+    : `[NavSakhi Emergency SOS Alert] Urgent assistance requested. Location unavailable. Please contact directly.`;
 
   // User-Initiated Native Device Sharing
   const handleShareLocation = async () => {
@@ -90,7 +93,7 @@ export default function EmergencyPage() {
         await navigator.share({
           title: "NavSakhi Emergency SOS Alert",
           text: emergencyMessage,
-          url: mapLink,
+          ...(mapLink ? { url: mapLink } : {}),
         });
         setSharingStatus("shared");
         toast.success("Device Share Sheet Opened", {
@@ -414,7 +417,7 @@ export default function EmergencyPage() {
                       <div className="p-3.5 rounded-2xl bg-secondary/50 border border-border/70 space-y-2">
                         <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
                           <span>Preview Coordinates:</span>
-                          <span className="font-mono text-foreground font-bold">{previewLat}° N, {previewLng}° E</span>
+                          <span className="font-mono text-foreground font-bold">{hasCoordinates ? `${previewLat}° N, ${previewLng}° E` : "Unavailable (Detection required)"}</span>
                         </div>
                         <div className="text-[11px] font-mono p-2.5 rounded-xl bg-card border border-border/60 text-foreground break-all leading-normal select-all">
                           {emergencyMessage}

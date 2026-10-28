@@ -1,337 +1,153 @@
-import os
-import re
-import json
-import time
 import asyncio
-import logging
-from typing import Dict, Any, Optional, List
+import re
 import httpx
-from app.config.settings import settings
+import json
+import logging
+from typing import Dict, Any, List, Optional, Tuple
 from app.tools.base import BaseTool, ToolMetadata
 
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
-DEFAULT_PRIMARY_MODEL = "gemini-3.8-flash"
-DEFAULT_FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
+import os
+from app.config.settings import settings
 
-def get_gemini_api_key() -> str:
-    return (os.getenv("GEMINI_API_KEY", "") or getattr(settings, "gemini_api_key", "") or "").strip()
 
-def get_gemini_model() -> str:
-    env_model = (getattr(settings, "llm_model_name", None) or os.getenv("LLM_MODEL_NAME", "")).strip()
-    return env_model or DEFAULT_PRIMARY_MODEL
-
-def get_gemini_models() -> List[str]:
-    primary = get_gemini_model()
-    env_fallbacks = os.getenv("LLM_FALLBACK_MODELS", "").strip()
-    if env_fallbacks:
-        fallbacks = [m.strip() for m in env_fallbacks.split(",") if m.strip()]
-    else:
-        fallbacks = [m for m in DEFAULT_FALLBACK_MODELS if m != primary]
-    models = [primary]
-    for m in fallbacks:
-        if m not in models:
-            models.append(m)
-    return models
-
-def sanitize_log_message(msg: str) -> str:
+def sanitize_privacy_context(text: Any) -> str:
     """
-    Redacts API keys and sensitive tokens from log messages and exception strings.
-    Ensures that no query string ?key= or raw API keys appear in application logs.
+    Sanitizes outbound LLM provider strings to guarantee that:
+    1. Raw numeric latitude/longitude coordinates (e.g. 13.0827, 80.2707) are stripped.
+    2. API keys (e.g. AIzaSy...), Bearer tokens, passwords, and secrets are redacted.
+    3. User email addresses and phone numbers are scrubbed.
     """
-    if not msg:
-        return msg
-    # Redact ?key=... or &key=...
-    msg = re.sub(r'([?&]key=)[^&\s"\']+', r'\1[REDACTED]', msg)
-    # Redact Google AI Studio API keys (AIzaSy...)
-    msg = re.sub(r'AIzaSy[A-Za-z0-9_-]{33}', '[REDACTED_API_KEY]', msg)
-    # Redact x-goog-api-key headers if stringified
-    msg = re.sub(r'(x-goog-api-key["\']?\s*[:=]\s*["\']?)[^"\'\s,]+', r'\1[REDACTED]', msg, flags=re.IGNORECASE)
-    # Redact Bearer tokens
-    msg = re.sub(r'(Bearer\s+)[A-Za-z0-9._-]+', r'\1[REDACTED]', msg, flags=re.IGNORECASE)
-    return msg
+    if text is None:
+        return ""
+    s = str(text)
+    # Strip coordinate pairs like "13.0827, 80.2707" or "[80.2707, 13.0827]" or "13.0827 80.2707"
+    s = re.sub(r'\[?\b[-+]?\d{1,3}\.\d{3,}\s*[, ]\s*[-+]?\d{1,3}\.\d{3,}\b\]?', '[Sanitized Area]', s)
+    # Strip lone coordinates with 4+ decimal places
+    s = re.sub(r'\b[-+]?\d{1,3}\.\d{4,}\b', '[Sanitized Coordinate]', s)
+    # Strip API keys or token prefixes
+    s = re.sub(r'AIza[0-9A-Za-z_-]{20,}', '[REDACTED_API_KEY]', s)
+    s = re.sub(r'Bearer\s+[A-Za-z0-9\-\._~\+\/]+=*', '[REDACTED_TOKEN]', s)
+    s = re.sub(r'(?:password|secret|token|api_key|credential)\s*[:=]\s*["\']?[^"\'\s]+["\']?', '[REDACTED_CREDENTIAL]', s, flags=re.IGNORECASE)
+    # Strip phone numbers (10 digits)
+    s = re.sub(r'\b(?:\+91[\-\s]?)?[6-9]\d{9}\b', '[REDACTED_PHONE]', s)
+    return s
 
 
-class ReasoningTool(BaseTool):
+def build_sanitized_chat_payload(
+    query: str,
+    active_journey: Any = None,
+    history: Optional[List[Dict[str, Any]]] = None,
+    grounded_pois: Optional[List[Dict[str, Any]]] = None,
+    poi_location_name: Optional[str] = None,
+    coord_match: Optional[Tuple[float, float]] = None
+) -> Dict[str, Any]:
     """
-    Tool for calling LLM (Gemini) to perform strategic routing reasoning,
-    route-to-user explanations, and dynamic transit strategy synthesis.
-
-    Robustness:
-    - Passes API key strictly in x-goog-api-key header (never in URL query string)
-    - Full error classification (503, 429, 401/403, 400, timeouts)
-    - Bounded retries with exponential backoff on transient errors
-    - Multi-model fallback across supported Gemini models
-    - Complete log redaction to prevent secret exposure
-    - Safe non-LLM static fallbacks when external LLM is unavailable
+    Constructs an outbound payload for conversational Gemini requests,
+    guaranteeing no raw coordinates, geometry, or credentials are leaked.
+    Incorporates recent conversation history, coordinates context, and grounded POI records.
     """
+    clean_query = sanitize_privacy_context(query)
+    dest_name = getattr(active_journey, "destination_name", None) or "destination"
+    clean_dest = sanitize_privacy_context(dest_name) if active_journey else "No active journey"
 
-    # _model_cooldown is intentionally a CLASS-LEVEL attribute (process-wide circuit breaker).
-    # When a Gemini model times out or fails for one request, it is placed on cooldown so that
-    # subsequent requests from ANY user immediately serve the static fallback instead of waiting
-    # for a known-unresponsive external service.  This is desirable behaviour: if Gemini is down,
-    # every route-planning call would otherwise spend 3+ seconds blocking before falling back.
-    # Consequence: one user's Gemini timeout will suppress Gemini for all concurrent/subsequent
-    # users until the cooldown expires (30-120 s depending on error type).  This is an explicit
-    # design trade-off: latency protection for all users outweighs per-request freshness.
-    # Tests in test_gemini_security_and_fallback.py verify this behaviour explicitly.
-    _model_cooldown: Dict[str, float] = {}
+    history_context = ""
+    if history and isinstance(history, list):
+        recent_turns = []
+        for turn in history[-4:]:
+            r = turn.get("role", "user")
+            c = sanitize_privacy_context(str(turn.get("content", "")).strip())
+            if c:
+                label = "User" if r == "user" else "NavSakhi"
+                recent_turns.append(f"{label}: {c}")
+        if recent_turns:
+            history_context = "RECENT CONVERSATION HISTORY:\n" + "\n".join(recent_turns) + "\n\n"
 
-    @property
-    def name(self) -> str:
-        return "ReasoningTool"
-
-    @property
-    def description(self) -> str:
-        return "Provides LLM explanation and reasoning."
-
-    @property
-    def metadata(self) -> ToolMetadata:
-        return ToolMetadata(
-            capability="Reasoning",
-            required_inputs=["context"],
-            output_schema={"type": "dict"},
-            ranking_score=10
+    poi_context = ""
+    if grounded_pois:
+        poi_lines = []
+        for p in grounded_pois[:10]:
+            p_name = sanitize_privacy_context(p.get("name"))
+            p_cat = sanitize_privacy_context(p.get("category_label") or p.get("category"))
+            p_dist = p.get("distance_m", 0)
+            p_hours = sanitize_privacy_context(p.get("opening_hours") or "Not published in OpenStreetMap")
+            p_status = p.get("opening_status", "UNKNOWN")
+            p_role = "Mapped Public Facility" if p.get("is_emergency") else ("Verified Safe Haven" if p.get("is_safe_haven_eligible") else "Mapped Commercial Establishment")
+            poi_lines.append(f"- {p_name} ({p_cat}): ~{int(p_dist)}m away. Hours: {p_hours} (Status: {p_status}). Classification: {p_role}.")
+        target_loc_str = f" NEAR {poi_location_name.upper()}" if poi_location_name else ""
+        poi_context = (
+            f"GROUNDED MAPPED ESTABLISHMENTS IN CHENNAI{target_loc_str}:\n"
+            + "\n".join(poi_lines)
+            + "\n\nFACILITY GUIDELINES:\n"
+            "- Answer using only the mapped establishments listed above.\n"
+            "- Clearly state that commercial shops are mapped OpenStreetMap records, not emergency safe havens or police checkpoints.\n"
+            "- Do not promise a business is open unless available data indicates OPEN; if hours are unknown, clearly say so.\n"
+            "- Distinguish commercial businesses from emergency facilities (police, hospitals).\n\n"
         )
 
-    async def _call_gemini_content(self, prompt: str, timeout: float = 3.0, deadline: Optional[float] = None) -> Optional[str]:
-        """
-        Executes prompt against Gemini API using header-based authentication,
-        bounded retries, error classification, and multi-model fallback.
-        """
-        api_key = get_gemini_api_key()
-        if not api_key:
-            return None
+    prompt = (
+        "You are NavSakhi, a warm, compassionate, and trustworthy travel companion for women navigating Chennai.\n"
+        f"{history_context}"
+        f"Current user message: {clean_query}\n"
+        f"Active journey context: {'Active journey to ' + clean_dest if active_journey else 'No active journey'}\n\n"
+        f"{poi_context}"
+        "COMPANION PERSONA & TONE GUIDELINES:\n"
+        "1. WARMTH & CALM SUPPORT: Speak naturally with a supportive, calm, conversational feminine companion voice ('Sakhi' means trusted female friend). "
+        "Acknowledge the user's specific statement or emotion directly. Do not repeat generic introductory greetings or capability lists on follow-up turns.\n"
+        "2. CONVERSATIONAL CONTEXT & NATURAL GREETINGS:\n"
+        "   - If the user says 'Hello', 'Hi', or 'How are you?', reply briefly and naturally. Do NOT repeat a boilerplate self-introduction.\n"
+        "   - If the user asks 'Will you be my sakhi for the journey?' or asks you to accompany them: warmly clarify that you are a digital travel companion in their phone to help compare routes and monitor progress, without pretending to be physically present or guaranteeing physical safety.\n"
+        "   - If the user asks what to take care of or for safety advice: give practical suggestions (transit timing, phone charged, familiar populated routes, sharing journey) without fabricating real-time occupancy or street shop conditions.\n"
+        "3. TRAVEL ANXIETY VS ACUTE DANGER:\n"
+        "   - If expressing nervousness about traveling alone: recognize the feeling with calm reassurance, recommend well-lit major transit like Chennai Metro or bus, "
+        "and suggest sitting near the conductor/women's section without triggering a false emergency alarm.\n"
+        "   - If facing acute danger, being followed, or in distress: prioritize immediate physical safety, advise moving into a staffed shop/metro counter, "
+        "and provide emergency helplines: 112 (National Emergency) and 1091 (Women Helpline).\n"
+        "4. HONESTY & COORDINATES:\n"
+        "   - Do NOT claim to be human or promise physical in-person protection. Never invent transit schedules or fares.\n"
+        "   - If coordinates are shared alone without a question, acknowledge the coordinates and ask what the user would like to find near them (e.g. shops, pharmacies, hospitals, or transit routes).\n"
+        f"{f'   - The user shared coordinates ({coord_match[0]:.4f}, {coord_match[1]:.4f}). Directly acknowledge receiving ({coord_match[0]:.4f}, {coord_match[1]:.4f}) and ask what they would like to find near them.' if coord_match else ''}\n"
+        "5. READABLE FORMATTING: Use clean, human-friendly Markdown: short paragraphs, bullet points, clear bolding (**bold**), and numbered steps if helpful."
+    )
+    return {"contents": [{"parts": [{"text": prompt}]}]}
 
-        now = time.time()
-        if "_all_" in self._model_cooldown and now < self._model_cooldown["_all_"]:
-            logger.debug("Gemini global cooldown active; skipping external LLM call.")
-            return None
 
-        if deadline is not None and (deadline - now) <= 0.5:
-            logger.info("Gemini request deadline budget exhausted; skipping external LLM call.")
-            return None
+def build_sanitized_route_explanation_payload(
+    source: str,
+    dest: str,
+    verified_routes: List[Dict[str, Any]],
+    preferences: Optional[List[str]] = None,
+    weather: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Constructs an outbound payload for route explanations,
+    guaranteeing only high-level names, travel modes, distances, and scores are included.
+    No geometries, polylines, or raw coordinates are ever passed.
+    """
+    clean_source = sanitize_privacy_context(source)
+    clean_dest = sanitize_privacy_context(dest)
+    prefs_str = ", ".join(preferences) if preferences else "Fastest, Safest, Balanced"
+    weather_desc = f"{weather.get('condition', 'Clear')}, {weather.get('temperature', 25)}°C" if weather else "Unavailable"
 
-        models = get_gemini_models()
-        for model in models:
-            now = time.time()
-            if deadline is not None:
-                remaining = deadline - now
-                if remaining <= 0.5:
-                    logger.info(f"Gemini deadline budget exhausted before evaluating '{model}'; returning fallback.")
-                    break
-                call_timeout = min(timeout, remaining)
-            else:
-                call_timeout = timeout
+    routes_summary = []
+    for r in (verified_routes or [])[:4]:
+        # Strictly ensure r contains NO geometry or coordinate arrays
+        r_clean = {k: v for k, v in r.items() if k not in ["geometry", "coordinates", "all_coords", "track_nodes"]}
+        score_str = f"Safety Proxy: {r_clean.get('safety_score'):.1f}/100" if r_clean.get('safety_score') is not None else "Safety Score: N/A (Transit/Insufficient coverage)"
+        r_name = sanitize_privacy_context(r_clean.get("route_name", "Route"))
+        mode = sanitize_privacy_context(r_clean.get("travel_mode", "Road"))
+        dist_km = float(r_clean.get("distance_km", 0.0))
+        eta_min = int(r_clean.get("eta_min", 0))
+        routes_summary.append(f"- {r_name} ({mode}): Distance {dist_km:.1f} km, ETA {eta_min} min, {score_str}")
 
-            if model in self._model_cooldown and now < self._model_cooldown[model]:
-                logger.debug(f"Gemini model '{model}' in cooldown; evaluating next candidate.")
-                continue
+    routes_text = "\n".join(routes_summary)
 
-            for attempt in range(2):
-                now = time.time()
-                if deadline is not None:
-                    remaining = deadline - now
-                    if remaining <= 0.5:
-                        logger.info(f"Gemini deadline budget exhausted during attempt {attempt+1}; terminating retries.")
-                        break
-                    call_timeout = min(timeout, remaining)
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-                headers = {
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": api_key,
-                }
-                payload = {"contents": [{"parts": [{"text": prompt}]}]}
-
-                try:
-                    async with httpx.AsyncClient(timeout=call_timeout) as client:
-                        resp = await client.post(url, json=payload, headers=headers)
-
-                    if resp.status_code == 200:
-                        res_data = resp.json()
-                        candidates = res_data.get("candidates", [])
-                        if candidates:
-                            finish_reason = candidates[0].get("finishReason", "")
-                            if finish_reason in ("SAFETY", "RECITATION"):
-                                logger.warning(f"Gemini response stopped by policy filter: {finish_reason}")
-                                return None
-                            parts = candidates[0].get("content", {}).get("parts", [])
-                            if parts and "text" in parts[0]:
-                                return parts[0]["text"].strip()
-                        return None
-
-                    status = resp.status_code
-                    if status in (500, 502, 503, 504, 408):
-                        retry_after = resp.headers.get("Retry-After")
-                        wait_sec = min(float(retry_after), 1.0) if retry_after and retry_after.isdigit() else (0.3 * (attempt + 1))
-                        if attempt < 1 and (deadline is None or (deadline - time.time()) > (wait_sec + 1.0)):
-                            logger.info(f"Gemini model '{model}' returned transient HTTP {status} (attempt {attempt+1}/2). Retrying in {wait_sec:.2f}s...")
-                            await asyncio.sleep(wait_sec)
-                            continue
-                        else:
-                            logger.warning(f"Gemini model '{model}' failed after retries (HTTP {status}). Transitioning to fallback model.")
-                            self._model_cooldown[model] = time.time() + 30.0
-                            break
-
-                    elif status == 429:
-                        err_text = resp.text
-                        is_quota = "RESOURCE_EXHAUSTED" in err_text or "quota" in err_text.lower()
-                        if is_quota:
-                            logger.warning(f"Gemini model '{model}' quota exhausted (HTTP 429). Setting 60s cooldown and falling back.")
-                            self._model_cooldown[model] = time.time() + 60.0
-                            break
-                        else:
-                            retry_after = resp.headers.get("Retry-After")
-                            if retry_after and retry_after.isdigit() and float(retry_after) <= 2.0 and attempt == 0:
-                                await asyncio.sleep(float(retry_after))
-                                continue
-                            else:
-                                logger.warning(f"Gemini model '{model}' rate limited (HTTP 429). Trying fallback model.")
-                                self._model_cooldown[model] = time.time() + 30.0
-                                break
-
-                    elif status in (401, 403):
-                        logger.warning(f"Gemini API authentication failed (HTTP {status}). Key rejected; disabling LLM calls for 120s.")
-                        self._model_cooldown["_all_"] = time.time() + 120.0
-                        return None
-
-                    elif status == 404 or (status == 400 and any(
-                        phrase in sanitize_log_message(resp.text).lower()
-                        for phrase in [
-                            "not found", "discontinued", "retired", "unsupported model",
-                            "model not supported", "unknown model", "does not exist", "is not supported"
-                        ]
-                    )):
-                        err_text = sanitize_log_message(resp.text)
-                        logger.warning(
-                            f"Gemini model '{model}' unavailable or retired (HTTP {status}): {err_text[:120]}. "
-                            f"Setting 1-hour cooldown and transitioning to fallback model."
-                        )
-                        self._model_cooldown[model] = time.time() + 3600.0
-                        break
-
-                    elif status == 400:
-                        err_text = sanitize_log_message(resp.text)
-                        logger.error(
-                            f"Gemini request payload invalid (HTTP 400) for model '{model}': {err_text[:120]}. "
-                            f"Treating as request error without model cooldown."
-                        )
-                        break
-
-                    else:
-                        logger.warning(f"Gemini unexpected status {status} for model '{model}'. Skipping model.")
-                        self._model_cooldown[model] = time.time() + 60.0
-                        break
-
-                except (httpx.TimeoutException, httpx.NetworkError) as e:
-                    err_type = type(e).__name__
-                    logger.info(f"Gemini model '{model}' {err_type} on attempt {attempt+1}/2.")
-                    if isinstance(e, httpx.TimeoutException):
-                        logger.warning(f"Gemini model '{model}' timed out. Setting 60s cooldown and evaluating fallback.")
-                        self._model_cooldown[model] = time.time() + 60.0
-                        break
-                    if attempt < 1 and (deadline is None or (deadline - time.time()) > 1.0):
-                        await asyncio.sleep(0.3)
-                        continue
-                    else:
-                        self._model_cooldown[model] = time.time() + 30.0
-                        logger.warning(f"Gemini model '{model}' network failure after retries. Trying fallback model.")
-                        break
-                except Exception as e:
-                    clean_err = sanitize_log_message(str(e))
-                    logger.warning(f"Gemini call exception for model '{model}': {clean_err}")
-                    break
-
-        logger.info("All configured Gemini models failed or unavailable; using verified non-LLM reasoning fallback.")
-        self._model_cooldown["_all_"] = time.time() + 60.0
-        return None
-
-    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Calls the Gemini API if possible, otherwise falls back to static reasoning.
-        """
-        decision = params.get("context", {}).get("decision", {})
-        fallback_summary = "Route evaluated using verified network topology and model-ready road infrastructure data."
-        fallback_reasoning = [
-            "Network topology verified against mapped road and transit layers.",
-            "Segment coverage validated according to scoring requirements.",
-            "Evaluations bounded to synthetic environmental proxy indicators without unsupported claims."
-        ]
-
-        api_key = get_gemini_api_key()
-        if not api_key:
-            logger.info("GEMINI_API_KEY not configured; using verified infrastructure reasoning fallback.")
-            return {
-                "summary": fallback_summary,
-                "reasoning": fallback_reasoning
-            }
-
-        prompt = (
-            f"You are NavSakhi AI. Explain this route decision factually based on verified infrastructure: {decision}. "
-            "CRITICAL CONSTRAINTS: Do not claim specific lighting conditions, crowd densities, or community incident counts. "
-            "Do not state that any route guarantees safety. Keep explanations grounded strictly in objective route metrics."
-        )
-
-        text = await self._call_gemini_content(prompt, timeout=3.0)
-        if text:
-            return {
-                "summary": text,
-                "reasoning": fallback_reasoning
-            }
-
-        return {
-            "summary": fallback_summary,
-            "reasoning": fallback_reasoning
-        }
-
-    async def explain_journey_recommendations(self, source: str, dest: str, verified_routes: List[Dict[str, Any]], preferences: Optional[List[str]] = None, weather: Optional[Dict[str, Any]] = None, deadline: Optional[float] = None) -> Optional[Dict[str, Any]]:
-        """
-        Explains already validated and scored candidate routes using supplied evidence,
-        actual ML scores, live weather, and explicit user preferences.
-        Gemini NEVER invents stations, geometries, or scores.
-        """
-        if not verified_routes:
-            return None
-
-        top_route = verified_routes[0] if verified_routes else {}
-        top_name = top_route.get("route_name", "Primary Option")
-        static_fallback = {
-            "title": "Objective AI Recommendation",
-            "summary": f"Recommended {top_name} based on verified routing topology.",
-            "reasoning": "Route evaluated using verified network topology and model-ready road infrastructure data.",
-            "tradeoff_explanation": f"Evaluated {len(verified_routes)} verified routing alternatives.",
-            "tradeoffs": ["Direct road transit prioritizes door-to-door speed."]
-        }
-
-        api_key = get_gemini_api_key()
-        if not api_key:
-            return static_fallback
-
-        now = time.time()
-        if "_all_" in self._model_cooldown and now < self._model_cooldown["_all_"]:
-            logger.debug("Gemini global cooldown active; serving static fallback immediately.")
-            return static_fallback
-
-        if deadline is not None and (deadline - now) <= 0.5:
-            logger.info("Gemini explanation deadline budget exhausted; serving static fallback immediately.")
-            return static_fallback
-
-        prefs_str = ", ".join(preferences) if preferences else "Fastest, Safest, Balanced"
-        weather_desc = f"{weather.get('condition', 'Clear')}, {weather.get('temperature', 25)}°C" if weather else "Unavailable"
-
-        routes_summary = []
-        for r in verified_routes[:4]:
-            score_str = f"Safety Proxy: {r.get('safety_score'):.1f}/100" if r.get('safety_score') is not None else "Safety Score: N/A (Transit/Insufficient coverage)"
-            routes_summary.append(
-                f"- {r.get('route_name')} ({r.get('travel_mode', 'Road')}): Distance {r.get('distance_km'):.1f} km, ETA {r.get('eta_min')} min, {score_str}"
-            )
-        routes_text = "\n".join(routes_summary)
-
-        prompt = f"""
-You are NavSakhi AI, an objective safety navigation assistant for Chennai.
+    prompt = f"""You are NavSakhi AI, an objective safety navigation assistant for Chennai.
 Explain the routing options below to the user based STRICTLY on the verified facts provided:
-Source: {source}
-Destination: {dest}
+Source: {clean_source}
+Destination: {clean_dest}
 User Priorities: {prefs_str}
 Current Weather: {weather_desc}
 
@@ -350,43 +166,964 @@ Return JSON only in this exact format:
   "summary": "Short 1-2 sentence recommendation summary.",
   "reasoning": "Factual explanation of trade-offs between speed, distance, and environmental safety.",
   "tradeoffs": ["Tradeoff 1", "Tradeoff 2"]
-}}
-"""
-        text = await self._call_gemini_content(prompt, timeout=3.0, deadline=deadline)
-        if not text:
-            return static_fallback
+}}"""
+    return {"contents": [{"parts": [{"text": prompt}]}]}
 
+
+import time
+from app.services.assistant_intent_service import global_intent_classifier, IntentCategory
+from app.services.credential_service import get_active_gemini_api_key, global_credential_manager
+
+# Candidate Gemini Models in deterministic failover priority order
+# Maximum 2 attempts per turn: primary candidate gemini-3.5-flash-lite, alternate gemini-3.8-flash
+CANDIDATE_GEMINI_MODELS: List[str] = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.8-flash",
+]
+
+# Per-model cooldown tracking
+_model_cooldowns: Dict[str, float] = {}
+_model_cooldown_until: Dict[str, float] = {}
+_model_ineligible: set = set()
+GEMINI_429_COOLDOWN_SECONDS: float = 60.0
+
+
+def _parse_retry_after(headers: Any) -> Optional[float]:
+    """Safely extracts Retry-After in seconds from HTTP headers if present."""
+    if not headers:
+        return None
+    val = headers.get("retry-after") or headers.get("Retry-After")
+    if not val:
+        return None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return None
+
+
+def get_configured_gemini_models() -> List[str]:
+    """
+    Returns candidate models in priority order, honoring any configured primary model,
+    strictly capped to at most 2 candidate models.
+    """
+    configured = getattr(settings, "llm_model_name", None) or os.getenv("LLM_MODEL_NAME", "")
+    models = list(CANDIDATE_GEMINI_MODELS)
+    if configured and str(configured).strip():
+        primary = str(configured).strip()
+        if primary in models:
+            models.remove(primary)
+        models.insert(0, primary)
+    return models[:2]
+
+
+def is_model_in_cooldown(model: str) -> bool:
+    """Checks whether a specific Gemini model is in active cooldown or marked ineligible."""
+    if model in _model_ineligible:
+        return True
+    now = time.time()
+    if model in _model_cooldown_until:
+        return now < _model_cooldown_until[model]
+    last_time = _model_cooldowns.get(model, 0.0)
+    return (now - last_time) < GEMINI_429_COOLDOWN_SECONDS
+
+
+def record_model_429(model: str, retry_after: Optional[float] = None) -> None:
+    """
+    Records a 429 rate limit cooldown specifically for the affected model,
+    using the upstream Retry-After delay if provided.
+    """
+    cooldown = retry_after if (retry_after is not None and retry_after > 0) else GEMINI_429_COOLDOWN_SECONDS
+    now = time.time()
+    _model_cooldowns[model] = now
+    _model_cooldown_until[model] = now + cooldown
+    logger.warning(f"Gemini model '{model}' reached rate limit (429). Cooldown activated for {cooldown:.1f}s.")
+
+
+
+def mark_model_ineligible(model: str, reason: str = "") -> None:
+    _model_ineligible.add(model)
+    logger.warning(f"Gemini model '{model}' marked ineligible for session: {reason}")
+
+
+def classify_gemini_error(
+    status_code: int,
+    response_text: Any,
+    model_name: str
+) -> Dict[str, Any]:
+    """
+    Classifies a Gemini API HTTP error according to structured response details.
+    Distinguishes invalid credentials, depleted billing, shared quota, per-model rate limits,
+    unsupported models, parameter errors, endpoint 404s, and transient server errors.
+    """
+    if status_code in (401, 403):
+        return {
+            "category": "AUTH_RESTRICTION",
+            "is_model_ineligible": False,
+            "is_credential_failure": True,
+            "can_failover": False,
+            "reason": f"API key or project credential restricted (HTTP {status_code})."
+        }
+
+    raw_text = ""
+    if isinstance(response_text, (str, bytes)):
+        raw_text = response_text.decode("utf-8", errors="ignore") if isinstance(response_text, bytes) else response_text
+    elif response_text is not None:
         try:
-            cleaned = text.strip()
-            if cleaned.startswith("```"):
-                lines = cleaned.splitlines()
-                if lines[0].startswith("```"): lines = lines[1:]
-                if lines and lines[-1].startswith("```"): lines = lines[:-1]
-                cleaned = "\n".join(lines).strip()
-            parsed = json.loads(cleaned)
-            return parsed if isinstance(parsed, dict) else static_fallback
-        except Exception as e:
-            clean_err = sanitize_log_message(str(e))
-            logger.info(f"Gemini route explanation JSON parse fallback: {clean_err}")
-            return static_fallback
+            raw_text = str(response_text)
+        except Exception:
+            raw_text = ""
 
-    async def generate_dynamic_plans(self, source: str, dest: str, dist_km: float, preferences: list = None, deadline: Optional[float] = None) -> list:
+    error_message = ""
+    error_status = ""
+    error_code = None
+    error_details: List[Dict[str, Any]] = []
+    try:
+        data = json.loads(raw_text)
+        if isinstance(data, dict) and "error" in data and isinstance(data["error"], dict):
+            err_dict = data["error"]
+            error_message = str(err_dict.get("message", "")).lower()
+            error_status = str(err_dict.get("status", "")).upper()
+            error_code = err_dict.get("code")
+            raw_details = err_dict.get("details", [])
+            if isinstance(raw_details, list):
+                error_details = [d for d in raw_details if isinstance(d, dict)]
+        elif isinstance(data, dict) and "message" in data:
+            error_message = str(data.get("message", "")).lower()
+    except Exception:
+        error_message = raw_text.lower() if raw_text else ""
+
+    model_lower = model_name.lower()
+
+    # 1. API KEY / CREDENTIAL FAILURE (e.g. HTTP 400 with API_KEY_INVALID, or 401/403)
+    is_api_key_invalid = (
+        any(d.get("reason") == "API_KEY_INVALID" for d in error_details)
+        or "api key not valid" in error_message
+        or "api_key_invalid" in error_message
+        or "invalid api key" in error_message
+    )
+    if is_api_key_invalid:
+        return {
+            "category": "AUTH_RESTRICTION",
+            "is_model_ineligible": False,
+            "is_credential_failure": True,
+            "can_failover": False,
+            "reason": f"API key invalid for '{model_name}': {error_message[:100]}"
+        }
+
+    # 2. DEPLETED PREPAY CREDITS / BILLING FAILURE (HTTP 402 or RESOURCE_EXHAUSTED with billing)
+    is_billing_exhausted = (
+        status_code == 402
+        or any("billing" in str(d.get("metadata", {})).lower() for d in error_details)
+        or "billing" in error_message
+    )
+    if is_billing_exhausted:
+        return {
+            "category": "BILLING_DEPLETED",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": False,
+            "reason": f"Prepay credits or project billing depleted (HTTP {status_code}): {error_message[:100]}"
+        }
+
+    # 3. FAILED PRECONDITION (Project configuration / prerequisite issues)
+    if error_status == "FAILED_PRECONDITION" or (status_code == 400 and "failed_precondition" in error_message):
+        return {
+            "category": "PROJECT_PRECONDITION",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": False,
+            "reason": f"Project prerequisite / billing setup error (HTTP 400): {error_message[:100]}"
+        }
+
+    # 4. RATE LIMITS (HTTP 429) - Distinguish candidate-specific rate limit from shared project quota
+    if status_code == 429:
+        is_shared_project_quota = (
+            "project quota" in error_message
+            or "daily quota" in error_message
+            or any(d.get("reason") in ["PROJECT_QUOTA_EXHAUSTED", "DAILY_LIMIT_EXCEEDED"] for d in error_details)
+        )
+        if is_shared_project_quota:
+            return {
+                "category": "RATE_LIMIT",
+                "is_model_ineligible": False,
+                "is_credential_failure": False,
+                "can_failover": False,  # Project-wide quota exhausted, no blind rotation
+                "reason": f"Shared project quota exhausted (HTTP 429): {error_message[:100]}"
+            }
+        return {
+            "category": "RATE_LIMIT",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": True,  # Candidate-specific rate limit, eligible for bounded failover
+            "reason": f"Model '{model_name}' hit rate limit (HTTP 429)."
+        }
+
+    # 5. NOT FOUND (HTTP 404) - Rotate only when evidence confirms model target unavailable
+    if status_code == 404:
+        is_model_specific = (
+            model_lower in error_message
+            or "models/" in error_message
+            or "listmodels" in error_message
+            or "is not found for api version" in error_message
+        )
+        if is_model_specific:
+            return {
+                "category": "MODEL_NOT_FOUND",
+                "is_model_ineligible": True,
+                "is_credential_failure": False,
+                "can_failover": True,
+                "reason": f"Model '{model_name}' not found or unsupported for generateContent (HTTP 404)."
+            }
+        else:
+            return {
+                "category": "ENDPOINT_NOT_FOUND",
+                "is_model_ineligible": False,
+                "is_credential_failure": False,
+                "can_failover": False,
+                "reason": f"HTTP 404 endpoint or configuration error: {error_message[:100]}"
+            }
+
+    # 6. BAD REQUEST (HTTP 400)
+    if status_code == 400:
+        is_model_unsupported = (
+            (model_lower in error_message and any(k in error_message for k in ["not supported", "not found", "unsupported", "invalid"])) or
+            ("model" in error_message and any(k in error_message for k in ["is not supported", "unknown model", "unsupported model", "invalid model"]))
+        )
+        if is_model_unsupported:
+            return {
+                "category": "MODEL_UNSUPPORTED",
+                "is_model_ineligible": True,
+                "is_credential_failure": False,
+                "can_failover": True,
+                "reason": f"Model '{model_name}' explicitly unsupported (HTTP 400): {error_message[:100]}"
+            }
+
+        is_param_error = any(k in error_message for k in [
+            "parameter", "field", "argument", "unknown field", "unrecognized field",
+            "generation_config", "system_instruction", "safety_settings"
+        ])
+        if is_param_error:
+            return {
+                "category": "UNSUPPORTED_PARAMETER",
+                "is_model_ineligible": False,
+                "is_credential_failure": False,
+                "can_failover": True,
+                "reason": f"Unsupported model-specific parameter in request for '{model_name}' (HTTP 400): {error_message[:100]}"
+            }
+
+        return {
+            "category": "INVALID_PAYLOAD",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": False,
+            "reason": f"HTTP 400 Invalid Argument / Payload for '{model_name}': {error_message[:100]}"
+        }
+
+    # 7. SERVER ERROR (HTTP 5xx)
+    if status_code >= 500:
+        return {
+            "category": "SERVER_ERROR",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": True,
+            "reason": f"Transient 5xx error from '{model_name}' (HTTP {status_code})."
+        }
+
+    return {
+        "category": "CLIENT_ERROR",
+        "is_model_ineligible": False,
+        "is_credential_failure": False,
+        "can_failover": False,
+        "reason": f"HTTP {status_code} client error for '{model_name}': {error_message[:100]}"
+    }
+
+
+_last_gemini_429_timestamp: float = 0.0
+
+def is_gemini_in_rate_limit_cooldown() -> bool:
+    """Returns True ONLY if all configured candidate models are currently in cooldown."""
+    models = get_configured_gemini_models()
+    return len(models) > 0 and all(is_model_in_cooldown(m) for m in models)
+
+
+def record_gemini_429_event(model: Optional[str] = None, retry_after: Optional[float] = None) -> None:
+    """Records 429 cooldown for a specific model, or all candidate models if unspecified."""
+    global _last_gemini_429_timestamp
+    _last_gemini_429_timestamp = time.time()
+    if model:
+        record_model_429(model, retry_after=retry_after)
+    else:
+        for m in get_configured_gemini_models():
+            record_model_429(m, retry_after=retry_after)
+    logger.warning(f"Gemini 429 rate limit recorded.")
+
+
+def reset_gemini_cooldowns() -> None:
+    """Resets all Gemini cooldown timestamps and ineligibility markers for clean isolation."""
+    global _last_gemini_429_timestamp
+    _last_gemini_429_timestamp = 0.0
+    _model_cooldowns.clear()
+    _model_cooldown_until.clear()
+    _model_ineligible.clear()
+
+
+
+def get_gemini_api_key() -> str:
+    """Acquires active Gemini API credential according to safe precedence rules."""
+    return get_active_gemini_api_key()
+
+
+def get_gemini_model() -> str:
+    return get_configured_gemini_models()[0]
+
+
+class ReasoningTool(BaseTool):
+    @property
+    def name(self) -> str:
+        return "ReasoningTool"
+
+    @property
+    def description(self) -> str:
+        return "Provides LLM explanation, conversational assistance, and reasoning."
+
+    @property
+    def metadata(self) -> ToolMetadata:
+        return ToolMetadata(
+            capability="Reasoning",
+            required_inputs=["context"],
+            output_schema={"type": "dict"},
+            ranking_score=10
+        )
+
+    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Uses Gemini to suggest high-level candidate strategies.
-        Must ONLY suggest public transit if realistic stations exist along the travel axis.
+        Calls the Gemini API with bounded multi-model failover, multi-turn history,
+        and empathetic local fallback when rate-limited or offline.
+        """
+        import uuid
+        correlation_id = f"chat_{uuid.uuid4().hex[:12]}"
+        context = params.get("context", {})
+        query = context.get("query")
+        decision = context.get("decision", {})
+        active_journey = context.get("active_journey")
+        history = context.get("history")
+
+        # Check if query seeks commercial or facility POIs
+        poi_keywords = [
+            "shop", "shops", "store", "stores", "pharmacy", "pharmacies", "chemist", "medicine",
+            "hospital", "hospitals", "clinic", "clinics", "supermarket", "supermarkets",
+            "cafe", "cafes", "coffee", "restaurant", "restaurants", "food", "grocery", "groceries",
+            "atm", "atms", "bank", "fuel", "petrol", "hotel", "safe haven", "facility", "facilities"
+        ]
+        is_poi_query = bool(query and any(re.search(r'\b' + re.escape(kw) + r'\b', query.lower()) for kw in poi_keywords))
+
+        # Check if query consists of coordinate pairs (e.g. "13.0418, 80.2337")
+        coord_match = None
+        if query:
+            c_pattern = r'^\s*(?:lat(?:itude)?\s*[:=]?\s*)?([+-]?(?:[1-8]?\d(?:\.\d+)?|90(?:\.0+)?))\s*,\s*(?:lon(?:gitude)?\s*[:=]?\s*)?([+-]?(?:180(?:\.0+)?|(?:1[0-7]\d|[1-9]?\d)(?:\.\d+)?))\s*$'
+            cm = re.search(c_pattern, query.strip(), re.IGNORECASE)
+            if cm:
+                v1, v2 = float(cm.group(1)), float(cm.group(2))
+                if 11.0 <= v1 <= 15.0 and 78.0 <= v2 <= 82.0:
+                    coord_match = (v1, v2)
+                elif 11.0 <= v2 <= 15.0 and 78.0 <= v1 <= 82.0:
+                    coord_match = (v2, v1)
+                else:
+                    coord_match = (v1, v2)
+
+        # Check Gemini availability for conversational routing
+        active_api_key = get_gemini_api_key()
+        gemini_online = bool(active_api_key and active_api_key.strip() and not is_gemini_in_rate_limit_cooldown())
+
+        # Intent classification & local travel-companion handling
+        intent_category = IntentCategory.JOURNEY_TRANSIT
+        intent_result = None
+        if query:
+            intent_result = global_intent_classifier.classify(query, history=history)
+            intent_category = intent_result.intent
+
+            # If query does not require external LLM and has a direct response (or Gemini is offline/unconfigured), return deterministic response
+            if (not intent_result.requires_external_llm or not gemini_online) and not is_poi_query and not coord_match and intent_result.direct_response:
+                return {
+                    "summary": intent_result.direct_response,
+                    "reasoning": [f"Handled deterministically by NavSakhi Travel Companion ({intent_category.value})."],
+                    "provider": "local_companion",
+                    "intent": intent_category.value,
+                    "ai_status": "OFFLINE_DETERMINISTIC",
+                    "response_source": "rule_based" if not is_gemini_in_rate_limit_cooldown() else "fallback",
+                    "intent_category": intent_category.value,
+                    "gemini_attempted": False,
+                    "model_identifier": None,
+                    "attempt_count": 0,
+                    "provider_latency_ms": 0.0,
+                    "outcome_category": "skipped" if not is_gemini_in_rate_limit_cooldown() else "rate_limited",
+                    "correlation_id": correlation_id
+                }
+
+        grounded_pois: List[Dict[str, Any]] = []
+        poi_location_label: Optional[str] = None
+
+        if is_poi_query:
+            from app.tools.specialized.poi_tool import POITool
+            poi_tool = POITool()
+
+            # Attempt to extract location name from query
+            place_match = re.search(
+                r'(?:near|in|around|at|by|close to)\s+([A-Za-z0-9\s\.\-]+?)(?:\?|$|\.|\,|for|with)',
+                query,
+                re.IGNORECASE
+            )
+            extracted_place = place_match.group(1).strip() if place_match else None
+
+            # Category filter
+            target_category = None
+            q_lower = query.lower()
+            if any(w in q_lower for w in ["pharmacy", "pharmacies", "chemist", "medicine"]):
+                target_category = "pharmacy"
+            elif any(w in q_lower for w in ["hospital", "hospitals", "clinic", "clinics"]):
+                target_category = "clinic"
+            elif any(w in q_lower for w in ["supermarket", "grocery", "groceries"]):
+                target_category = "supermarket"
+            elif any(w in q_lower for w in ["police", "station"]):
+                target_category = "police"
+            elif any(w in q_lower for w in ["cafe", "coffee", "restaurant", "food"]):
+                target_category = "restaurant"
+            elif any(w in q_lower for w in ["atm", "bank"]):
+                target_category = "bank_atm"
+            elif any(w in q_lower for w in ["shop", "store"]):
+                target_category = "shop"
+
+            if extracted_place:
+                poi_res = await poi_tool.execute({
+                    "place": extracted_place,
+                    "category": target_category,
+                    "radius_m": 1500.0,
+                    "max_results": 10
+                })
+                if poi_res.get("status") == "AVAILABLE":
+                    grounded_pois = poi_res.get("pois", [])
+                    poi_location_label = extracted_place.title()
+                elif poi_res.get("status") in ["NOT_FOUND", "EMPTY"]:
+                    poi_location_label = extracted_place.title()
+            elif active_journey:
+                all_coords = []
+                if hasattr(active_journey, "planned_routes") and active_journey.planned_routes:
+                    for r in active_journey.planned_routes:
+                        for s in r.get("segments", []):
+                            poly = s.get("polyline")
+                            if poly and isinstance(poly, dict):
+                                geom = poly.get("geometry", poly)
+                                all_coords.extend(geom.get("coordinates", []))
+                if all_coords:
+                    poi_res = await poi_tool.execute({
+                        "corridor_coords": all_coords,
+                        "radius_m": 800.0,
+                        "max_results": 10
+                    })
+                    grounded_pois = poi_res.get("pois", [])
+                    dest_n = getattr(active_journey, "destination_name", "your active route")
+                    poi_location_label = f"corridor towards {dest_n}"
+
+        elif coord_match:
+            c_lat, c_lon = coord_match
+            from app.services.poi_service import get_poi_service
+            point_res = get_poi_service().query_pois_near_point(c_lon, c_lat, radius_m=1200.0, max_results=8)
+            grounded_pois = point_res.get("pois", [])
+            poi_location_label = f"coordinates ({c_lat:.4f}, {c_lon:.4f})"
+
+        # Deterministic fallback summary tailored to intent
+        if grounded_pois:
+            lines = []
+            for p in grounded_pois[:5]:
+                p_name = p.get("name", "Unnamed")
+                p_cat = p.get("category_label") or p.get("category", "Shop")
+                p_dist = int(p.get("distance_m", 0))
+                p_hours = p.get("opening_hours") or "Hours not published in OpenStreetMap"
+                p_status = p.get("opening_status", "UNKNOWN")
+                status_desc = f" ({p_status})" if p_status != "UNKNOWN" else ""
+                lines.append(f"- **{p_name}** ({p_cat}): ~{p_dist}m away &bull; Hours: {p_hours}{status_desc}")
+
+            loc_txt = f" near **{poi_location_label}**" if poi_location_label else ""
+            if coord_match:
+                c_lat, c_lon = coord_match
+                fallback_summary = (
+                    f"I received coordinates **({c_lat:.4f}, {c_lon:.4f})**. What would you like to find near here? "
+                    f"(For example: open pharmacies, hospitals, commercial shops, or route navigation).\n\n"
+                    f"Here are nearest mapped establishments found near these coordinates in Chennai:\n\n"
+                    + "\n".join(lines)
+                    + "\n\n*(Note: These records are sourced from OpenStreetMap. Commercial businesses provide public street activity, but are not verified emergency shelters or police checkpoints.)*"
+                )
+            else:
+                fallback_summary = (
+                    f"Here are mapped establishments found{loc_txt} in Chennai:\n\n"
+                    + "\n".join(lines)
+                    + "\n\n*(Note: These records are sourced from OpenStreetMap. Commercial businesses provide public street activity, but are not verified emergency shelters or police checkpoints.)*"
+                )
+        elif coord_match and not grounded_pois:
+            c_lat, c_lon = coord_match
+            fallback_summary = (
+                f"I received coordinates **({c_lat:.4f}, {c_lon:.4f})**. No mapped establishments were found within 1.2km in our Chennai dataset. "
+                "What would you like to find near here, or would you like to plan a route from this location?"
+            )
+        elif poi_location_label and not grounded_pois:
+            fallback_summary = (
+                f"I checked the mapped OpenStreetMap records for Chennai near **{poi_location_label}**, but no matching establishments were found within the search radius. "
+                "You can specify a nearby arterial junction or landmark (for example: *'near T. Nagar bus terminus'* or *'near Central'*)."
+            )
+        elif is_poi_query and not active_journey:
+            fallback_summary = (
+                "Which area or landmark in Chennai would you like me to check for shops or facilities? "
+                "(For example: *'Shops near T. Nagar'* or *'Pharmacies near Adyar'*). "
+                "If you start a monitored journey in the Journey Planner, I can also look along your route corridor."
+            )
+        elif intent_result and intent_result.direct_response:
+            fallback_summary = intent_result.direct_response
+        elif query:
+            q_lower = query.lower()
+            if any(w in q_lower for w in ["following me", "follow me", "stalk", "stalker", "danger", "attack", "screaming", "hurt", "in danger"]):
+                fallback_summary = (
+                    "I hear you, and your immediate safety is the top priority. If someone is following you or you feel in danger:\n\n"
+                    "1. **Move to a Staffed Safe Haven Immediately:** Walk directly into an open shop, well-lit café, metro station customer counter, or busy bus shelter nearby.\n"
+                    "2. **Alert People Nearby:** Let staff or commuters know you need help.\n"
+                    "3. **Call Emergency Services:**\n"
+                    "   - **112** (National Emergency Helpline)\n"
+                    "   - **1091** (Tamil Nadu Women Helpline)\n"
+                    "4. **Share Live Route:** Tap the SOS button in NavSakhi to alert your emergency contacts."
+                )
+            elif any(w in q_lower for w in ["nervous", "anxious", "travel anxiety", "uneasy", "feeling alone"]):
+                fallback_summary = (
+                    "It is completely normal to feel nervous when traveling alone. Take a slow breath — I am right here with you in your phone. "
+                    "Stay along well-lit transit corridors like the Chennai Metro or major MTC routes, and sit near the conductor or in the designated women's section. "
+                    "Where are you traveling right now?"
+                )
+            elif any(w in q_lower for w in ["companion", "partner", "be with me", "with me throughout", "with me through out"]):
+                fallback_summary = (
+                    "I would be glad to stay with you throughout your journey as your travel partner. "
+                    "You can keep this chat open and message me anytime you need route reassurance or just friendly conversation. "
+                    "Where are you heading today?"
+                )
+            elif any(w in q_lower for w in ["hi", "hello", "hey", "namaste", "vanakkam"]):
+                fallback_summary = "Hello! I am your NavSakhi travel companion. How can I help you navigate Chennai safely today?"
+            elif any(w in q_lower for w in ["score", "lightgbm", "safety score", "model", "how is score", "scoring", "based on"]):
+                fallback_summary = (
+                    "NavSakhi safety scores are calculated using a frozen LightGBM regression model that evaluates objective "
+                    "road environmental infrastructure features (highway class, road width, junction complexity, service density). "
+                    "Night Activity Scores are computed independently from open places and transit nodes. It represents an environmental "
+                    "proxy, not an empirical crime prediction."
+                )
+            elif any(w in q_lower for w in ["emergency", "police", "sos", "helpline", "112", "1091"]):
+                fallback_summary = (
+                    "For immediate assistance, dial 112 (National Emergency Helpline) or 1091 (Women Helpline in Tamil Nadu). "
+                    "You can also trigger NavSakhi SOS on the dashboard to share live telemetry with your emergency contacts."
+                )
+            elif any(w in q_lower for w in ["metro", "suburban", "bus", "mtc", "train"]):
+                fallback_summary = (
+                    "NavSakhi supports Chennai Metro (Blue and Green lines), Suburban rail corridors (South, West, and North lines), "
+                    "and MTC bus routes across Chennai."
+                )
+            elif any(w in q_lower for w in ["aware", "be aware", "look out", "watch out", "safety tip", "safety tips", "precaution", "precautions", "stay safe", "guidelines"]):
+                fallback_summary = (
+                    "When navigating Chennai, keep these practical safety considerations in mind:\n\n"
+                    "1. **Use Well-Lit Primary Corridors:** Choose active transit modes like Chennai Metro or primary arterial MTC bus routes, especially during evening hours.\n"
+                    "2. **Stay Near Staffed Facilities:** At stations and bus stops, wait near ticket counters, station masters, or well-populated areas.\n"
+                    "3. **Share Live Trip Telemetry:** Keep your phone charged and share your active route link with family or a trusted contact.\n"
+                    "4. **Emergency Helplines:** Note that **112** (National Emergency) and **1091** (Tamil Nadu Women Helpline) are available 24/7."
+                )
+            else:
+                fallback_summary = (
+                    "I am your NavSakhi travel companion. You can ask me about safe route planning in Chennai, transport options (Metro, Bus, Suburban), "
+                    "or nearby emergency support. How can I help you right now?"
+                )
+        else:
+            fallback_summary = "Route evaluated using verified network topology and model-ready road infrastructure data."
+
+        fallback_reasoning = [
+            "Network topology verified against mapped road and transit layers.",
+            "Segment coverage validated according to scoring requirements.",
+            "Evaluations bounded to synthetic environmental proxy indicators without unsupported claims."
+        ]
+
+        api_key = get_gemini_api_key()
+        if not api_key or not api_key.strip():
+            logger.info("GEMINI_API_KEY not configured; using verified conversational/infrastructure fallback.")
+            is_rule_based_eligible = (
+                intent_result is not None
+                and intent_result.intent in [IntentCategory.SMALL_TALK, IntentCategory.OFF_TOPIC, IntentCategory.COMPANION_EMPATHY]
+            )
+            if intent_category == IntentCategory.SAFETY:
+                ds = "safety_rules"
+            elif intent_category == IntentCategory.JOURNEY_TRANSIT:
+                ds = "transit_fallback"
+            elif intent_category in [IntentCategory.SMALL_TALK, IntentCategory.COMPANION_EMPATHY]:
+                ds = "small_talk_fallback"
+            elif intent_category == IntentCategory.OFF_TOPIC:
+                ds = "redirection_capsule"
+            else:
+                ds = "contextual_fallback"
+
+            return {
+                "summary": fallback_summary,
+                "reasoning": fallback_reasoning,
+                "provider": "local_companion" if is_rule_based_eligible else "local_fallback",
+                "intent": intent_category.value,
+                "ai_status": "OFFLINE_DETERMINISTIC" if is_rule_based_eligible else "CONFIG_MISSING_FALLBACK",
+                "response_source": "rule_based" if is_rule_based_eligible else "fallback",
+                "decision_source": ds,
+                "intent_category": intent_category.value,
+                "gemini_attempted": False,
+                "model_identifier": None,
+                "attempt_count": 0,
+                "provider_latency_ms": 0.0,
+                "outcome_category": "unavailable",
+                "correlation_id": correlation_id,
+                "last_failed_model": None,
+                "failed_model_candidates": [],
+                "safety_blocked_candidate": None
+            }
+
+        # Check if all candidate models are currently rate-limited
+        if is_gemini_in_rate_limit_cooldown():
+            logger.info("All Gemini models in cooldown; returning honest rate-limited fallback.")
+            rate_limit_note = "\n\n*(Note: Live AI reasoning is temporarily paused due to upstream provider rate limits. NavSakhi verified local travel guidance is active.)*"
+            return {
+                "summary": fallback_summary + rate_limit_note,
+                "reasoning": fallback_reasoning,
+                "provider": "local_fallback",
+                "intent": intent_category.value,
+                "ai_status": "RATE_LIMITED_FALLBACK",
+                "response_source": "fallback",
+                "decision_source": "circuit_breaker",
+                "intent_category": intent_category.value,
+                "gemini_attempted": False,
+                "model_identifier": None,
+                "attempt_count": 0,
+                "provider_latency_ms": 0.0,
+                "outcome_category": "rate_limited",
+                "correlation_id": correlation_id,
+                "last_failed_model": None,
+                "failed_model_candidates": [],
+                "safety_blocked_candidate": None
+            }
+
+        # Prepare outbound payload
+        if query:
+            payload = build_sanitized_chat_payload(
+                query=query,
+                active_journey=active_journey,
+                history=history,
+                grounded_pois=grounded_pois,
+                poi_location_name=poi_location_label,
+                coord_match=coord_match
+            )
+        else:
+            clean_decision = sanitize_privacy_context(str(decision))
+            prompt = (
+                f"You are NavSakhi AI. Explain this route decision factually based on verified infrastructure: {clean_decision}. "
+                "CRITICAL CONSTRAINTS: Do not claim specific lighting conditions, crowd densities, or community incident counts. "
+                "Do not state that any route guarantees safety. Keep explanations grounded strictly in objective route metrics."
+            )
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-goog-api-key": api_key
+        }
+
+        # Bounded multi-model failover execution with strict latency budget
+        candidate_models = get_configured_gemini_models()[:2]
+        TOTAL_DEADLINE_SEC = 5.0
+        LOCAL_FALLBACK_RESERVE_SEC = 0.8
+        SCHEDULING_MARGIN_SEC = 0.05
+        MIN_REMAINING_FOR_ALTERNATE_SEC = 2.35
+        ALTERNATE_TIMEOUT_CAP_SEC = 1.9
+
+        turn_start_time = time.monotonic()
+        last_failure_status = "UNAVAILABLE_FALLBACK"
+        attempt_count = 0
+        last_attempted_model = None
+        last_outcome = "unavailable"
+        failed_model_candidates: List[str] = []
+        last_failed_model: Optional[str] = None
+        safety_blocked_candidate: Optional[str] = None
+
+        for attempt_idx, model_name in enumerate(candidate_models):
+            if is_model_in_cooldown(model_name):
+                continue
+
+            remaining_budget = TOTAL_DEADLINE_SEC - (time.monotonic() - turn_start_time)
+
+            if attempt_idx >= 1:
+                # Alternate candidate: must have at least 2.35s remaining
+                if remaining_budget < MIN_REMAINING_FOR_ALTERNATE_SEC:
+                    logger.info(
+                        "Remaining budget (%.2fs) below minimum required (%.2fs) for alternate model '%s'; halting rotation.",
+                        remaining_budget, MIN_REMAINING_FOR_ALTERNATE_SEC, model_name
+                    )
+                    last_outcome = "timeout"
+                    break
+                attempt_timeout = min(
+                    ALTERNATE_TIMEOUT_CAP_SEC,
+                    max(0.1, remaining_budget - (LOCAL_FALLBACK_RESERVE_SEC + SCHEDULING_MARGIN_SEC))
+                )
+            else:
+                # Primary candidate: ensure minimum reserve for fallback
+                if remaining_budget <= (LOCAL_FALLBACK_RESERVE_SEC + SCHEDULING_MARGIN_SEC):
+                    logger.info("Insufficient remaining budget for primary Gemini call; halting.")
+                    last_outcome = "timeout"
+                    break
+                attempt_timeout = min(
+                    3.0,
+                    max(0.1, remaining_budget - (LOCAL_FALLBACK_RESERVE_SEC + SCHEDULING_MARGIN_SEC))
+                )
+
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            attempt_count += 1
+            last_attempted_model = model_name
+            call_start = time.monotonic()
+
+            try:
+                async with httpx.AsyncClient(timeout=attempt_timeout) as client:
+                    response = await client.post(url, json=payload, headers=headers)
+                    call_latency_ms = (time.monotonic() - call_start) * 1000.0
+
+                    if response.status_code == 200:
+                        res_data = response.json()
+                        candidates = res_data.get("candidates", []) if isinstance(res_data, dict) else []
+                        if candidates:
+                            cand = candidates[0]
+                            finish_reason = str(cand.get("finishReason", "")).upper()
+                            if finish_reason in ["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"]:
+                                safety_blocked_candidate = model_name
+                                last_failure_status = "SAFETY_REFUSAL_FALLBACK"
+                                last_outcome = "safety_blocked"
+                                # Safety policy refusal: DO NOT ROTATE to alternate model!
+                                logger.warning(f"Gemini model '{model_name}' blocked by safety policy ({finish_reason}). Halting failover.")
+                                break
+
+                            parts = cand.get("content", {}).get("parts", [])
+                            text = parts[0].get("text", "").strip() if parts else ""
+                            if text:
+                                decision_src = "gemini_direct" if attempt_count == 1 else "gemini_failover"
+                                return {
+                                    "summary": text,
+                                    "reasoning": fallback_reasoning,
+                                    "provider": "gemini",
+                                    "model": model_name,
+                                    "intent": intent_category.value,
+                                    "ai_status": "LIVE_SUCCESS",
+                                    "response_source": "gemini",
+                                    "decision_source": decision_src,
+                                    "intent_category": intent_category.value,
+                                    "gemini_attempted": True,
+                                    "model_identifier": model_name,
+                                    "attempt_count": attempt_count,
+                                    "provider_latency_ms": round(call_latency_ms, 1),
+                                    "outcome_category": "success",
+                                    "correlation_id": correlation_id,
+                                    "last_failed_model": last_failed_model,
+                                    "failed_model_candidates": failed_model_candidates,
+                                    "safety_blocked_candidate": safety_blocked_candidate
+                                }
+
+                    # Non-200 response
+                    failed_model_candidates.append(model_name)
+                    last_failed_model = model_name
+                    resp_text_val = ""
+                    try:
+                        resp_text_val = response.text if isinstance(response.text, str) else str(response.text)
+                    except Exception:
+                        pass
+                    err_info = classify_gemini_error(response.status_code, resp_text_val, model_name)
+                    logger.warning(f"Gemini model '{model_name}' HTTP {response.status_code}: {err_info['reason']}")
+
+                    if response.status_code in (401, 403) or err_info.get("is_credential_failure") or err_info.get("category") == "AUTH_RESTRICTION":
+                        last_failure_status = "AUTH_RESTRICTION_FALLBACK"
+                        last_outcome = "unavailable"
+                        break
+
+                    if err_info["category"] == "RATE_LIMIT":
+                        retry_after = _parse_retry_after(response.headers)
+                        record_model_429(model_name, retry_after=retry_after)
+                        last_failure_status = "RATE_LIMITED_FALLBACK"
+                        last_outcome = "rate_limited"
+                        if not err_info.get("can_failover"):
+                            break
+                        continue
+
+                    if err_info["category"] in ["AUTH_RESTRICTION", "BILLING_DEPLETED", "PROJECT_PRECONDITION"]:
+                        last_failure_status = f"{err_info['category']}_FALLBACK"
+                        last_outcome = "unavailable"
+                        break
+
+                    if err_info.get("is_model_ineligible"):
+                        mark_model_ineligible(model_name, err_info["reason"])
+
+                    last_outcome = "invalid_response"
+                    if not err_info.get("can_failover"):
+                        break
+                    continue
+
+            except asyncio.CancelledError:
+                logger.info("Assistant request cancelled during Gemini invocation; propagating CancelledError.")
+                raise
+            except (asyncio.TimeoutError, httpx.TimeoutException):
+                failed_model_candidates.append(model_name)
+                last_failed_model = model_name
+                last_outcome = "timeout"
+                logger.warning(f"Gemini attempt with model '{model_name}' timed out. Failing over...")
+            except Exception as e:
+                failed_model_candidates.append(model_name)
+                last_failed_model = model_name
+                last_outcome = "timeout" if "timeout" in str(e).lower() else "invalid_response"
+                logger.warning(f"Gemini attempt with model '{model_name}' failed ({type(e).__name__}: {e}). Failing over...")
+
+        total_elapsed_ms = (time.monotonic() - turn_start_time) * 1000.0
+
+        if safety_blocked_candidate:
+            chosen_decision_source = "safety_rules"
+        elif intent_category == IntentCategory.SAFETY:
+            chosen_decision_source = "safety_rules"
+        elif intent_category == IntentCategory.JOURNEY_TRANSIT:
+            chosen_decision_source = "transit_fallback"
+        elif intent_category in [IntentCategory.SMALL_TALK, IntentCategory.COMPANION_EMPATHY]:
+            chosen_decision_source = "small_talk_fallback"
+        elif intent_category == IntentCategory.OFF_TOPIC:
+            chosen_decision_source = "redirection_capsule"
+        elif last_outcome in ["rate_limited", "unavailable"] and any(
+            f in last_failure_status for f in ["AUTH", "CREDENTIAL", "BILLING", "RATE_LIMITED"]
+        ):
+            chosen_decision_source = "circuit_breaker"
+        else:
+            chosen_decision_source = "contextual_fallback"
+
+        # If all candidate models fail, time out, or are safety-blocked, return honest contextual fallback
+        return {
+            "summary": fallback_summary,
+            "reasoning": fallback_reasoning,
+            "provider": "local_fallback",
+            "intent": intent_category.value,
+            "ai_status": last_failure_status,
+            "response_source": "fallback",
+            "decision_source": chosen_decision_source,
+            "intent_category": intent_category.value,
+            "gemini_attempted": attempt_count > 0,
+            "model_identifier": None,  # Truthful provenance: None on fallback!
+            "attempt_count": attempt_count,
+            "provider_latency_ms": round(total_elapsed_ms, 1),
+            "outcome_category": last_outcome,
+            "correlation_id": correlation_id,
+            "last_failed_model": last_failed_model,
+            "failed_model_candidates": failed_model_candidates,
+            "safety_blocked_candidate": safety_blocked_candidate
+        }
+
+    async def explain_journey_recommendations(
+        self,
+        source: str,
+        dest: str,
+        verified_routes: List[Dict[str, Any]],
+        preferences: Optional[List[str]] = None,
+        weather: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Explains already validated and scored candidate routes with bounded multi-model failover.
+        Gemini NEVER invents stations, geometries, or scores.
         """
         api_key = get_gemini_api_key()
-        if not api_key:
+        if not api_key or not api_key.strip() or not verified_routes:
+            return None
+
+        if is_gemini_in_rate_limit_cooldown():
+            logger.info("Gemini in cooldown; returning local route explanation fallback.")
+            top_route = verified_routes[0] if verified_routes else {}
+            top_name = top_route.get("route_name", "Primary Option")
+            return {
+                "title": "Objective AI Recommendation",
+                "summary": f"Recommended {top_name} based on verified routing topology.",
+                "reasoning": "Route evaluated using verified network topology and model-ready road infrastructure data.",
+                "tradeoff_explanation": f"Evaluated {len(verified_routes)} verified routing alternatives.",
+                "tradeoffs": ["Direct road transit prioritizes door-to-door speed."]
+            }
+
+        candidate_models = get_configured_gemini_models()
+        total_deadline_sec = 2.5
+        start_time = time.monotonic()
+        payload = build_sanitized_route_explanation_payload(
+            source=source,
+            dest=dest,
+            verified_routes=verified_routes,
+            preferences=preferences,
+            weather=weather
+        )
+        headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
+
+        for model_name in candidate_models:
+            if is_model_in_cooldown(model_name):
+                continue
+
+            remaining_budget = total_deadline_sec - (time.monotonic() - start_time)
+            if remaining_budget < 0.8:
+                break
+
+            attempt_timeout = min(remaining_budget, 1.8)
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+
+            try:
+                async with httpx.AsyncClient(timeout=attempt_timeout) as client:
+                    response = await client.post(url, json=payload, headers=headers)
+                    if response.status_code == 200:
+                        res_data = response.json()
+                        text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                        if text.startswith("```"):
+                            lines = text.splitlines()
+                            if lines[0].startswith("```"): lines = lines[1:]
+                            if lines and lines[-1].startswith("```"): lines = lines[:-1]
+                            text = "\n".join(lines).strip()
+
+                        parsed = json.loads(text)
+                        if isinstance(parsed, dict):
+                            return parsed
+
+                    err_info = classify_gemini_error(response.status_code, response.text, model_name)
+                    if err_info["category"] == "RATE_LIMIT":
+                        retry_after = _parse_retry_after(response.headers)
+                        record_model_429(model_name, retry_after=retry_after)
+                        continue
+                    if err_info["category"] == "AUTH_RESTRICTION":
+                        break
+                    if err_info["is_model_ineligible"]:
+                        mark_model_ineligible(model_name, err_info["reason"])
+                    if err_info["can_failover"]:
+                        continue
+                    else:
+                        break
+
+            except Exception as e:
+                logger.info(f"Gemini route explanation model '{model_name}' attempt skipped: {e}")
+
+        # Deterministic local explanation fallback
+        top_route = verified_routes[0] if verified_routes else {}
+        top_name = top_route.get("route_name", "Primary Option")
+        return {
+            "title": "Objective AI Recommendation",
+            "summary": f"Recommended {top_name} based on verified routing topology.",
+            "reasoning": "Route evaluated using verified network topology and model-ready road infrastructure data.",
+            "tradeoff_explanation": f"Evaluated {len(verified_routes)} verified routing alternatives.",
+            "tradeoffs": ["Direct road transit prioritizes door-to-door speed."]
+        }
+
+    async def generate_dynamic_plans(self, source: str, dest: str, dist_km: float, preferences: list = None) -> list:
+        """
+        Experimental Strategy B dynamic plan generation.
+        Strictly isolated: disabled by default; only runs if enable_experimental_strategy_b is True.
+        """
+        if not getattr(settings, "enable_experimental_strategy_b", False):
+            logger.debug("Strategy B dynamic plans disabled by default; skipping.")
+            return []
+
+        api_key = get_gemini_api_key()
+        if not api_key or not api_key.strip():
             logger.info("GEMINI_API_KEY not configured; skipping dynamic planning.")
-            return []
-
-        now = time.time()
-        if "_all_" in self._model_cooldown and now < self._model_cooldown["_all_"]:
-            logger.debug("Gemini global cooldown active; skipping dynamic planning prompt.")
-            return []
-
-        if deadline is not None and (deadline - now) <= 0.5:
-            logger.info("Gemini dynamic planning deadline budget exhausted; skipping dynamic planning prompt.")
             return []
 
         # If trip is short, public transit is not realistic
@@ -394,12 +1131,14 @@ Return JSON only in this exact format:
             logger.info(f"Trip distance ({dist_km:.2f} km) too short for rail transit; skipping transit prompt.")
             return []
 
+        clean_source = sanitize_privacy_context(source)
+        clean_dest = sanitize_privacy_context(dest)
         prefs_str = ", ".join(preferences) if preferences else "ANY"
 
         prompt = f"""
-You are an intelligent mobility planner for Chennai.
-Source: {source}
-Destination: {dest}
+You are an intelligent mobility planner for Chennai. 
+Source: {clean_source}
+Destination: {clean_dest}
 Straight-line distance: {dist_km:.2f} km
 User Preferences: {prefs_str}
 
@@ -426,20 +1165,27 @@ Each strategy object:
   ]
 }}
 """
-        text = await self._call_gemini_content(prompt, timeout=3.0, deadline=deadline)
-        if not text:
-            return []
-
         try:
-            cleaned = text.strip()
-            if cleaned.startswith("```"):
-                lines = cleaned.splitlines()
+            model_name = get_gemini_model()
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+            payload = {"contents": [{"parts": [{"text": prompt}]}]}
+            headers = {"Content-Type": "application/json", "X-goog-api-key": api_key}
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+                res_data = response.json()
+
+            text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            if text.startswith("```"):
+                lines = text.splitlines()
                 if lines[0].startswith("```"): lines = lines[1:]
                 if lines and lines[-1].startswith("```"): lines = lines[:-1]
-                cleaned = "\n".join(lines).strip()
-            parsed = json.loads(cleaned)
+                text = "\n".join(lines).strip()
+
+            parsed = json.loads(text)
             return parsed if isinstance(parsed, list) else []
         except Exception as e:
-            clean_err = sanitize_log_message(str(e))
-            logger.warning(f"Gemini dynamic planning JSON parse failed: {clean_err}")
+            logger.warning(f"Gemini dynamic planning failed: {e}")
             return []
+

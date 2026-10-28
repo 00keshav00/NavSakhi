@@ -1,4 +1,4 @@
-﻿# scripts/build_companion_stores.py
+# scripts/build_companion_stores.py
 """
 NavSakhi Phase 46I - Companion Store Builder.
 

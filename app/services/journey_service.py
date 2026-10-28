@@ -16,7 +16,8 @@ class JourneyService:
     @property
     def coordinator(self) -> JourneyIntelligenceCoordinator:
         if self._coordinator is None:
-            self._coordinator = JourneyIntelligenceCoordinator()
+            from app.api.dependencies import get_journey_coordinator
+            self._coordinator = get_journey_coordinator()
         return self._coordinator
 
     async def get_journey_details(self, journey_id: str) -> Journey:

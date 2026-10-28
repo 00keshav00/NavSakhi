@@ -43,6 +43,7 @@ export function JourneySearchPanel({
   const [laterTime, setLaterTime] = useState("");
   const [transportPref, setTransportPref] = useState<"any" | "public" | "personal">("any");
   const [vehicleType, setVehicleType] = useState<"two_wheeler" | "four_wheeler">("four_wheeler");
+  const [routePriority, setRoutePriority] = useState<"safest" | "fastest" | "fewest_transfers" | "prefer_familiar" | "prefer_businesses">("safest");
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
   const handleDetectLocation = () => {
@@ -106,7 +107,7 @@ export function JourneySearchPanel({
       return;
     }
 
-    const preferences = ["safest"];
+    const preferences: string[] = [routePriority];
     if (transportPref === "public") preferences.push("public_transport");
     if (transportPref === "personal") {
       preferences.push("personal_vehicle");
@@ -303,6 +304,33 @@ export function JourneySearchPanel({
             </button>
           </div>
         )}
+      </div>
+
+      {/* Route Strategy & User Preference */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-muted-foreground">Route Strategy &amp; Local Knowledge</label>
+        <div className="flex flex-wrap gap-1 bg-secondary/30 p-1.5 rounded-lg border border-border">
+          {[
+            { id: "safest", label: "Safest (ML)" },
+            { id: "fastest", label: "Fastest" },
+            { id: "fewest_transfers", label: "Fewest Transfers" },
+            { id: "prefer_familiar", label: "Prefer Familiar Route" },
+            { id: "prefer_businesses", label: "Prefer Mapped Shops" },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setRoutePriority(item.id as typeof routePriority)}
+              className={`py-1 px-2 text-[11px] font-semibold rounded-md transition-all ${
+                routePriority === item.id
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-card text-muted-foreground hover:text-foreground border border-border/60"
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Action Buttons */}

@@ -1,3 +1,5 @@
+import { RoutePOI, ActivityZone } from './journey';
+
 export interface LiveMonitorResponse {
   journey_id: string;
   is_active: boolean;
@@ -44,6 +46,8 @@ export interface LiveMonitorResponse {
     community_impact?: string;
     risk_factors?: string[];
     geometry: any; // GeoJSON
+    nearby_pois?: RoutePOI[];
+    activity_zones?: ActivityZone[];
   };
   current_location: { lat: number; lng: number } | null;
 }

@@ -1,6 +1,5 @@
 import logging
-import threading
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 import numpy as np
 import pandas as pd
 
@@ -116,19 +115,7 @@ class MLSafetyPredictor:
         except Exception as e:
             raise MLInferenceError(f"Prediction execution failed: {e}") from e
 
-    def predict_and_explain(
-        self, features_df: pd.DataFrame
-    ) -> Tuple[np.ndarray, List[Optional[Dict[str, Any]]], Optional[np.ndarray]]:
-        """
-        Fused single-pass inference and TreeSHAP calculation.
-        Delegates to predict_segments (ensuring mock and subclass compatibility)
-        and explain_segments for TreeSHAP attribution and raw contribution matrix.
-        """
-        predictions = self.predict_segments(features_df)
-        scores, explanations, raw_contrib = self.explain_segments(features_df, return_raw_contrib=True)
-        return predictions, explanations, raw_contrib
-
-    def explain_segments(self, features_df: pd.DataFrame, return_raw_contrib: bool = False) -> Any:
+    def explain_segments(self, features_df: pd.DataFrame) -> List[Optional[Dict[str, Any]]]:
         """
         Calculates genuine TreeSHAP feature contributions for a DataFrame of road segments
         using LightGBM's native tree contribution interface (model.booster_.predict(..., pred_contrib=True)).
@@ -137,19 +124,13 @@ class MLSafetyPredictor:
         and groups into top positive (safety-enhancing) and negative (risk-increasing) factors.
         """
         if self.model is None or self.preprocessor is None:
-            if return_raw_contrib:
-                return np.array([], dtype=np.float32), [None] * len(features_df), None
             return [None] * len(features_df)
 
         if not hasattr(self.model, "booster_"):
             logger.warning("Underlying model lacks booster_ attribute for TreeSHAP.")
-            if return_raw_contrib:
-                return np.array([], dtype=np.float32), [None] * len(features_df), None
             return [None] * len(features_df)
 
         if len(features_df) == 0:
-            if return_raw_contrib:
-                return np.array([], dtype=np.float32), [], None
             return []
 
         df = features_df.copy()
@@ -162,17 +143,13 @@ class MLSafetyPredictor:
         missing = [c for c in CANONICAL_PREDICTOR_FEATURES if c not in df.columns]
         if missing:
             logger.warning(f"Cannot explain segments: missing features {missing[:3]}")
-            if return_raw_contrib:
-                return np.array([], dtype=np.float32), [None] * len(features_df), None
             return [None] * len(features_df)
 
         try:
             X = df[CANONICAL_PREDICTOR_FEATURES]
             X_trans = self.preprocessor.transform(X)
             raw_preds = self.model.predict(X_trans)
-            safety_scores = np.clip(raw_preds, 0.0, 100.0).astype(np.float32)
             contrib_matrix = self.model.booster_.predict(X_trans, pred_contrib=True)
-            raw_contrib_matrix = contrib_matrix[:, :-1]
             feature_names = self.preprocessor.get_feature_names_out()
 
             results = []
@@ -226,14 +203,10 @@ class MLSafetyPredictor:
                     "legacy_contributions": legacy_contribs,
                     "status": "VALIDATED_ATTRIBUTION"
                 })
-            if return_raw_contrib:
-                return safety_scores, results, raw_contrib_matrix
             return results
 
         except Exception as e:
             logger.error(f"TreeSHAP explanation failed: {e}")
-            if return_raw_contrib:
-                return np.array([], dtype=np.float32), [None] * len(features_df), None
             return [None] * len(features_df)
 
     def predict_segment(self, feature_dict: Dict[str, Any]) -> Dict[str, Any]:
@@ -285,32 +258,16 @@ class MLSafetyPredictor:
 # Backward compatibility alias for legacy callers
 SafeSheMLPredictor = MLSafetyPredictor
 
-_shared_ml_predictor = None
-_predictor_lock = threading.Lock()
+_global_ml_predictor: Optional[MLSafetyPredictor] = None
 
+def get_ml_predictor() -> MLSafetyPredictor:
+    global _global_ml_predictor
+    if _global_ml_predictor is None:
+        _global_ml_predictor = MLSafetyPredictor()
+    return _global_ml_predictor
 
-def get_ml_safety_predictor(verify_checksum: bool = True) -> MLSafetyPredictor:
-    """
-    Returns a shared, thread-safe MLSafetyPredictor singleton using cached artifacts.
-    Eliminates multi-instance model deserialization and memory ballooning.
-    Thread-safe via double-checked locking.
-    """
-    global _shared_ml_predictor
-    if _shared_ml_predictor is not None:
-        return _shared_ml_predictor
-    with _predictor_lock:
-        if _shared_ml_predictor is not None:
-            return _shared_ml_predictor
-        instance = MLSafetyPredictor(verify_checksum=verify_checksum)
-        _shared_ml_predictor = instance
-        return _shared_ml_predictor
+get_ml_safety_predictor = get_ml_predictor
 
-
-def reset_ml_safety_predictor() -> None:
-    """Resets the shared predictor singleton (primarily for test isolation)."""
-    global _shared_ml_predictor
-    with _predictor_lock:
-        _shared_ml_predictor = None
 
 
 class MockSafetyPredictor:

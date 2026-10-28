@@ -1,9 +1,22 @@
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  relationship?: string;
+  phone_number: string;
+  email?: string;
+  is_primary?: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
+  username?: string;
   full_name?: string;
+  phone_number?: string;
+  age?: number;
   is_active: boolean;
   role: string;
+  emergency_contacts?: EmergencyContact[];
 }
 
 export interface AuthResponse {
@@ -18,3 +31,4 @@ export interface LoginCredentials {
   password: string;
   remember_me?: boolean;
 }
+
