@@ -290,14 +290,16 @@ class MultimodalRouter:
                 if len(bus_geom_coords) < 2 or bus_dist_m < 400:
                     continue
 
-                # Access and Egress legs via OSRM
-                acc_routes = await route_provider.get_routes(
-                    source_loc, Location(type="Point", coordinates=[o_st["lon"], o_st["lat"]]),
-                    mode="foot", alternatives="false"
-                )
-                egr_routes = await route_provider.get_routes(
-                    Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]), dest_loc,
-                    mode="foot", alternatives="false"
+                # Access and Egress legs via OSRM in parallel
+                acc_routes, egr_routes = await asyncio.gather(
+                    route_provider.get_routes(
+                        source_loc, Location(type="Point", coordinates=[o_st["lon"], o_st["lat"]]),
+                        mode="foot", alternatives="false"
+                    ),
+                    route_provider.get_routes(
+                        Location(type="Point", coordinates=[d_st["lon"], d_st["lat"]]), dest_loc,
+                        mode="foot", alternatives="false"
+                    )
                 )
 
                 if acc_routes and egr_routes:
@@ -499,13 +501,15 @@ class MultimodalRouter:
                     acc_disp = itin["acc_disp"]
                     egr_disp = itin["egr_disp"]
 
-                    acc_r = await route_provider.get_routes(
-                        source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
-                        mode=itin["acc_osrm"], alternatives="false"
-                    )
-                    egr_r = await route_provider.get_routes(
-                        Location(type="Point", coordinates=[dest_st["lon"], dest_st["lat"]]), dest_loc,
-                        mode=itin["egr_osrm"], alternatives="false"
+                    acc_r, egr_r = await asyncio.gather(
+                        route_provider.get_routes(
+                            source_loc, Location(type="Point", coordinates=[orig_st["lon"], orig_st["lat"]]),
+                            mode=itin["acc_osrm"], alternatives="false"
+                        ),
+                        route_provider.get_routes(
+                            Location(type="Point", coordinates=[dest_st["lon"], dest_st["lat"]]), dest_loc,
+                            mode=itin["egr_osrm"], alternatives="false"
+                        )
                     )
                     if not acc_r or not egr_r:
                         continue

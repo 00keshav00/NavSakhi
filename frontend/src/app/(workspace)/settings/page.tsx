@@ -322,7 +322,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto px-6 py-8 md:px-10 lg:px-12">
+    <div className="flex min-h-full w-full flex-col px-4 sm:px-6 md:px-10 lg:px-12 py-6 sm:py-8 pb-32 md:pb-16">
       
       {/* Page Title & Save Action */}
       <div className="mb-8 flex items-center justify-between">

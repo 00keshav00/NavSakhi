@@ -87,7 +87,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto px-6 py-8 md:px-10 lg:px-12">
+    <div className="flex min-h-full w-full flex-col px-4 sm:px-6 md:px-10 lg:px-12 py-6 sm:py-8 pb-32 md:pb-16">
       
       <div className="mb-8 flex items-center justify-between">
         <h1 className="font-[family-name:var(--font-jakarta)] text-3xl font-extrabold tracking-tight text-foreground">
@@ -389,7 +389,7 @@ export default function ProfilePage() {
       </Dialog>
 
       {/* Comprehensive Page Footer */}
-      <div className="mt-16 -mx-6 md:-mx-10 lg:-mx-12">
+      <div className="mt-16 -mx-4 sm:-mx-6 md:-mx-10 lg:-mx-12">
         <Footer />
       </div>
     </div>

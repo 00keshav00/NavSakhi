@@ -232,7 +232,10 @@ class WeatherService:
                 f"&timezone=auto"
             )
 
-            async with httpx.AsyncClient(timeout=4.5) as client:
+            headers = {
+                "User-Agent": "NavSakhi-WeatherService/1.0 (https://github.com/00keshav00/NavSakhi; contact: keshav.kmr.in@gmail.com)"
+            }
+            async with httpx.AsyncClient(timeout=6.0, headers=headers) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -365,6 +368,16 @@ class WeatherService:
                     self._rate_limit_cooldown = cooldown
                     self._last_rate_limit_time = now
 
+                    # 1. Attempt secondary provider failover on 429 rate limit
+                    sec_obs = await self._fetch_secondary_provider(lat, lon, resolved_name)
+                    if sec_obs is not None:
+                        self._weather_cache[cache_key] = (now, sec_obs)
+                        self._last_valid_observation[cache_key] = (now, sec_obs)
+                        if my_future is not None and not my_future.done():
+                            my_future.set_result(sec_obs)
+                        return sec_obs
+
+                    # 2. Check cached observation
                     cached_tuple = self._get_best_cached_observation(lat, lon)
                     if cached_tuple is not None:
                         _, valid_obs = cached_tuple
@@ -393,7 +406,15 @@ class WeatherService:
                         my_future.set_result(unavail)
                     return unavail
 
-            # Fallback for unexpected status codes: check cached observation before marking unavailable
+            # Fallback for unexpected status codes: try secondary provider first, then cached observation
+            sec_obs = await self._fetch_secondary_provider(lat, lon, resolved_name)
+            if sec_obs is not None:
+                self._weather_cache[cache_key] = (now, sec_obs)
+                self._last_valid_observation[cache_key] = (now, sec_obs)
+                if my_future is not None and not my_future.done():
+                    my_future.set_result(sec_obs)
+                return sec_obs
+
             cached_tuple = self._get_best_cached_observation(lat, lon)
             if cached_tuple is not None:
                 _, valid_obs = cached_tuple
@@ -423,6 +444,15 @@ class WeatherService:
             return unavail
         except Exception as e:
             logger.warning(f"Failed to fetch live weather from Open-Meteo for ({lat}, {lon}): {e}")
+            # Try secondary provider failover on exception / timeout
+            sec_obs = await self._fetch_secondary_provider(lat, lon, resolved_name)
+            if sec_obs is not None:
+                self._weather_cache[cache_key] = (now, sec_obs)
+                self._last_valid_observation[cache_key] = (now, sec_obs)
+                if my_future is not None and not my_future.done():
+                    my_future.set_result(sec_obs)
+                return sec_obs
+
             cached_tuple = self._get_best_cached_observation(lat, lon)
             if cached_tuple is not None:
                 _, valid_obs = cached_tuple
@@ -452,6 +482,183 @@ class WeatherService:
             return unavail
         finally:
             self._in_flight.pop(cache_key, None)
+
+    async def _fetch_secondary_provider(
+        self, lat: float, lon: float, location_name: str
+    ) -> Optional[LiveWeatherResponse]:
+        """
+        Permitted secondary provider fallback:
+        1. WeatherAPI.com (if weather_api_key configured in backend settings)
+        2. wttr.in (global open atmospheric service with authentic observations)
+        """
+        from app.config.settings import settings
+
+        # 1. WeatherAPI.com if key is configured
+        if getattr(settings, "weather_api_key", None):
+            try:
+                base_url = settings.weather_api_url or "https://api.weatherapi.com/v1"
+                url = f"{base_url}/current.json"
+                params = {"key": settings.weather_api_key, "q": f"{lat:.4f},{lon:.4f}", "aqi": "no"}
+                async with httpx.AsyncClient(timeout=4.5) as client:
+                    resp = await client.get(url, params=params)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        curr = data.get("current", {})
+                        temp = float(curr.get("temp_c", 26.0))
+                        app_temp = float(curr.get("feelslike_c", temp))
+                        hum = int(curr.get("humidity", 65))
+                        wind = float(curr.get("wind_kph", 10.0))
+                        wind_dir = int(curr.get("wind_degree", 0))
+                        precip = float(curr.get("precip_mm", 0.0))
+                        cond_text = curr.get("condition", {}).get("text", "Partly cloudy")
+                        cloud = int(curr.get("cloud", 25))
+                        uv = float(curr.get("uv", 0.0))
+
+                        icon_key = "partly-cloudy"
+                        c_lower = cond_text.lower()
+                        if "thunder" in c_lower: icon_key = "thunderstorm"
+                        elif "rain" in c_lower or "drizzle" in c_lower: icon_key = "rain"
+                        elif "cloud" in c_lower or "overcast" in c_lower: icon_key = "cloudy"
+                        elif "clear" in c_lower or "sunny" in c_lower: icon_key = "sun"
+
+                        return LiveWeatherResponse(
+                            available=True,
+                            status="AVAILABLE",
+                            provider="WeatherAPI",
+                            provider_url="https://www.weatherapi.com",
+                            attribution="Weather data provided by WeatherAPI.com",
+                            latitude=lat,
+                            longitude=lon,
+                            location_name=location_name,
+                            timezone="Asia/Kolkata",
+                            temperature=temp,
+                            apparent_temperature=app_temp,
+                            weather_code=0,
+                            condition=cond_text,
+                            condition_icon=icon_key,
+                            humidity=hum,
+                            wind_speed=wind,
+                            wind_direction=wind_dir,
+                            precipitation=precip,
+                            rain=precip,
+                            cloud_cover=cloud,
+                            uv_index=uv,
+                            uv_index_max=None,
+                            sunrise=None,
+                            sunset=None,
+                            hourly_forecast=[],
+                            daily_forecast=[],
+                            observation_timestamp=curr.get("last_updated", datetime.datetime.utcnow().isoformat()),
+                            cached=False,
+                            cache_expires_in_seconds=self._weather_cache_ttl,
+                            warnings=[]
+                        )
+            except Exception as e:
+                logger.warning(f"Secondary provider WeatherAPI error: {e}")
+
+        # 2. wttr.in open global atmospheric data
+        try:
+            url = f"https://wttr.in/{lat:.4f},{lon:.4f}?format=j1"
+            headers = {"User-Agent": "NavSakhi-WeatherService/1.0 (https://github.com/00keshav00/NavSakhi)"}
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    curr = data.get("current_condition", [{}])[0]
+                    temp = float(curr.get("temp_C", 26.0))
+                    app_temp = float(curr.get("FeelsLikeC", temp))
+                    hum = int(curr.get("humidity", 65))
+                    wind = float(curr.get("windspeedKmph", 12.0))
+                    wind_dir = int(curr.get("winddirDegree", 0))
+                    precip = float(curr.get("precipMM", 0.0))
+                    cloud = int(curr.get("cloudcover", 30))
+                    uv = float(curr.get("uvIndex", 0.0))
+
+                    descs = curr.get("weatherDesc", [])
+                    cond_text = descs[0].get("value", "Partly Cloudy").strip() if descs else "Partly Cloudy"
+
+                    icon_key = "partly-cloudy"
+                    c_lower = cond_text.lower()
+                    if "thunder" in c_lower: icon_key = "thunderstorm"
+                    elif "heavy rain" in c_lower: icon_key = "heavy-rain"
+                    elif "rain" in c_lower: icon_key = "rain"
+                    elif "drizzle" in c_lower: icon_key = "drizzle"
+                    elif "fog" in c_lower or "mist" in c_lower: icon_key = "fog"
+                    elif "cloud" in c_lower or "overcast" in c_lower: icon_key = "cloudy"
+                    elif "clear" in c_lower or "sunny" in c_lower: icon_key = "sun"
+
+                    daily_items = []
+                    hourly_items = []
+                    for wday in data.get("weather", [])[:7]:
+                        d_date = wday.get("date", "")
+                        d_max = float(wday.get("maxtempC", temp))
+                        d_min = float(wday.get("mintempC", temp))
+                        d_ast = wday.get("astronomy", [{}])[0]
+                        daily_items.append(DailyForecastItem(
+                            date=d_date,
+                            weather_code=0,
+                            condition=cond_text,
+                            temperature_max=d_max,
+                            temperature_min=d_min,
+                            sunrise=d_ast.get("sunrise"),
+                            sunset=d_ast.get("sunset"),
+                            uv_index_max=float(wday.get("uvIndex", 0.0)) if wday.get("uvIndex") else None
+                        ))
+
+                    for hitem in data.get("weather", [{}])[0].get("hourly", [])[:8]:
+                        h_time_raw = hitem.get("time", "0")
+                        h_hour = int(h_time_raw) // 100
+                        h_time = f"{h_hour:02d}:00"
+                        h_temp = float(hitem.get("tempC", temp))
+                        h_prob = int(hitem.get("chanceofrain", 0))
+                        h_descs = hitem.get("weatherDesc", [])
+                        h_cond = h_descs[0].get("value", cond_text).strip() if h_descs else cond_text
+                        hourly_items.append(HourlyForecastItem(
+                            time=h_time,
+                            temperature_2m=h_temp,
+                            precipitation_probability=h_prob,
+                            weather_code=0,
+                            condition=h_cond
+                        ))
+
+                    ast_0 = data.get("weather", [{}])[0].get("astronomy", [{}])[0]
+
+                    return LiveWeatherResponse(
+                        available=True,
+                        status="AVAILABLE",
+                        provider="WorldWeatherOnline (via wttr.in)",
+                        provider_url="https://wttr.in",
+                        attribution="Weather data provided by wttr.in / WorldWeatherOnline",
+                        latitude=lat,
+                        longitude=lon,
+                        location_name=location_name,
+                        timezone="Asia/Kolkata",
+                        temperature=temp,
+                        apparent_temperature=app_temp,
+                        weather_code=0,
+                        condition=cond_text,
+                        condition_icon=icon_key,
+                        humidity=hum,
+                        wind_speed=wind,
+                        wind_direction=wind_dir,
+                        precipitation=precip,
+                        rain=precip,
+                        cloud_cover=cloud,
+                        uv_index=uv,
+                        uv_index_max=float(data.get("weather", [{}])[0].get("uvIndex", 0.0)) if data.get("weather") else None,
+                        sunrise=ast_0.get("sunrise"),
+                        sunset=ast_0.get("sunset"),
+                        hourly_forecast=hourly_items,
+                        daily_forecast=daily_items,
+                        observation_timestamp=datetime.datetime.utcnow().isoformat(),
+                        cached=False,
+                        cache_expires_in_seconds=self._weather_cache_ttl,
+                        warnings=[]
+                    )
+        except Exception as e:
+            logger.warning(f"Secondary provider wttr.in error: {e}")
+
+        return None
 
     def _build_unavailable_response(
         self,

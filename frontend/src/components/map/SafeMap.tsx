@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import Map, { Source, Layer, Marker, NavigationControl, Popup, MapRef } from "react-map-gl/maplibre";
+import Map, { Source, Layer, Marker, Popup, MapRef } from "react-map-gl/maplibre";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   Loader2, Layers, X, ChevronDown, ChevronUp, Info, Check, Eye, EyeOff, Sparkles,
   Building2, Store, ShieldAlert, Train, Shield, Stethoscope, Pill, Flame, Fuel,
-  GraduationCap, Landmark, Film, Navigation, MapPin, Camera
+  GraduationCap, Landmark, Film, Navigation, MapPin, Camera, Plus, Minus, Compass
 } from "lucide-react";
 import { RoutePOI, ActivityZone } from "@/types/journey";
 
@@ -334,6 +334,8 @@ export default function SafeMap({
     longitude: 80.2090, // Chennai Default
     latitude: 13.0827,
     zoom: 12,
+    bearing: 0,
+    pitch: 0,
   });
   const lastFitKeyRef = useRef<string>("");
   const [internalSelectedPoi, setInternalSelectedPoi] = useState<RoutePOI | null>(null);
@@ -698,10 +700,10 @@ export default function SafeMap({
         </div>
       )}
 
-      {/* 2C. CONSOLIDATED MAP CONTROLS (LAYERS & LEGEND) */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
-          {/* Map Layers Toggle */}
+      {/* 2C. CONSOLIDATED MAP CONTROLS (LAYERS, LEGEND & NAVIGATION) */}
+      <div className="absolute top-4 right-3 sm:top-4 sm:right-4 z-20 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Map Layers Toggle - Compact Icon-only on mobile, full pill on desktop */}
           <button
             type="button"
             onClick={() => {
@@ -715,7 +717,7 @@ export default function SafeMap({
                 onZoneSelect?.(null);
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
+            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
               showLayers
                 ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
                 : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
@@ -723,15 +725,17 @@ export default function SafeMap({
             title="Toggle Map Layers & POI Categories"
             aria-label="Map Layers"
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Layers</span>
+            <Layers className="w-4 h-4" />
+            <span className="hidden md:inline">Layers</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/40 font-extrabold">
               {Object.values(layerVisibility).filter(Boolean).length}/5
             </span>
-            {showLayers ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            <span className="hidden md:inline">
+              {showLayers ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </span>
           </button>
 
-          {/* Legend Toggle */}
+          {/* Legend Toggle - Compact Icon-only on mobile, full pill on desktop */}
           <button
             type="button"
             onClick={() => {
@@ -745,7 +749,7 @@ export default function SafeMap({
                 onZoneSelect?.(null);
               }
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
+            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
               showLegend
                 ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
                 : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
@@ -753,10 +757,46 @@ export default function SafeMap({
             title="Toggle map symbols and transport legend"
             aria-label="Map Legend"
           >
-            <Info className="w-3.5 h-3.5" />
-            <span>Legend</span>
-            {showLegend ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            <Info className="w-4 h-4" />
+            <span className="hidden md:inline">Legend</span>
+            <span className="hidden md:inline">
+              {showLegend ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </span>
           </button>
+
+          {/* Dedicated Map Navigation Controls (Zoom In, Zoom Out, Orientation) */}
+          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/90 backdrop-blur-md shadow-xl overflow-hidden divide-x divide-slate-800">
+            <button
+              type="button"
+              onClick={() => mapRef.current?.zoomIn()}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Zoom in"
+              aria-label="Zoom in"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => mapRef.current?.zoomOut()}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Zoom out"
+              aria-label="Zoom out"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => mapRef.current?.resetNorth({ duration: 300 })}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Reset bearing to north"
+              aria-label="Reset bearing to north"
+            >
+              <Compass
+                className="w-4 h-4 transition-transform duration-300"
+                style={{ transform: `rotate(-${viewState.bearing || 0}deg)` }}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Map Layers Popover */}
@@ -1205,8 +1245,6 @@ export default function SafeMap({
           }
         }}
       >
-        <NavigationControl position="top-right" />
-
         {/* 3. DISTINCT ORIGIN / START PIN ('S' / Start) */}
         {resolvedSourceCoords && (
           <Marker longitude={resolvedSourceCoords[0]} latitude={resolvedSourceCoords[1]} anchor="bottom">
