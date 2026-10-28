@@ -120,7 +120,7 @@ def test_intent_classification_small_talk():
     for q in small_talk_queries:
         res = global_intent_classifier.classify(q)
         assert res.intent == IntentCategory.SMALL_TALK, f"Query '{q}' expected SMALL_TALK, got {res.intent}"
-        assert res.requires_external_llm is False
+        # In Phase 51.109+, conversational small talk routes to LLM when online with reliable direct fallback
         assert res.direct_response is not None
         assert len(res.direct_response) > 5
 
@@ -216,12 +216,13 @@ async def test_reasoning_tool_rate_limit_cooldown():
 
 @pytest.mark.asyncio
 async def test_reasoning_tool_deterministic_small_talk():
-    """Small talk queries execute deterministically without external LLM calls."""
+    """Small talk queries execute deterministically with local companion when Gemini is unconfigured or offline."""
     tool = ReasoningTool()
-    res = await tool.execute({"context": {"query": "Hello!"}})
-    assert res["provider"] == "local_companion"
-    assert res["ai_status"] == "OFFLINE_DETERMINISTIC"
-    assert "NavSakhi" in res["summary"] or "Hello" in res["summary"] or "Chennai" in res["summary"]
+    with patch("app.tools.specialized.reasoning_tool.get_gemini_api_key", return_value=None):
+        res = await tool.execute({"context": {"query": "Hello!"}})
+        assert res["provider"] == "local_companion"
+        assert res["ai_status"] == "OFFLINE_DETERMINISTIC"
+        assert "NavSakhi" in res["summary"] or "Hello" in res["summary"] or "Chennai" in res["summary"]
 
 
 # =====================================================================

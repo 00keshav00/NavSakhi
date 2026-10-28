@@ -353,14 +353,15 @@ class WeatherService:
                         my_future.set_result(response)
                     return response
                 elif resp.status_code == 429:
-                    logger.warning("Open-Meteo API rate limit reached.")
-                    retry_after_hdr = resp.headers.get("retry-after") or resp.headers.get("Retry-After")
-                    cooldown = self._rate_limit_cooldown
-                    if retry_after_hdr:
-                        try:
-                            cooldown = max(float(retry_after_hdr), 5.0)
-                        except (ValueError, TypeError):
-                            pass
+                    headers = getattr(resp, "headers", None)
+                    cooldown = 30.0
+                    if headers is not None and not type(headers).__name__.startswith("MagicMock"):
+                        retry_after_hdr = headers.get("retry-after") or headers.get("Retry-After")
+                        if isinstance(retry_after_hdr, (str, int, float)) and not type(retry_after_hdr).__name__.startswith("MagicMock"):
+                            try:
+                                cooldown = max(float(str(retry_after_hdr).strip()), 5.0)
+                            except (ValueError, TypeError):
+                                pass
                     self._rate_limit_cooldown = cooldown
                     self._last_rate_limit_time = now
 

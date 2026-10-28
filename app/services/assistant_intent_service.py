@@ -67,7 +67,8 @@ class AssistantIntentClassifier:
         "keep me company", "walk with me", "accompany me", "accompany", "will you accompany",
         "can you accompany", "travel partner", "journey partner", "with me through out",
         "with me throughout", "just want a companion", "need a companion", "be my companion",
-        "travel friend", "by my side", "feeling lonely", "feel lonely"
+        "travel friend", "by my side", "feeling lonely", "feel lonely",
+        "help me", "will you help", "can you help", "assist me", "support me"
     ]
 
     # Local facilities, commercial shops, and verified safety POIs in Chennai
@@ -238,22 +239,7 @@ class AssistantIntentClassifier:
                 direct_response=anxiety_resp
             )
 
-        # 5. COMPANIONSHIP & JOURNEY PARTNER (Empathetic, digital companion presence)
-        if any(kw in clean_q for kw in cls.COMPANION_KEYWORDS) or any(w in clean_q for w in ["will you be my sakhi", "be my sakhi", "will you travel with me", "travel with me"]):
-            companion_resp = (
-                "Of course—I can be your digital travel companion and journey partner while you plan and monitor your route. "
-                "I can't physically accompany you or guarantee safety, but I can help you compare routes, "
-                "track transit timing, and understand the available safety information. Where are you heading today?"
-            )
-            return IntentClassificationResult(
-                intent=AssistantIntent.COMPANION_EMPATHY,
-                confidence=0.96,
-                is_supported_domain=True,
-                requires_external_llm=True,
-                direct_response=companion_resp
-            )
-
-        # 6. NAVSAKHI APPLICATION SUPPORT (Features, Account, LightGBM Model, Scoring)
+        # 5. NAVSAKHI APPLICATION SUPPORT (Features, Account, LightGBM Model, Scoring)
         if any(kw in clean_q for kw in cls.SUPPORT_KEYWORDS):
             support_resp = None
             if any(sk in clean_q for sk in ["score", "lightgbm", "safety score", "model", "how is score", "based on"]):
@@ -270,6 +256,26 @@ class AssistantIntentClassifier:
                 is_supported_domain=True,
                 requires_external_llm=True,
                 direct_response=support_resp
+            )
+
+        # 6. COMPANIONSHIP & JOURNEY PARTNER (Empathetic, digital companion presence)
+        is_task_help = any(w in clean_q for w in ["help me with", "help with", "can you help with", "assist with", "support with"])
+        is_companion_cue = (
+            (any(kw in clean_q for kw in cls.COMPANION_KEYWORDS) and not is_task_help)
+            or any(w in clean_q for w in ["will you be my sakhi", "be my sakhi", "will you travel with me", "travel with me", "accompany me while", "with me while i travel"])
+        )
+        if is_companion_cue:
+            companion_resp = (
+                "Of course—I can be your digital travel companion and journey partner while you plan and monitor your route. "
+                "I can't physically accompany you or guarantee safety, but I can help you compare routes, "
+                "track transit timing, and understand the available safety information. Where are you heading today?"
+            )
+            return IntentClassificationResult(
+                intent=AssistantIntent.COMPANION_EMPATHY,
+                confidence=0.96,
+                is_supported_domain=True,
+                requires_external_llm=True,
+                direct_response=companion_resp
             )
 
         # 7. JOURNEY & TRANSIT: Core Mobility Purpose (Routes, Bus, Metro, Chennai Travel, POIs & Facilities)
