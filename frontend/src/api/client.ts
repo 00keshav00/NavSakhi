@@ -20,7 +20,13 @@ export interface StandardResponse<T> {
 export function resolveApiBaseUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
   if (typeof envUrl === "string" && envUrl.trim().length > 0) {
-    return envUrl.trim().replace(/\/+$/, "");
+    const trimmed = envUrl.trim().replace(/\/+$/, "");
+    // If the configured URL is the obsolete/dormant un-suffixed Render service,
+    // automatically migrate to the authoritative staging service for Phase 51.
+    if (trimmed === "https://navsakhi-api.onrender.com" || trimmed === "http://navsakhi-api.onrender.com") {
+      return "https://navsakhi-api-staging.onrender.com";
+    }
+    return trimmed;
   }
 
   // Client-side browser execution fallback for deployed frontends
@@ -47,10 +53,14 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   try {
     if (typeof window !== "undefined") {
-      // Dynamically repair baseURL if it defaulted to localhost on a remote browser host
+      // Dynamically repair baseURL if it defaulted to localhost or the legacy dormant service on a remote host
       const currentBase = config.baseURL || apiClient.defaults.baseURL || "";
       if (
-        (!currentBase || currentBase.includes("localhost") || currentBase.includes("127.0.0.1")) &&
+        (!currentBase ||
+          currentBase.includes("localhost") ||
+          currentBase.includes("127.0.0.1") ||
+          currentBase === "https://navsakhi-api.onrender.com" ||
+          currentBase === "http://navsakhi-api.onrender.com") &&
         window.location.hostname !== "localhost" &&
         window.location.hostname !== "127.0.0.1"
       ) {
