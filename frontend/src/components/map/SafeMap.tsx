@@ -4,8 +4,52 @@ import { useEffect, useRef, useState, useMemo } from "react";
 import Map, { Source, Layer, Marker, NavigationControl, Popup, MapRef } from "react-map-gl/maplibre";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { Loader2, Layers, X, ChevronDown, ChevronUp, Info, Check, Eye, EyeOff, Sparkles, Building2, Store, ShieldAlert, Train } from "lucide-react";
+import {
+  Loader2, Layers, X, ChevronDown, ChevronUp, Info, Check, Eye, EyeOff, Sparkles,
+  Building2, Store, ShieldAlert, Train, Shield, Stethoscope, Pill, Flame, Fuel,
+  GraduationCap, Landmark, Film, Navigation, MapPin, Camera
+} from "lucide-react";
 import { RoutePOI, ActivityZone } from "@/types/journey";
+
+export function renderCategoryIcon(category: string, className = "w-3.5 h-3.5") {
+  switch (category) {
+    case "police":
+      return <Shield className={className} />;
+    case "hospital":
+      return <Building2 className={className} />;
+    case "clinic":
+      return <Stethoscope className={className} />;
+    case "pharmacy":
+      return <Pill className={className} />;
+    case "fire_station":
+      return <Flame className={className} />;
+    case "fuel":
+      return <Fuel className={className} />;
+    case "convenience":
+    case "supermarket":
+    case "retail_shop":
+    case "food_retail":
+    case "restaurant":
+    case "cafe":
+    case "fast_food":
+    case "hotel":
+      return <Store className={className} />;
+    case "mall":
+      return <Building2 className={className} />;
+    case "university":
+    case "college":
+      return <GraduationCap className={className} />;
+    case "bank_atm":
+      return <Landmark className={className} />;
+    case "entertainment":
+      return <Film className={className} />;
+    case "transit_hub":
+    case "transit":
+      return <Train className={className} />;
+    default:
+      return <MapPin className={className} />;
+  }
+}
 
 export const EMERGENCY_CATEGORIES = new Set(["police", "hospital", "clinic", "pharmacy", "fire_station", "fuel"]);
 export const LANDMARK_CATEGORIES = new Set(["mall", "university", "college", "entertainment", "landmark", "transit_hub"]);
@@ -955,7 +999,7 @@ export default function SafeMap({
             
             {/* Pins */}
             <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Journey Pins</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Journey Pins &amp; Routes</p>
               <div className="grid grid-cols-2 gap-1 text-[11px]">
                 <div className="flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-[9px]">S</span>
@@ -966,42 +1010,56 @@ export default function SafeMap({
                   <span>Destination</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">🚆</span>
+                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                    <Train className="w-2.5 h-2.5 text-white" />
+                  </span>
                   <span>Transit Station</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-cyan-500 ring-2 ring-cyan-500/40 text-slate-950 flex items-center justify-center text-[9px]">📍</span>
+                  <span className="w-4 h-4 rounded-full bg-cyan-500 ring-2 ring-cyan-500/40 text-slate-950 flex items-center justify-center">
+                    <Navigation className="w-2.5 h-2.5 text-slate-950" />
+                  </span>
                   <span>Live Location</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-1 rounded bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.8)]" />
+                  <span>Active Route</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-amber-500/20 border border-amber-500 text-amber-400 flex items-center justify-center">
+                    <ShieldAlert className="w-2.5 h-2.5" />
+                  </span>
+                  <span>Safe Haven</span>
                 </div>
               </div>
             </div>
 
             {/* Facilities */}
             <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verified Facilities</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Emergency Facilities</p>
               <div className="grid grid-cols-2 gap-1 text-[11px]">
                 <div className="flex items-center gap-1.5">
-                  <span>🛡️</span>
+                  <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                   <span>Police Station</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>🏥</span>
+                  <Building2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                   <span>Hospital</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>🩺</span>
+                  <Stethoscope className="w-3.5 h-3.5 text-orange-400 shrink-0" />
                   <span>Clinic</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>💊</span>
+                  <Pill className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <span>Pharmacy</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>🚒</span>
-                  <span>Fire & Rescue</span>
+                  <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Fire &amp; Rescue</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>⛽</span>
+                  <Fuel className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                   <span>Fuel / Service</span>
                 </div>
               </div>
@@ -1012,19 +1070,19 @@ export default function SafeMap({
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Major Landmarks</p>
               <div className="grid grid-cols-2 gap-1 text-[11px]">
                 <div className="flex items-center gap-1.5">
-                  <span>🏬</span>
+                  <Store className="w-3.5 h-3.5 text-fuchsia-400 shrink-0" />
                   <span>Shopping Mall</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>🎓</span>
+                  <GraduationCap className="w-3.5 h-3.5 text-purple-400 shrink-0" />
                   <span>College Campus</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>🏧</span>
+                  <Landmark className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <span>Bank / ATM</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>🎭</span>
+                  <Film className="w-3.5 h-3.5 text-pink-400 shrink-0" />
                   <span>Entertainment</span>
                 </div>
               </div>
@@ -1061,12 +1119,12 @@ export default function SafeMap({
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Surveillance &amp; Activity</p>
               <div className="grid grid-cols-1 gap-1 text-[11px]">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs">📹</span>
+                  <Camera className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>Surveillance Camera (Unverified operation)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 border border-amber-400/60 ring-1 ring-amber-400/30 shrink-0" />
-                  <span>Activity Area (Commercial cluster zone)</span>
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 border border-amber-400/60 border-dashed ring-1 ring-amber-400/30 shrink-0" />
+                  <span>Activity Zone (Commercial cluster area)</span>
                 </div>
               </div>
               <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
@@ -1283,7 +1341,7 @@ export default function SafeMap({
                         isSelected ? "border-cyan-400 ring-4 ring-cyan-400/70" : `${cfg.pinBorder} ring-2 ring-black/50`
                       } shadow-lg flex items-center justify-center text-xs text-white transition-all`}
                     >
-                      <span className="text-[13px]">{cfg.icon}</span>
+                      {renderCategoryIcon(poi.category, "w-4 h-4 text-white")}
                     </div>
                     <div className="w-1 h-1 bg-black/60 rounded-b shadow-xs" />
                   </>
@@ -1295,7 +1353,7 @@ export default function SafeMap({
                         isSelected ? "border-cyan-400 ring-4 ring-cyan-400/70" : cfg.pinBorder
                       } shadow-xl flex items-center gap-1.5 text-white max-w-[150px] truncate`}
                     >
-                      <span className="text-xs">{cfg.icon}</span>
+                      {renderCategoryIcon(poi.category, "w-3 h-3 text-white shrink-0")}
                       <span className="text-[10px] font-bold truncate">{poi.name}</span>
                     </div>
                     <div className="w-1.5 h-1.5 rotate-45 bg-fuchsia-700 -mt-1 shadow-sm" />
@@ -1486,8 +1544,8 @@ export default function SafeMap({
         <div className="fixed sm:absolute bottom-4 sm:bottom-auto sm:top-16 left-4 right-4 sm:left-auto sm:right-4 z-40 sm:w-84 max-w-[calc(100vw-2rem)] bg-slate-950/95 backdrop-blur-md text-slate-100 rounded-2xl border border-slate-700 shadow-2xl p-4 space-y-3 text-xs animate-in fade-in slide-in-from-right-2 duration-200">
           <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
             <div className="flex items-center gap-2">
-              <span className="text-lg">
-                {POI_CATEGORY_CONFIG[selectedPoi.category]?.icon || "📍"}
+              <span className="p-1 rounded-md bg-slate-800/80 border border-slate-700/80 shrink-0">
+                {renderCategoryIcon(selectedPoi.category, "w-4 h-4 text-cyan-400")}
               </span>
               <span className="font-extrabold text-slate-200 uppercase tracking-wider text-[11px]">
                 {selectedPoi.category_label || selectedPoi.category}

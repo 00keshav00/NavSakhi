@@ -206,9 +206,14 @@ export function Footer() {
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
               <ShieldCheck size={13} /> Consent-Based Telemetry
             </span>
-            <span className="flex items-center gap-1 font-mono text-foreground font-semibold">
+            <a
+              href="tel:112"
+              className="flex items-center gap-1 font-mono text-foreground font-semibold hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger rounded-md px-1 py-0.5 transition-colors"
+              title="Direct telephone call to 112 National Emergency Helpline (India)"
+              aria-label="Call 112 National Emergency Helpline"
+            >
               <PhoneCall size={12} className="text-danger" /> 112 National Emergency
-            </span>
+            </a>
           </div>
         </div>
       </div>

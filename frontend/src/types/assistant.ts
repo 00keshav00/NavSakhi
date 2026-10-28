@@ -20,6 +20,9 @@ export interface AssistantResponse {
     provider_latency_ms?: number | null;
     outcome_category?: string;
     correlation_id?: string;
+    last_failed_model?: string | null;
+    failed_model_candidates?: string[];
+    safety_blocked_candidate?: string | null;
   };
   context: {
     active_journey: boolean;

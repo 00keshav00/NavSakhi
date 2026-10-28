@@ -981,6 +981,18 @@ class ResponseBuilder:
 
         llm_dict = llm if isinstance(llm, dict) else {}
 
+        # Determine truthful decision_source and model attribution
+        if llm_dict.get("decision_source"):
+            dec_source = str(llm_dict["decision_source"])
+        elif resp_source == "gemini":
+            dec_source = "gemini_direct" if llm_dict.get("attempt_count", 1) <= 1 else "gemini_failover"
+        elif resp_source == "rule_based":
+            dec_source = "safety_rules" if llm_dict.get("intent_category") == "SAFETY" else "small_talk_fallback"
+        else:
+            dec_source = "contextual_fallback"
+
+        model_id = llm_dict.get("model_identifier") if resp_source == "gemini" else None
+
         return AssistantResponse(
             message_id="msg_" + str(uuid.uuid4())[:8],
             role="assistant",
@@ -990,16 +1002,19 @@ class ResponseBuilder:
             reasoning=ReasoningContext(
                 summary=["Query processed against verified route context", "Bounded to empirical telemetry data"],
                 confidence=None,
-                decision_source="Journey Engine State",
+                decision_source=dec_source,
                 provider_summary=prov_summary,
                 response_source=resp_source,
                 intent_category=llm_dict.get("intent_category"),
                 gemini_attempted=llm_dict.get("gemini_attempted", False),
-                model_identifier=llm_dict.get("model_identifier"),
+                model_identifier=model_id,
                 attempt_count=llm_dict.get("attempt_count", 0),
                 provider_latency_ms=llm_dict.get("provider_latency_ms"),
                 outcome_category=llm_dict.get("outcome_category", "unavailable"),
-                correlation_id=llm_dict.get("correlation_id")
+                correlation_id=llm_dict.get("correlation_id"),
+                last_failed_model=llm_dict.get("last_failed_model"),
+                failed_model_candidates=llm_dict.get("failed_model_candidates", []),
+                safety_blocked_candidate=llm_dict.get("safety_blocked_candidate")
             ),
             context=JourneyContextState(
                 active_journey=has_active,

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class AgentStatus(BaseModel):
@@ -18,6 +18,9 @@ class ReasoningContext(BaseModel):
     provider_latency_ms: Optional[float] = None
     outcome_category: Optional[str] = None  # "success" | "rate_limited" | "timeout" | "invalid_response" | "unavailable" | "skipped"
     correlation_id: Optional[str] = None
+    last_failed_model: Optional[str] = None
+    failed_model_candidates: List[str] = Field(default_factory=list)
+    safety_blocked_candidate: Optional[str] = None
 
 class JourneyContextState(BaseModel):
     active_journey: bool

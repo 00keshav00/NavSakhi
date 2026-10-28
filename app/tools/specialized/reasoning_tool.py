@@ -175,13 +175,10 @@ from app.services.assistant_intent_service import global_intent_classifier, Inte
 from app.services.credential_service import get_active_gemini_api_key, global_credential_manager
 
 # Candidate Gemini Models in deterministic failover priority order
-# Retired models (gemini-2.0-flash, gemini-1.5-flash) removed per official deprecations
+# Maximum 2 attempts per turn: primary candidate gemini-3.5-flash-lite, alternate gemini-3.8-flash
 CANDIDATE_GEMINI_MODELS: List[str] = [
     "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-3.6-flash",
     "gemini-3.8-flash",
-    "gemini-2.5-flash",
 ]
 
 # Per-model cooldown tracking
@@ -206,7 +203,8 @@ def _parse_retry_after(headers: Any) -> Optional[float]:
 
 def get_configured_gemini_models() -> List[str]:
     """
-    Returns candidate models in priority order, honoring any configured primary model.
+    Returns candidate models in priority order, honoring any configured primary model,
+    strictly capped to at most 2 candidate models.
     """
     configured = getattr(settings, "llm_model_name", None) or os.getenv("LLM_MODEL_NAME", "")
     models = list(CANDIDATE_GEMINI_MODELS)
@@ -215,7 +213,7 @@ def get_configured_gemini_models() -> List[str]:
         if primary in models:
             models.remove(primary)
         models.insert(0, primary)
-    return models
+    return models[:2]
 
 
 def is_model_in_cooldown(model: str) -> bool:
@@ -249,56 +247,130 @@ def mark_model_ineligible(model: str, reason: str = "") -> None:
 
 def classify_gemini_error(
     status_code: int,
-    response_text: str,
+    response_text: Any,
     model_name: str
 ) -> Dict[str, Any]:
     """
     Classifies a Gemini API HTTP error according to structured response details.
-    Distinguishes unsupported models, parameter errors, endpoint 404s, rate limits, and generic client errors.
+    Distinguishes invalid credentials, depleted billing, shared quota, per-model rate limits,
+    unsupported models, parameter errors, endpoint 404s, and transient server errors.
     """
-    error_message = ""
-    error_status = ""
-    try:
-        data = json.loads(response_text)
-        if isinstance(data, dict) and "error" in data and isinstance(data["error"], dict):
-            error_message = str(data["error"].get("message", "")).lower()
-            error_status = str(data["error"].get("status", "")).upper()
-        elif isinstance(data, dict) and "message" in data:
-            error_message = str(data.get("message", "")).lower()
-    except Exception:
-        error_message = response_text.lower() if response_text else ""
-
-    model_lower = model_name.lower()
-
-    if status_code == 429:
-        return {
-            "category": "RATE_LIMIT",
-            "is_model_ineligible": False,
-            "can_failover": True,
-            "reason": f"Model '{model_name}' hit rate limit (HTTP 429)."
-        }
-
     if status_code in (401, 403):
         return {
             "category": "AUTH_RESTRICTION",
             "is_model_ineligible": False,
+            "is_credential_failure": True,
             "can_failover": False,
             "reason": f"API key or project credential restricted (HTTP {status_code})."
         }
 
+    raw_text = ""
+    if isinstance(response_text, (str, bytes)):
+        raw_text = response_text.decode("utf-8", errors="ignore") if isinstance(response_text, bytes) else response_text
+    elif response_text is not None:
+        try:
+            raw_text = str(response_text)
+        except Exception:
+            raw_text = ""
+
+    error_message = ""
+    error_status = ""
+    error_code = None
+    error_details: List[Dict[str, Any]] = []
+    try:
+        data = json.loads(raw_text)
+        if isinstance(data, dict) and "error" in data and isinstance(data["error"], dict):
+            err_dict = data["error"]
+            error_message = str(err_dict.get("message", "")).lower()
+            error_status = str(err_dict.get("status", "")).upper()
+            error_code = err_dict.get("code")
+            raw_details = err_dict.get("details", [])
+            if isinstance(raw_details, list):
+                error_details = [d for d in raw_details if isinstance(d, dict)]
+        elif isinstance(data, dict) and "message" in data:
+            error_message = str(data.get("message", "")).lower()
+    except Exception:
+        error_message = raw_text.lower() if raw_text else ""
+
+    model_lower = model_name.lower()
+
+    # 1. API KEY / CREDENTIAL FAILURE (e.g. HTTP 400 with API_KEY_INVALID, or 401/403)
+    is_api_key_invalid = (
+        any(d.get("reason") == "API_KEY_INVALID" for d in error_details)
+        or "api key not valid" in error_message
+        or "api_key_invalid" in error_message
+        or "invalid api key" in error_message
+    )
+    if is_api_key_invalid:
+        return {
+            "category": "AUTH_RESTRICTION",
+            "is_model_ineligible": False,
+            "is_credential_failure": True,
+            "can_failover": False,
+            "reason": f"API key invalid for '{model_name}': {error_message[:100]}"
+        }
+
+    # 2. DEPLETED PREPAY CREDITS / BILLING FAILURE (HTTP 402 or RESOURCE_EXHAUSTED with billing)
+    is_billing_exhausted = (
+        status_code == 402
+        or any("billing" in str(d.get("metadata", {})).lower() for d in error_details)
+        or "billing" in error_message
+    )
+    if is_billing_exhausted:
+        return {
+            "category": "BILLING_DEPLETED",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": False,
+            "reason": f"Prepay credits or project billing depleted (HTTP {status_code}): {error_message[:100]}"
+        }
+
+    # 3. FAILED PRECONDITION (Project configuration / prerequisite issues)
+    if error_status == "FAILED_PRECONDITION" or (status_code == 400 and "failed_precondition" in error_message):
+        return {
+            "category": "PROJECT_PRECONDITION",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": False,
+            "reason": f"Project prerequisite / billing setup error (HTTP 400): {error_message[:100]}"
+        }
+
+    # 4. RATE LIMITS (HTTP 429) - Distinguish candidate-specific rate limit from shared project quota
+    if status_code == 429:
+        is_shared_project_quota = (
+            "project quota" in error_message
+            or "daily quota" in error_message
+            or any(d.get("reason") in ["PROJECT_QUOTA_EXHAUSTED", "DAILY_LIMIT_EXCEEDED"] for d in error_details)
+        )
+        if is_shared_project_quota:
+            return {
+                "category": "RATE_LIMIT",
+                "is_model_ineligible": False,
+                "is_credential_failure": False,
+                "can_failover": False,  # Project-wide quota exhausted, no blind rotation
+                "reason": f"Shared project quota exhausted (HTTP 429): {error_message[:100]}"
+            }
+        return {
+            "category": "RATE_LIMIT",
+            "is_model_ineligible": False,
+            "is_credential_failure": False,
+            "can_failover": True,  # Candidate-specific rate limit, eligible for bounded failover
+            "reason": f"Model '{model_name}' hit rate limit (HTTP 429)."
+        }
+
+    # 5. NOT FOUND (HTTP 404) - Rotate only when evidence confirms model target unavailable
     if status_code == 404:
-        # Check if the 404 specifically identifies the model as missing / unsupported
-        # Gemini REST 404 format: "models/xyz is not found for API version...", "call listmodels"
         is_model_specific = (
-            model_lower in error_message or
-            "models/" in error_message or
-            "listmodels" in error_message or
-            "generatecontent" in error_message
+            model_lower in error_message
+            or "models/" in error_message
+            or "listmodels" in error_message
+            or "is not found for api version" in error_message
         )
         if is_model_specific:
             return {
                 "category": "MODEL_NOT_FOUND",
                 "is_model_ineligible": True,
+                "is_credential_failure": False,
                 "can_failover": True,
                 "reason": f"Model '{model_name}' not found or unsupported for generateContent (HTTP 404)."
             }
@@ -306,12 +378,13 @@ def classify_gemini_error(
             return {
                 "category": "ENDPOINT_NOT_FOUND",
                 "is_model_ineligible": False,
+                "is_credential_failure": False,
                 "can_failover": False,
                 "reason": f"HTTP 404 endpoint or configuration error: {error_message[:100]}"
             }
 
+    # 6. BAD REQUEST (HTTP 400)
     if status_code == 400:
-        # Check if 400 explicitly indicates that this model is unsupported
         is_model_unsupported = (
             (model_lower in error_message and any(k in error_message for k in ["not supported", "not found", "unsupported", "invalid"])) or
             ("model" in error_message and any(k in error_message for k in ["is not supported", "unknown model", "unsupported model", "invalid model"]))
@@ -320,11 +393,11 @@ def classify_gemini_error(
             return {
                 "category": "MODEL_UNSUPPORTED",
                 "is_model_ineligible": True,
+                "is_credential_failure": False,
                 "can_failover": True,
                 "reason": f"Model '{model_name}' explicitly unsupported (HTTP 400): {error_message[:100]}"
             }
 
-        # Check for model parameter or feature incompatibility
         is_param_error = any(k in error_message for k in [
             "parameter", "field", "argument", "unknown field", "unrecognized field",
             "generation_config", "system_instruction", "safety_settings"
@@ -333,22 +406,25 @@ def classify_gemini_error(
             return {
                 "category": "UNSUPPORTED_PARAMETER",
                 "is_model_ineligible": False,
+                "is_credential_failure": False,
                 "can_failover": True,
                 "reason": f"Unsupported model-specific parameter in request for '{model_name}' (HTTP 400): {error_message[:100]}"
             }
 
-        # Generic 400 payload / bad request error
         return {
             "category": "INVALID_PAYLOAD",
             "is_model_ineligible": False,
+            "is_credential_failure": False,
             "can_failover": False,
-            "reason": f"Generic HTTP 400 Bad Request for '{model_name}': {error_message[:100]}"
+            "reason": f"HTTP 400 Invalid Argument / Payload for '{model_name}': {error_message[:100]}"
         }
 
+    # 7. SERVER ERROR (HTTP 5xx)
     if status_code >= 500:
         return {
             "category": "SERVER_ERROR",
             "is_model_ineligible": False,
+            "is_credential_failure": False,
             "can_failover": True,
             "reason": f"Transient 5xx error from '{model_name}' (HTTP {status_code})."
         }
@@ -356,6 +432,7 @@ def classify_gemini_error(
     return {
         "category": "CLIENT_ERROR",
         "is_model_ineligible": False,
+        "is_credential_failure": False,
         "can_failover": False,
         "reason": f"HTTP {status_code} client error for '{model_name}': {error_message[:100]}"
     }
@@ -464,24 +541,6 @@ class ReasoningTool(BaseTool):
         if query:
             intent_result = global_intent_classifier.classify(query, history=history)
             intent_category = intent_result.intent
-
-            # Off-topic general queries always receive concise deterministic capsule with redirection
-            if intent_category == IntentCategory.OFF_TOPIC and intent_result.direct_response:
-                return {
-                    "summary": intent_result.direct_response,
-                    "reasoning": [f"Handled deterministically by NavSakhi Travel Companion ({intent_category.value})."],
-                    "provider": "local_companion",
-                    "intent": intent_category.value,
-                    "ai_status": "OFFLINE_DETERMINISTIC",
-                    "response_source": "rule_based",
-                    "intent_category": intent_category.value,
-                    "gemini_attempted": False,
-                    "model_identifier": None,
-                    "attempt_count": 0,
-                    "provider_latency_ms": 0.0,
-                    "outcome_category": "skipped",
-                    "correlation_id": correlation_id
-                }
 
             # If query does not require external LLM and has a direct response (or Gemini is offline/unconfigured), return deterministic response
             if (not intent_result.requires_external_llm or not gemini_online) and not is_poi_query and not coord_match and intent_result.direct_response:
@@ -689,8 +748,19 @@ class ReasoningTool(BaseTool):
             logger.info("GEMINI_API_KEY not configured; using verified conversational/infrastructure fallback.")
             is_rule_based_eligible = (
                 intent_result is not None
-                and intent_result.intent in [IntentCategory.SMALL_TALK, IntentCategory.OFF_TOPIC]
+                and intent_result.intent in [IntentCategory.SMALL_TALK, IntentCategory.OFF_TOPIC, IntentCategory.COMPANION_EMPATHY]
             )
+            if intent_category == IntentCategory.SAFETY:
+                ds = "safety_rules"
+            elif intent_category == IntentCategory.JOURNEY_TRANSIT:
+                ds = "transit_fallback"
+            elif intent_category in [IntentCategory.SMALL_TALK, IntentCategory.COMPANION_EMPATHY]:
+                ds = "small_talk_fallback"
+            elif intent_category == IntentCategory.OFF_TOPIC:
+                ds = "redirection_capsule"
+            else:
+                ds = "contextual_fallback"
+
             return {
                 "summary": fallback_summary,
                 "reasoning": fallback_reasoning,
@@ -698,13 +768,17 @@ class ReasoningTool(BaseTool):
                 "intent": intent_category.value,
                 "ai_status": "OFFLINE_DETERMINISTIC" if is_rule_based_eligible else "CONFIG_MISSING_FALLBACK",
                 "response_source": "rule_based" if is_rule_based_eligible else "fallback",
+                "decision_source": ds,
                 "intent_category": intent_category.value,
                 "gemini_attempted": False,
                 "model_identifier": None,
                 "attempt_count": 0,
                 "provider_latency_ms": 0.0,
                 "outcome_category": "unavailable",
-                "correlation_id": correlation_id
+                "correlation_id": correlation_id,
+                "last_failed_model": None,
+                "failed_model_candidates": [],
+                "safety_blocked_candidate": None
             }
 
         # Check if all candidate models are currently rate-limited
@@ -718,13 +792,17 @@ class ReasoningTool(BaseTool):
                 "intent": intent_category.value,
                 "ai_status": "RATE_LIMITED_FALLBACK",
                 "response_source": "fallback",
+                "decision_source": "circuit_breaker",
                 "intent_category": intent_category.value,
                 "gemini_attempted": False,
                 "model_identifier": None,
                 "attempt_count": 0,
                 "provider_latency_ms": 0.0,
                 "outcome_category": "rate_limited",
-                "correlation_id": correlation_id
+                "correlation_id": correlation_id,
+                "last_failed_model": None,
+                "failed_model_candidates": [],
+                "safety_blocked_candidate": None
             }
 
         # Prepare outbound payload
@@ -751,26 +829,53 @@ class ReasoningTool(BaseTool):
             "X-goog-api-key": api_key
         }
 
-        # Bounded multi-model failover execution
-        candidate_models = get_configured_gemini_models()
-        total_deadline_sec = 5.0
-        start_time = time.monotonic()
+        # Bounded multi-model failover execution with strict latency budget
+        candidate_models = get_configured_gemini_models()[:2]
+        TOTAL_DEADLINE_SEC = 5.0
+        LOCAL_FALLBACK_RESERVE_SEC = 0.8
+        SCHEDULING_MARGIN_SEC = 0.05
+        MIN_REMAINING_FOR_ALTERNATE_SEC = 2.35
+        ALTERNATE_TIMEOUT_CAP_SEC = 1.9
+
+        turn_start_time = time.monotonic()
         last_failure_status = "UNAVAILABLE_FALLBACK"
         attempt_count = 0
         last_attempted_model = None
         last_outcome = "unavailable"
+        failed_model_candidates: List[str] = []
+        last_failed_model: Optional[str] = None
+        safety_blocked_candidate: Optional[str] = None
 
-        for model_name in candidate_models:
+        for attempt_idx, model_name in enumerate(candidate_models):
             if is_model_in_cooldown(model_name):
                 continue
 
-            remaining_budget = total_deadline_sec - (time.monotonic() - start_time)
-            if remaining_budget < 1.0:
-                logger.info("Remaining Gemini budget exhausted; halting model failover.")
-                last_outcome = "timeout"
-                break
+            remaining_budget = TOTAL_DEADLINE_SEC - (time.monotonic() - turn_start_time)
 
-            attempt_timeout = min(remaining_budget, 3.0)
+            if attempt_idx >= 1:
+                # Alternate candidate: must have at least 2.35s remaining
+                if remaining_budget < MIN_REMAINING_FOR_ALTERNATE_SEC:
+                    logger.info(
+                        "Remaining budget (%.2fs) below minimum required (%.2fs) for alternate model '%s'; halting rotation.",
+                        remaining_budget, MIN_REMAINING_FOR_ALTERNATE_SEC, model_name
+                    )
+                    last_outcome = "timeout"
+                    break
+                attempt_timeout = min(
+                    ALTERNATE_TIMEOUT_CAP_SEC,
+                    max(0.1, remaining_budget - (LOCAL_FALLBACK_RESERVE_SEC + SCHEDULING_MARGIN_SEC))
+                )
+            else:
+                # Primary candidate: ensure minimum reserve for fallback
+                if remaining_budget <= (LOCAL_FALLBACK_RESERVE_SEC + SCHEDULING_MARGIN_SEC):
+                    logger.info("Insufficient remaining budget for primary Gemini call; halting.")
+                    last_outcome = "timeout"
+                    break
+                attempt_timeout = min(
+                    3.0,
+                    max(0.1, remaining_budget - (LOCAL_FALLBACK_RESERVE_SEC + SCHEDULING_MARGIN_SEC))
+                )
+
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
             attempt_count += 1
             last_attempted_model = model_name
@@ -783,58 +888,115 @@ class ReasoningTool(BaseTool):
 
                     if response.status_code == 200:
                         res_data = response.json()
-                        text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                        return {
-                            "summary": text,
-                            "reasoning": fallback_reasoning,
-                            "provider": "gemini",
-                            "model": model_name,
-                            "intent": intent_category.value,
-                            "ai_status": "LIVE_SUCCESS",
-                            "response_source": "gemini",
-                            "intent_category": intent_category.value,
-                            "gemini_attempted": True,
-                            "model_identifier": model_name,
-                            "attempt_count": attempt_count,
-                            "provider_latency_ms": round(call_latency_ms, 1),
-                            "outcome_category": "success",
-                            "correlation_id": correlation_id
-                        }
+                        candidates = res_data.get("candidates", []) if isinstance(res_data, dict) else []
+                        if candidates:
+                            cand = candidates[0]
+                            finish_reason = str(cand.get("finishReason", "")).upper()
+                            if finish_reason in ["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"]:
+                                safety_blocked_candidate = model_name
+                                last_failure_status = "SAFETY_REFUSAL_FALLBACK"
+                                last_outcome = "safety_blocked"
+                                # Safety policy refusal: DO NOT ROTATE to alternate model!
+                                logger.warning(f"Gemini model '{model_name}' blocked by safety policy ({finish_reason}). Halting failover.")
+                                break
 
-                    err_info = classify_gemini_error(response.status_code, response.text, model_name)
+                            parts = cand.get("content", {}).get("parts", [])
+                            text = parts[0].get("text", "").strip() if parts else ""
+                            if text:
+                                decision_src = "gemini_direct" if attempt_count == 1 else "gemini_failover"
+                                return {
+                                    "summary": text,
+                                    "reasoning": fallback_reasoning,
+                                    "provider": "gemini",
+                                    "model": model_name,
+                                    "intent": intent_category.value,
+                                    "ai_status": "LIVE_SUCCESS",
+                                    "response_source": "gemini",
+                                    "decision_source": decision_src,
+                                    "intent_category": intent_category.value,
+                                    "gemini_attempted": True,
+                                    "model_identifier": model_name,
+                                    "attempt_count": attempt_count,
+                                    "provider_latency_ms": round(call_latency_ms, 1),
+                                    "outcome_category": "success",
+                                    "correlation_id": correlation_id,
+                                    "last_failed_model": last_failed_model,
+                                    "failed_model_candidates": failed_model_candidates,
+                                    "safety_blocked_candidate": safety_blocked_candidate
+                                }
+
+                    # Non-200 response
+                    failed_model_candidates.append(model_name)
+                    last_failed_model = model_name
+                    resp_text_val = ""
+                    try:
+                        resp_text_val = response.text if isinstance(response.text, str) else str(response.text)
+                    except Exception:
+                        pass
+                    err_info = classify_gemini_error(response.status_code, resp_text_val, model_name)
                     logger.warning(f"Gemini model '{model_name}' HTTP {response.status_code}: {err_info['reason']}")
+
+                    if response.status_code in (401, 403) or err_info.get("is_credential_failure") or err_info.get("category") == "AUTH_RESTRICTION":
+                        last_failure_status = "AUTH_RESTRICTION_FALLBACK"
+                        last_outcome = "unavailable"
+                        break
 
                     if err_info["category"] == "RATE_LIMIT":
                         retry_after = _parse_retry_after(response.headers)
                         record_model_429(model_name, retry_after=retry_after)
                         last_failure_status = "RATE_LIMITED_FALLBACK"
                         last_outcome = "rate_limited"
+                        if not err_info.get("can_failover"):
+                            break
                         continue
 
-                    if err_info["category"] == "AUTH_RESTRICTION":
-                        logger.warning(f"Gemini returned auth/project restriction HTTP {response.status_code}. Halting model rotation.")
-                        last_failure_status = "AUTH_RESTRICTION_FALLBACK"
+                    if err_info["category"] in ["AUTH_RESTRICTION", "BILLING_DEPLETED", "PROJECT_PRECONDITION"]:
+                        last_failure_status = f"{err_info['category']}_FALLBACK"
                         last_outcome = "unavailable"
                         break
 
-                    if err_info["is_model_ineligible"]:
+                    if err_info.get("is_model_ineligible"):
                         mark_model_ineligible(model_name, err_info["reason"])
 
                     last_outcome = "invalid_response"
-                    if err_info["can_failover"]:
-                        continue
-                    else:
+                    if not err_info.get("can_failover"):
                         break
+                    continue
 
+            except asyncio.CancelledError:
+                logger.info("Assistant request cancelled during Gemini invocation; propagating CancelledError.")
+                raise
             except (asyncio.TimeoutError, httpx.TimeoutException):
+                failed_model_candidates.append(model_name)
+                last_failed_model = model_name
                 last_outcome = "timeout"
                 logger.warning(f"Gemini attempt with model '{model_name}' timed out. Failing over...")
             except Exception as e:
+                failed_model_candidates.append(model_name)
+                last_failed_model = model_name
                 last_outcome = "timeout" if "timeout" in str(e).lower() else "invalid_response"
                 logger.warning(f"Gemini attempt with model '{model_name}' failed ({type(e).__name__}: {e}). Failing over...")
 
-        total_elapsed_ms = (time.monotonic() - start_time) * 1000.0
-        # If all candidate models fail or time out, return honest contextual fallback
+        total_elapsed_ms = (time.monotonic() - turn_start_time) * 1000.0
+
+        if safety_blocked_candidate:
+            chosen_decision_source = "safety_rules"
+        elif intent_category == IntentCategory.SAFETY:
+            chosen_decision_source = "safety_rules"
+        elif intent_category == IntentCategory.JOURNEY_TRANSIT:
+            chosen_decision_source = "transit_fallback"
+        elif intent_category in [IntentCategory.SMALL_TALK, IntentCategory.COMPANION_EMPATHY]:
+            chosen_decision_source = "small_talk_fallback"
+        elif intent_category == IntentCategory.OFF_TOPIC:
+            chosen_decision_source = "redirection_capsule"
+        elif last_outcome in ["rate_limited", "unavailable"] and any(
+            f in last_failure_status for f in ["AUTH", "CREDENTIAL", "BILLING", "RATE_LIMITED"]
+        ):
+            chosen_decision_source = "circuit_breaker"
+        else:
+            chosen_decision_source = "contextual_fallback"
+
+        # If all candidate models fail, time out, or are safety-blocked, return honest contextual fallback
         return {
             "summary": fallback_summary,
             "reasoning": fallback_reasoning,
@@ -842,13 +1004,17 @@ class ReasoningTool(BaseTool):
             "intent": intent_category.value,
             "ai_status": last_failure_status,
             "response_source": "fallback",
+            "decision_source": chosen_decision_source,
             "intent_category": intent_category.value,
             "gemini_attempted": attempt_count > 0,
-            "model_identifier": last_attempted_model,
+            "model_identifier": None,  # Truthful provenance: None on fallback!
             "attempt_count": attempt_count,
             "provider_latency_ms": round(total_elapsed_ms, 1),
             "outcome_category": last_outcome,
-            "correlation_id": correlation_id
+            "correlation_id": correlation_id,
+            "last_failed_model": last_failed_model,
+            "failed_model_candidates": failed_model_candidates,
+            "safety_blocked_candidate": safety_blocked_candidate
         }
 
     async def explain_journey_recommendations(

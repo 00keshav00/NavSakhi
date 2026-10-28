@@ -53,6 +53,13 @@ class AssistantIntentClassifier:
         "suspicious", "scared"
     ]
 
+    # Acute medical distress requiring deterministic fast guidance and ambulance callout
+    ACUTE_MEDICAL_KEYWORDS = [
+        "chest pain", "breathing difficulty", "severe breathing", "shortness of breath",
+        "loss of consciousness", "unconscious", "heart attack", "can't breathe",
+        "cannot breathe", "severe bleeding", "heavy bleeding", "bleeding heavily"
+    ]
+
     # Travel anxiety and nervousness when traveling alone (without acute danger/stalker)
     TRAVEL_ANXIETY_KEYWORDS = [
         "nervous", "anxious", "travel anxiety", "uneasy", "feeling alone", "feel alone",
@@ -68,7 +75,9 @@ class AssistantIntentClassifier:
         "can you accompany", "travel partner", "journey partner", "with me through out",
         "with me throughout", "just want a companion", "need a companion", "be my companion",
         "travel friend", "by my side", "feeling lonely", "feel lonely",
-        "help me", "will you help", "can you help", "assist me", "support me"
+        "help me", "will you help", "can you help", "assist me", "support me",
+        "will you with me", "will you with me in journey", "with me in journey",
+        "with me on journey", "be with me in journey", "be with me on journey"
     ]
 
     # Local facilities, commercial shops, and verified safety POIs in Chennai
@@ -117,7 +126,9 @@ class AssistantIntentClassifier:
         "what is navsakhi", "what is safeshe", "what can you do", "features",
         "account", "login", "register", "signup", "signin", "password",
         "profile", "settings", "guest", "how to use", "how do i use",
-        "guide", "tutorial"
+        "guide", "tutorial", "tell me about this site", "about this site",
+        "what does this app do", "what is this app", "about this app",
+        "tell me about this app", "what does the app do", "about the app"
     ]
 
     # Keywords for SMALL TALK & GREETINGS
@@ -157,6 +168,26 @@ class AssistantIntentClassifier:
                 if any(ck in h_content for ck in cls.COMPANION_KEYWORDS):
                     had_prior_companion_turn = True
                     break
+
+        # 0. ACUTE MEDICAL DISTRESS: Immediate Medical Emergency (Fast deterministic path, no diagnosis, call 112/108)
+        is_medical_emergency = any(kw in clean_q for kw in cls.ACUTE_MEDICAL_KEYWORDS)
+        if is_medical_emergency:
+            medical_response = (
+                "This sounds like a serious medical emergency. Please seek immediate medical help:\n\n"
+                "1. **Call Emergency Services Immediately:**\n"
+                "   - **112** (National Emergency Helpline)\n"
+                "   - **108** (Ambulance & Emergency Medical Service)\n"
+                "2. **Alert Anyone Nearby:** Call out for assistance from bystanders, shopkeepers, or facility staff right away.\n"
+                "3. **Sit or Lie Down Safely:** Rest in a secure, comfortable position while waiting for help to arrive.\n\n"
+                "Are you with someone who can assist you or call an ambulance right now?"
+            )
+            return IntentClassificationResult(
+                intent=AssistantIntent.SAFETY,
+                confidence=0.99,
+                is_supported_domain=True,
+                requires_external_llm=False,
+                direct_response=medical_response
+            )
 
         # 1. ACUTE SAFETY: Highest Priority (Immediate physical danger, harassment, stalking, feeling unsafe)
         # Stalking or physical distress overrides travel anxiety or settings
@@ -239,7 +270,7 @@ class AssistantIntentClassifier:
                 direct_response=anxiety_resp
             )
 
-        # 5. NAVSAKHI APPLICATION SUPPORT (Features, Account, LightGBM Model, Scoring)
+        # 5. NAVSAKHI APPLICATION SUPPORT (Features, Account, LightGBM Model, Scoring, App Description)
         if any(kw in clean_q for kw in cls.SUPPORT_KEYWORDS):
             support_resp = None
             if any(sk in clean_q for sk in ["score", "lightgbm", "safety score", "model", "how is score", "based on"]):
@@ -249,6 +280,12 @@ class AssistantIntentClassifier:
                     "and verified commercial service density). We also calculate an independent Night Activity Score based on confirmed "
                     "open places, transit nodes, and surveillance cameras along your route. It represents an environmental safety proxy, "
                     "not an empirical crime prediction or guarantee of personal safety."
+                )
+            elif any(sk in clean_q for sk in ["about this site", "tell me about this site", "what does this app do", "what is this app", "about this app", "what is navsakhi", "what is safeshe"]):
+                support_resp = (
+                    "NavSakhi is a smart, women-focused safety navigation assistant and travel companion for Chennai. "
+                    "It offers model-evaluated route safety scores, multimodal transit planning (Metro, MTC Bus, Suburban rail), "
+                    "active night activity monitoring near open establishments, and immediate access to emergency helplines (112, 1091)."
                 )
             return IntentClassificationResult(
                 intent=AssistantIntent.NAVSAKHI_SUPPORT,
@@ -339,7 +376,17 @@ class AssistantIntentClassifier:
                 direct_response=greeting_resp
             )
 
-        # 9. OFF_TOPIC (Harmless general questions: strictly 1-2 concise sentences with gentle redirection)
+        # 8.5 PRIOR COMPANION CONTEXT CONTINUITY: If previous turn was companion interaction and this is a conversational follow-up
+        if had_prior_companion_turn:
+            return IntentClassificationResult(
+                intent=AssistantIntent.COMPANION_EMPATHY,
+                confidence=0.88,
+                is_supported_domain=True,
+                requires_external_llm=True,
+                direct_response="I'm right here with you. What would you like to explore next on your journey across Chennai?"
+            )
+
+        # 9. OFF_TOPIC (Harmless general questions: concise companion response with gentle redirection)
         brief_answer = None
         for key, ans in cls.OFF_TOPIC_KNOWLEDGE.items():
             if key in clean_q:
@@ -356,7 +403,7 @@ class AssistantIntentClassifier:
             intent=AssistantIntent.OFF_TOPIC,
             confidence=0.85,
             is_supported_domain=False,
-            requires_external_llm=False,
+            requires_external_llm=False,  # Canned redirection used deterministically for off-topic questions
             direct_response=full_off_topic_reply,
             redirection_note=redirection
         )

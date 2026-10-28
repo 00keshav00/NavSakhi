@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import SafeMap, { POI_CATEGORY_CONFIG } from "@/components/map/SafeMap";
+import SafeMap, { POI_CATEGORY_CONFIG, renderCategoryIcon } from "@/components/map/SafeMap";
 import { useJourney } from "@/hooks/useJourney";
 import { MultimodalRoute, RoutePOI, ActivityZone } from "@/types/journey";
 import { JourneySearchPanel } from "@/components/journey/JourneySearchPanel";
@@ -583,8 +583,8 @@ export default function JourneyPage() {
             {/* Header */}
             <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-2 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xl shrink-0">
-                  {POI_CATEGORY_CONFIG[selectedPoi.category]?.icon || "📍"}
+                <span className="p-1 rounded-md bg-slate-800/80 border border-slate-700/80 shrink-0">
+                  {renderCategoryIcon(selectedPoi.category, "w-4 h-4 text-cyan-400")}
                 </span>
                 <div className="min-w-0">
                   <span className="font-extrabold text-slate-300 uppercase tracking-wider text-[10px] block">
