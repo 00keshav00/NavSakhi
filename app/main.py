@@ -69,12 +69,14 @@ from app.api.websockets.journey_ws import router as journey_ws_router
 app.include_router(emergency_ws_router, prefix="/api/v1/ws")
 app.include_router(journey_ws_router, prefix="/api/v1/ws/journey")
 
+@app.get("/", tags=["Health"])
+@app.head("/", tags=["Health"])
 @app.get("/health", tags=["Health"])
 @app.get("/api/v1/health", tags=["Health"])
 async def health_check():
     """
     Authoritative backend health check endpoint.
-    Serves both /health and /api/v1/health for compatibility with all monitor types.
+    Serves /, /health and /api/v1/health for compatibility with all monitor types.
     """
     return {
         "status": "ok",

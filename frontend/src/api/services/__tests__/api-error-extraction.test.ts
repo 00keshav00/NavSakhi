@@ -1,6 +1,6 @@
 import test, { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { extractApiErrorMessage } from "../../client.ts";
+import { extractApiErrorMessage, resolveApiBaseUrl } from "../../client.ts";
 
 describe("NavSakhi Phase 51.34: Frontend API Error Message Extraction Suite", () => {
   it("1. FastAPI HTTP 422 response with a string 'detail' returns that descriptive message", () => {
@@ -128,5 +128,61 @@ describe("NavSakhi Phase 51.34: Frontend API Error Message Extraction Suite", ()
 
     const extracted = extractApiErrorMessage(pydanticError, "Fallback");
     assert.equal(extracted, "source: Field required; destination: Field required");
+  });
+
+  it("8. Axios 'Network Error' is converted into actionable backend connectivity message", () => {
+    const networkError = {
+      name: "AxiosError",
+      message: "Network Error"
+    };
+    const extracted = extractApiErrorMessage(networkError, "Fallback");
+    assert.equal(
+      extracted,
+      "Unable to connect to the NavSakhi backend service. The server may be waking up from sleep. Please try again in a few moments."
+    );
+  });
+
+  it("9. resolveApiBaseUrl respects explicit NEXT_PUBLIC_API_URL environment variable", () => {
+    const original = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      process.env.NEXT_PUBLIC_API_URL = "https://custom-api.navsakhi.in/";
+      assert.equal(resolveApiBaseUrl(), "https://custom-api.navsakhi.in");
+    } finally {
+      process.env.NEXT_PUBLIC_API_URL = original;
+    }
+  });
+
+  it("10. resolveApiBaseUrl falls back to Render backend when window.location is on Vercel", () => {
+    const original = process.env.NEXT_PUBLIC_API_URL;
+    delete process.env.NEXT_PUBLIC_API_URL;
+    const originalWindow = (globalThis as any).window;
+    try {
+      (globalThis as any).window = {
+        location: {
+          hostname: "nav-sakhi.vercel.app"
+        }
+      };
+      assert.equal(resolveApiBaseUrl(), "https://navsakhi-api-staging.onrender.com");
+    } finally {
+      process.env.NEXT_PUBLIC_API_URL = original;
+      (globalThis as any).window = originalWindow;
+    }
+  });
+
+  it("11. resolveApiBaseUrl defaults to localhost:8000 when window.location is localhost", () => {
+    const original = process.env.NEXT_PUBLIC_API_URL;
+    delete process.env.NEXT_PUBLIC_API_URL;
+    const originalWindow = (globalThis as any).window;
+    try {
+      (globalThis as any).window = {
+        location: {
+          hostname: "localhost"
+        }
+      };
+      assert.equal(resolveApiBaseUrl(), "http://localhost:8000");
+    } finally {
+      process.env.NEXT_PUBLIC_API_URL = original;
+      (globalThis as any).window = originalWindow;
+    }
   });
 });
