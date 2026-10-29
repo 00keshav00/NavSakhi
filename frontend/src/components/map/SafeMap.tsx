@@ -306,6 +306,7 @@ interface SafeMapProps {
   onLocationDetected?: (lat: number, lng: number) => void;
   onRouteClick?: (properties: Record<string, unknown>) => void;
   controlsTopOffset?: "default" | "journey-mobile";
+  extraControls?: React.ReactNode;
 }
 
 export default function SafeMap({
@@ -329,6 +330,7 @@ export default function SafeMap({
   onZoneSelect,
   onRouteClick,
   controlsTopOffset = "default",
+  extraControls,
 }: SafeMapProps) {
   const mapRef = useRef<MapRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -462,7 +464,7 @@ export default function SafeMap({
   const activeTransitStations = useMemo(() => {
     if (!routeGeometry?.features) return [];
     const stations: { name: string; type: "board" | "alight"; coords: [number, number]; mode: string }[] = [];
-    
+
     routeGeometry.features.forEach((f) => {
       if (f.properties?.isActive) {
         const mode = (f.properties?.transportMode || "").toLowerCase();
@@ -702,540 +704,13 @@ export default function SafeMap({
         </div>
       )}
 
-      {/* 2C. CONSOLIDATED MAP CONTROLS (LAYERS, LEGEND & NAVIGATION) */}
-      <div className={`absolute ${controlsTopOffset === "journey-mobile" ? "top-[4.25rem] md:top-4" : "top-4"} right-3 sm:right-4 z-20 flex flex-col items-end gap-2`}>
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Map Layers Toggle - Compact Icon-only on mobile, full pill on desktop */}
-          <button
-            type="button"
-            onClick={() => {
-              const next = !showLayers;
-              setShowLayers(next);
-              if (next) {
-                setShowLegend(false);
-                setInternalSelectedPoi(null);
-                setInternalSelectedZone(null);
-                onPoiSelect?.(null);
-                onZoneSelect?.(null);
-              }
-            }}
-            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
-              showLayers
-                ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
-                : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
-            }`}
-            title="Toggle Map Layers & POI Categories"
-            aria-label="Map Layers"
-          >
-            <Layers className="w-4 h-4" />
-            <span className="hidden md:inline">Layers</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/40 font-extrabold">
-              {Object.values(layerVisibility).filter(Boolean).length}/5
-            </span>
-            <span className="hidden md:inline">
-              {showLayers ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </span>
-          </button>
-
-          {/* Legend Toggle - Compact Icon-only on mobile, full pill on desktop */}
-          <button
-            type="button"
-            onClick={() => {
-              const next = !showLegend;
-              setShowLegend(next);
-              if (next) {
-                setShowLayers(false);
-                setInternalSelectedPoi(null);
-                setInternalSelectedZone(null);
-                onPoiSelect?.(null);
-                onZoneSelect?.(null);
-              }
-            }}
-            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
-              showLegend
-                ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
-                : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
-            }`}
-            title="Toggle map symbols and transport legend"
-            aria-label="Map Legend"
-          >
-            <Info className="w-4 h-4" />
-            <span className="hidden md:inline">Legend</span>
-            <span className="hidden md:inline">
-              {showLegend ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </span>
-          </button>
-
-          {/* Dedicated Map Navigation Controls (Zoom In, Zoom Out, Orientation) */}
-          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/90 backdrop-blur-md shadow-xl overflow-hidden divide-x divide-slate-800">
-            <button
-              type="button"
-              onClick={() => mapRef.current?.zoomIn()}
-              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Zoom in"
-              aria-label="Zoom in"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => mapRef.current?.zoomOut()}
-              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Zoom out"
-              aria-label="Zoom out"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => mapRef.current?.resetNorth({ duration: 300 })}
-              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Reset bearing to north"
-              aria-label="Reset bearing to north"
-            >
-              <Compass
-                className="w-4 h-4 transition-transform duration-300"
-                style={{ transform: `rotate(-${viewState.bearing || 0}deg)` }}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* Map Layers Popover */}
-        {showLayers && (
-          <div className="p-3 bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl text-xs text-slate-200 w-[calc(100vw-2rem)] sm:w-80 max-h-[calc(100vh-10rem)] overflow-y-auto space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="font-extrabold uppercase tracking-wider text-[11px] text-white flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-primary" />
-                <span>Map Layers</span>
-              </span>
-              <div className="flex items-center gap-1.5 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLayerVisibility({
-                      emergency: true,
-                      transit: true,
-                      commercial: true,
-                      landmarks: true,
-                      activity: true,
-                    })
-                  }
-                  className="text-cyan-400 hover:underline font-bold"
-                >
-                  Show All
-                </button>
-                <span className="text-slate-600">|</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setLayerVisibility({
-                      emergency: false,
-                      transit: false,
-                      commercial: false,
-                      landmarks: false,
-                      activity: false,
-                    })
-                  }
-                  className="text-slate-400 hover:underline font-bold"
-                >
-                  Hide All
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLayers(false)}
-                  className="text-slate-400 hover:text-white ml-1"
-                  title="Close layers (Esc)"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Core Layer Groups */}
-            <div className="space-y-1.5">
-              {/* Emergency Services */}
-              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🛡️</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-200 text-[11px]">Emergency Services</span>
-                    <span className="text-[9.5px] text-slate-400">Police, hospitals, clinics, fire</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
-                    {layerCounts.emergency}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={layerVisibility.emergency}
-                    onChange={(e) =>
-                      setLayerVisibility((prev) => ({ ...prev, emergency: e.target.checked }))
-                    }
-                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
-                  />
-                </div>
-              </label>
-
-              {/* Transit Hubs */}
-              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🚆</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-200 text-[11px]">Transit Hubs</span>
-                    <span className="text-[9.5px] text-slate-400">Metro, suburban rail & bus transfers</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
-                    {layerCounts.transit}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={layerVisibility.transit}
-                    onChange={(e) =>
-                      setLayerVisibility((prev) => ({ ...prev, transit: e.target.checked }))
-                    }
-                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
-                  />
-                </div>
-              </label>
-
-              {/* Commercial Establishments */}
-              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🏪</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-200 text-[11px]">Commercial Shops</span>
-                    <span className="text-[9.5px] text-slate-400">Retail, groceries, cafes, ATMs</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
-                    {layerCounts.commercial}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={layerVisibility.commercial}
-                    onChange={(e) =>
-                      setLayerVisibility((prev) => ({ ...prev, commercial: e.target.checked }))
-                    }
-                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
-                  />
-                </div>
-              </label>
-
-              {/* Major Landmarks */}
-              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">🏬</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-200 text-[11px]">Major Landmarks</span>
-                    <span className="text-[9.5px] text-slate-400">Shopping malls, colleges, campuses</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
-                    {layerCounts.landmarks}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={layerVisibility.landmarks}
-                    onChange={(e) =>
-                      setLayerVisibility((prev) => ({ ...prev, landmarks: e.target.checked }))
-                    }
-                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
-                  />
-                </div>
-              </label>
-
-              {/* Mapped Activity Zones */}
-              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">✨</span>
-                  <div className="flex flex-col">
-                    <span className="font-bold text-slate-200 text-[11px]">Activity Zones</span>
-                    <span className="text-[9.5px] text-slate-400">Commercial spatial clusters (ODbL)</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
-                    {layerCounts.activity}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={layerVisibility.activity}
-                    onChange={(e) =>
-                      setLayerVisibility((prev) => ({ ...prev, activity: e.target.checked }))
-                    }
-                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
-                  />
-                </div>
-              </label>
-            </div>
-
-            {/* Specific Category Filters */}
-            {nearbyPois && nearbyPois.length > 0 && (
-              <div className="border-t border-slate-800 pt-2 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider">
-                    Filter Categories ({activeCategoryFilters.size} active)
-                  </span>
-                  <div className="flex gap-1.5 text-[9.5px]">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setActiveCategoryFilters(
-                          new Set(Object.keys(POI_CATEGORY_CONFIG))
-                        )
-                      }
-                      className="text-cyan-400 hover:underline"
-                    >
-                      All
-                    </button>
-                    <span className="text-slate-600">|</span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveCategoryFilters(new Set())}
-                      className="text-slate-400 hover:underline"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1 max-h-36 overflow-y-auto pr-1">
-                  {Object.entries(POI_CATEGORY_CONFIG).map(([key, cfg]) => {
-                    const count = poiCounts[key] || 0;
-                    if (count === 0) return null;
-                    const isActive = activeCategoryFilters.has(key);
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => toggleCategory(key)}
-                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium border transition-colors ${
-                          isActive
-                            ? `${cfg.bg} ${cfg.border} text-white shadow-xs`
-                            : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
-                        }`}
-                        title={`${cfg.label}: ${count} along route`}
-                      >
-                        <span>{cfg.icon}</span>
-                        <span>{cfg.label}</span>
-                        <span className="px-1 py-0.2 rounded-full text-[8.5px] bg-black/40 font-mono font-bold">
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Legend Popover */}
-        {showLegend && (
-          <div className="mt-2 p-3 bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl text-xs text-slate-200 w-[calc(100vw-2rem)] sm:w-64 max-h-[calc(100vh-10rem)] overflow-y-auto space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-              <span className="font-extrabold uppercase tracking-wider text-[11px] text-white flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5 text-primary" />
-                <span>Map Legend</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowLegend(false)}
-                className="text-slate-400 hover:text-white"
-                title="Close legend"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            
-            {/* Pins */}
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Journey Pins &amp; Routes</p>
-              <div className="grid grid-cols-2 gap-1 text-[11px]">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-[9px]">S</span>
-                  <span>Origin (Start)</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center font-black text-[9px]">D</span>
-                  <span>Destination</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                    <Train className="w-2.5 h-2.5 text-white" />
-                  </span>
-                  <span>Transit Station</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full bg-cyan-500 ring-2 ring-cyan-500/40 text-slate-950 flex items-center justify-center">
-                    <Navigation className="w-2.5 h-2.5 text-slate-950" />
-                  </span>
-                  <span>Live Location</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-1 rounded bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.8)]" />
-                  <span>Active Route</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-amber-500/20 border border-amber-500 text-amber-400 flex items-center justify-center">
-                    <ShieldAlert className="w-2.5 h-2.5" />
-                  </span>
-                  <span>Safe Haven</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Facilities */}
-            <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Emergency Facilities</p>
-              <div className="grid grid-cols-2 gap-1 text-[11px]">
-                <div className="flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                  <span>Police Station</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                  <span>Hospital</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Stethoscope className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                  <span>Clinic</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Pill className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Pharmacy</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>Fire &amp; Rescue</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Fuel className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  <span>Fuel / Service</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Landmarks */}
-            <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Major Landmarks</p>
-              <div className="grid grid-cols-2 gap-1 text-[11px]">
-                <div className="flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5 text-fuchsia-400 shrink-0" />
-                  <span>Shopping Mall</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <GraduationCap className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                  <span>College Campus</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Landmark className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Bank / ATM</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Film className="w-3.5 h-3.5 text-pink-400 shrink-0" />
-                  <span>Entertainment</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Mapped Commercial Shops & Clusters */}
-            <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Commercial Establishments</p>
-              <div className="grid grid-cols-1 gap-1 text-[11px]">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-600 ring-1.5 ring-amber-400/40 shrink-0" />
-                  <span>Mapped Shop (Retail, Cafe, Dining)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500/30 border border-amber-500/70 ring-1.5 ring-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
-                    <Store className="w-2 h-2" />
-                  </span>
-                  <span>Commercial Activity Cluster (Click to zoom)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-emerald-500/70 shrink-0" />
-                  <span>Open at journey pass-through time</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-rose-500/70 shrink-0" />
-                  <span>Closed at journey pass-through time</span>
-                </div>
-              </div>
-              <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
-                Yellow markers denote ordinary mapped commercial establishments. Mapped presence does not guarantee operating status or safety.
-              </p>
-            </div>
-
-            {/* Surveillance & Activity Zones */}
-            <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Surveillance &amp; Activity</p>
-              <div className="grid grid-cols-1 gap-1 text-[11px]">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>Surveillance Camera (Unverified operation)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 border border-amber-400/60 border-dashed ring-1 ring-amber-400/30 shrink-0" />
-                  <span>Activity Zone (Commercial cluster area)</span>
-                </div>
-              </div>
-              <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
-                Camera coordinates are mapped physical positions; active monitoring is unverified. Activity zones reflect commercial density, not verified safety.
-              </p>
-            </div>
-
-            {/* Transport Modes */}
-            <div className="space-y-1 border-t border-slate-800 pt-1.5">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transit Modes</p>
-              <div className="grid grid-cols-2 gap-1 text-[11px]">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 rounded-full bg-[#8B5CF6]" />
-                  <span>Metro</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 rounded-full bg-[#3B82F6]" />
-                  <span>Suburban Rail</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 rounded-full bg-[#06B6D4]" />
-                  <span>MRTS</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 rounded-full bg-[#10B981]" />
-                  <span>Govt Bus</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 rounded-full bg-[#EAB308]" />
-                  <span>Walking</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-3 h-1 rounded-full bg-[#0284C7]" />
-                  <span>Cab / Vehicle</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <button
-        type="button"
-        style={{ display: "none" }}
-      />
-
-      <Map
+            <Map
         ref={mapRef}
         mapLib={maplibregl}
         {...viewState}
         onMove={(e) => setViewState(e.viewState)}
         mapStyle={DARK_MAP_STYLE as unknown as maplibregl.StyleSpecification}
-        style={{ width: "100%", height: "100%" }}
+        style={{ width: "100%", height: "100%", position: "relative", zIndex: 0 }}
         interactiveLayerIds={[
           "route-layer-fg-inactive",
           "route-layer-fg-active",
@@ -1601,6 +1076,544 @@ export default function SafeMap({
           </Source>
         )}
       </Map>
+
+      {/* 2C. CONSOLIDATED MAP CONTROLS (LAYERS, LEGEND & NAVIGATION) */}
+      <div className={`absolute ${controlsTopOffset === "journey-mobile" ? "top-[4.25rem] md:top-4" : "top-4"} right-3 sm:right-4 ${showLayers || showLegend ? "z-50" : "z-30"} flex flex-col items-end gap-2 pointer-events-none`}>
+        {/* Row 1 — Main map toolbar */}
+        <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+          {/* Legend Toggle - Compact Icon-only on mobile, full pill on desktop */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showLegend;
+              setShowLegend(next);
+              if (next) {
+                setShowLayers(false);
+                setInternalSelectedPoi(null);
+                setInternalSelectedZone(null);
+                onPoiSelect?.(null);
+                onZoneSelect?.(null);
+              }
+            }}
+            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
+              showLegend
+                ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
+                : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
+            }`}
+            title="Toggle map symbols and transport legend"
+            aria-label="Map Legend"
+          >
+            <Info className="w-4 h-4" />
+            <span className="hidden md:inline">Legend</span>
+            <span className="hidden md:inline">
+              {showLegend ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </span>
+          </button>
+
+          {/* Map Layers Toggle - Compact Icon-only on mobile, full pill on desktop */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showLayers;
+              setShowLayers(next);
+              if (next) {
+                setShowLegend(false);
+                setInternalSelectedPoi(null);
+                setInternalSelectedZone(null);
+                onPoiSelect?.(null);
+                onZoneSelect?.(null);
+              }
+            }}
+            className={`flex items-center justify-center gap-1.5 h-9 md:h-8 px-2.5 md:px-3 rounded-full border shadow-xl text-xs font-bold transition-all backdrop-blur-md ${
+              showLayers
+                ? "bg-primary text-primary-foreground border-primary shadow-primary/20"
+                : "bg-slate-900/90 hover:bg-slate-800 text-slate-200 border-slate-700"
+            }`}
+            title="Toggle Map Layers & POI Categories"
+            aria-label="Map Layers"
+          >
+            <Layers className="w-4 h-4" />
+            <span className="hidden md:inline">Layers</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-black/40 font-extrabold">
+              {Object.values(layerVisibility).filter(Boolean).length}/5
+            </span>
+            <span className="hidden md:inline">
+              {showLayers ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </span>
+          </button>
+
+          {/* Dedicated Map Navigation Controls (Zoom In, Zoom Out, Orientation) */}
+          <div className="flex items-center rounded-full border border-slate-700 bg-slate-900/90 backdrop-blur-md shadow-xl overflow-hidden divide-x divide-slate-800">
+            <button
+              type="button"
+              onClick={() => mapRef.current?.zoomIn()}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Zoom in"
+              aria-label="Zoom in"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => mapRef.current?.zoomOut()}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Zoom out"
+              aria-label="Zoom out"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => mapRef.current?.resetNorth({ duration: 300 })}
+              className="h-9 w-9 md:h-8 md:w-8 flex items-center justify-center text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+              title="Reset bearing to north"
+              aria-label="Reset bearing to north"
+            >
+              <Compass
+                className="w-4 h-4 transition-transform duration-300"
+                style={{ transform: `rotate(-${viewState.bearing || 0}deg)` }}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2 — Community-specific / extra controls */}
+        {extraControls && (
+          <div className="pointer-events-auto">
+            {extraControls}
+          </div>
+        )}
+
+        {/* Map Layers Popover */}
+        {showLayers && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="pointer-events-auto p-3 bg-slate-950/98 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl text-xs text-slate-200 w-[calc(100vw-2rem)] sm:w-80 max-h-[calc(100vh-10rem)] overflow-y-auto space-y-3 animate-in fade-in slide-in-from-top-2 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span className="font-extrabold uppercase tracking-wider text-[11px] text-white flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-primary" />
+                <span>Map Layers</span>
+              </span>
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLayerVisibility({
+                      emergency: true,
+                      transit: true,
+                      commercial: true,
+                      landmarks: true,
+                      activity: true,
+                    })
+                  }
+                  className="text-cyan-400 hover:underline font-bold"
+                >
+                  Show All
+                </button>
+                <span className="text-slate-600">|</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLayerVisibility({
+                      emergency: false,
+                      transit: false,
+                      commercial: false,
+                      landmarks: false,
+                      activity: false,
+                    })
+                  }
+                  className="text-slate-400 hover:underline font-bold"
+                >
+                  Hide All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLayers(false)}
+                  className="text-slate-400 hover:text-white ml-1"
+                  title="Close layers (Esc)"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Core Layer Groups */}
+            <div className="space-y-1.5">
+              {/* Emergency Services */}
+              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🛡️</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-200 text-[11px]">Emergency Services</span>
+                    <span className="text-[9.5px] text-slate-400">Police, hospitals, clinics, fire</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
+                    {layerCounts.emergency}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={layerVisibility.emergency}
+                    onChange={(e) =>
+                      setLayerVisibility((prev) => ({ ...prev, emergency: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                  />
+                </div>
+              </label>
+
+              {/* Transit Hubs */}
+              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🚆</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-200 text-[11px]">Transit Hubs</span>
+                    <span className="text-[9.5px] text-slate-400">Metro, suburban rail & bus transfers</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
+                    {layerCounts.transit}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={layerVisibility.transit}
+                    onChange={(e) =>
+                      setLayerVisibility((prev) => ({ ...prev, transit: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                  />
+                </div>
+              </label>
+
+              {/* Commercial Establishments */}
+              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🏪</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-200 text-[11px]">Commercial Shops</span>
+                    <span className="text-[9.5px] text-slate-400">Retail, groceries, cafes, ATMs</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
+                    {layerCounts.commercial}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={layerVisibility.commercial}
+                    onChange={(e) =>
+                      setLayerVisibility((prev) => ({ ...prev, commercial: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                  />
+                </div>
+              </label>
+
+              {/* Major Landmarks */}
+              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">🏬</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-200 text-[11px]">Major Landmarks</span>
+                    <span className="text-[9.5px] text-slate-400">Shopping malls, colleges, campuses</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
+                    {layerCounts.landmarks}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={layerVisibility.landmarks}
+                    onChange={(e) =>
+                      setLayerVisibility((prev) => ({ ...prev, landmarks: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                  />
+                </div>
+              </label>
+
+              {/* Mapped Activity Zones */}
+              <label className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">✨</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-slate-200 text-[11px]">Activity Zones</span>
+                    <span className="text-[9.5px] text-slate-400">Commercial spatial clusters (ODbL)</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 font-mono font-bold">
+                    {layerCounts.activity}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={layerVisibility.activity}
+                    onChange={(e) =>
+                      setLayerVisibility((prev) => ({ ...prev, activity: e.target.checked }))
+                    }
+                    className="w-4 h-4 rounded text-primary accent-primary cursor-pointer"
+                  />
+                </div>
+              </label>
+            </div>
+
+            {/* Specific Category Filters */}
+            {nearbyPois && nearbyPois.length > 0 && (
+              <div className="border-t border-slate-800 pt-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider">
+                    Filter Categories ({activeCategoryFilters.size} active)
+                  </span>
+                  <div className="flex gap-1.5 text-[9.5px]">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveCategoryFilters(
+                          new Set(Object.keys(POI_CATEGORY_CONFIG))
+                        )
+                      }
+                      className="text-cyan-400 hover:underline"
+                    >
+                      All
+                    </button>
+                    <span className="text-slate-600">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveCategoryFilters(new Set())}
+                      className="text-slate-400 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1 max-h-36 overflow-y-auto pr-1">
+                  {Object.entries(POI_CATEGORY_CONFIG).map(([key, cfg]) => {
+                    const count = poiCounts[key] || 0;
+                    if (count === 0) return null;
+                    const isActive = activeCategoryFilters.has(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleCategory(key)}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-medium border transition-colors ${
+                          isActive
+                            ? `${cfg.bg} ${cfg.border} text-white shadow-xs`
+                            : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800"
+                        }`}
+                        title={`${cfg.label}: ${count} along route`}
+                      >
+                        <span>{cfg.icon}</span>
+                        <span>{cfg.label}</span>
+                        <span className="px-1 py-0.2 rounded-full text-[8.5px] bg-black/40 font-mono font-bold">
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Legend Popover */}
+        {showLegend && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="pointer-events-auto mt-1 p-3 bg-slate-950/98 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl text-xs text-slate-200 w-[calc(100vw-2rem)] sm:w-64 max-h-[calc(100vh-10rem)] overflow-y-auto space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200"
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+              <span className="font-extrabold uppercase tracking-wider text-[11px] text-white flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-primary" />
+                <span>Map Legend</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowLegend(false)}
+                className="text-slate-400 hover:text-white"
+                title="Close legend"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Pins */}
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Journey Pins &amp; Routes</p>
+              <div className="grid grid-cols-2 gap-1 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-[9px]">S</span>
+                  <span>Origin (Start)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center font-black text-[9px]">D</span>
+                  <span>Destination</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                    <Train className="w-2.5 h-2.5 text-white" />
+                  </span>
+                  <span>Transit Station</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded-full bg-cyan-500 ring-2 ring-cyan-500/40 text-slate-950 flex items-center justify-center">
+                    <Navigation className="w-2.5 h-2.5 text-slate-950" />
+                  </span>
+                  <span>Live Location</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-1 rounded bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.8)]" />
+                  <span>Active Route</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-amber-500/20 border border-amber-500 text-amber-400 flex items-center justify-center">
+                    <ShieldAlert className="w-2.5 h-2.5" />
+                  </span>
+                  <span>Safe Haven</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Facilities */}
+            <div className="space-y-1 border-t border-slate-800 pt-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Emergency Facilities</p>
+              <div className="grid grid-cols-2 gap-1 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span>Police Station</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                  <span>Hospital</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Stethoscope className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                  <span>Clinic</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Pill className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Pharmacy</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Fire &amp; Rescue</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Fuel className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>Fuel / Service</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Landmarks */}
+            <div className="space-y-1 border-t border-slate-800 pt-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Major Landmarks</p>
+              <div className="grid grid-cols-2 gap-1 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-fuchsia-400 shrink-0" />
+                  <span>Shopping Mall</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  <span>College Campus</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Landmark className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Bank / ATM</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Film className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                  <span>Entertainment</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mapped Commercial Shops & Clusters */}
+            <div className="space-y-1 border-t border-slate-800 pt-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Commercial Establishments</p>
+              <div className="grid grid-cols-1 gap-1 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-600 ring-1.5 ring-amber-400/40 shrink-0" />
+                  <span>Mapped Shop (Retail, Cafe, Dining)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500/30 border border-amber-500/70 ring-1.5 ring-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
+                    <Store className="w-2 h-2" />
+                  </span>
+                  <span>Commercial Activity Cluster (Click to zoom)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-emerald-500/70 shrink-0" />
+                  <span>Open at journey pass-through time</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-rose-500/70 shrink-0" />
+                  <span>Closed at journey pass-through time</span>
+                </div>
+              </div>
+              <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
+                Yellow markers denote ordinary mapped commercial establishments. Mapped presence does not guarantee operating status or safety.
+              </p>
+            </div>
+
+            {/* Surveillance & Activity Zones */}
+            <div className="space-y-1 border-t border-slate-800 pt-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Surveillance &amp; Activity</p>
+              <div className="grid grid-cols-1 gap-1 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>Surveillance Camera (Unverified operation)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3.5 h-3.5 rounded-full bg-amber-400/20 border border-amber-400/60 border-dashed ring-1 ring-amber-400/30 shrink-0" />
+                  <span>Activity Zone (Commercial cluster area)</span>
+                </div>
+              </div>
+              <p className="text-[8.5px] text-slate-400 italic pt-0.5 leading-tight">
+                Camera coordinates are mapped physical positions; active monitoring is unverified. Activity zones reflect commercial density, not verified safety.
+              </p>
+            </div>
+
+            {/* Transport Modes */}
+            <div className="space-y-1 border-t border-slate-800 pt-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transit Modes</p>
+              <div className="grid grid-cols-2 gap-1 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-1 rounded-full bg-[#8B5CF6]" />
+                  <span>Metro</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-1 rounded-full bg-[#3B82F6]" />
+                  <span>Suburban Rail</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-1 rounded-full bg-[#06B6D4]" />
+                  <span>MRTS</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-1 rounded-full bg-[#10B981]" />
+                  <span>Govt Bus</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-1 rounded-full bg-[#EAB308]" />
+                  <span>Walking</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-3 h-1 rounded-full bg-[#0284C7]" />
+                  <span>Cab / Vehicle</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 4D. RIGHT-DOCKED DEDICATED POI DETAIL PANEL (GOOGLE MAPS STYLE, AVOIDS CLUTTERING ROUTE) */}
       {selectedPoi && (isDesktop || !onPoiSelect) && (

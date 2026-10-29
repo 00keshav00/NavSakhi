@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  MapPin, AlertTriangle, Plus, Clock, Users, Construction, Moon, Sparkles, 
+import {
+  MapPin, AlertTriangle, Plus, Clock, Users, Construction, Moon, Sparkles,
   MessageSquare, ShieldCheck, HelpCircle, Activity, Info, RefreshCcw, Layers
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,7 @@ export default function CommunityPage() {
     // Generate slight offset around regional coordinates for demo submission when map point is unpicked
     const offsetLon = 80.2707 + (Math.random() * 0.02 - 0.01);
     const offsetLat = 13.0827 + (Math.random() * 0.02 - 0.01);
-    
+
     submitReport({
       location: { type: "Point", coordinates: [offsetLon, offsetLat] },
       ...values
@@ -69,7 +69,7 @@ export default function CommunityPage() {
   return (
     <div className="grid h-full min-h-0 w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-12">
       <aside className={`relative z-10 h-full min-h-0 flex-col border-r border-border bg-card/60 shadow-[4px_0_24px_rgba(0,0,0,0.02)] backdrop-blur-3xl lg:col-span-5 dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)] overflow-hidden ${mobileTab === 'feed' ? 'flex' : 'hidden lg:flex'}`}>
-        
+
         {/* Mobile View Toggle */}
         <div className="flex lg:hidden items-center p-1 bg-secondary/60 rounded-xl m-4 mb-0 border border-border/50 shrink-0">
           <button
@@ -103,7 +103,7 @@ export default function CommunityPage() {
                 <Sparkles size={14} className="text-primary" /> Verified crowdsourced anomaly data.
               </p>
             </div>
-            
+
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger>
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background shadow-lg hover:scale-105 active:scale-95 p-0 cursor-pointer transition-all">
@@ -125,7 +125,7 @@ export default function CommunityPage() {
                       <option value="Construction">Construction</option>
                     </select>
                   </div>
-                  
+
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold uppercase text-muted-foreground">Severity</label>
                     <select {...form.register("severity")} className="flex h-12 w-full rounded-xl border border-border/50 bg-background/50 px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
@@ -137,14 +137,14 @@ export default function CommunityPage() {
 
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-bold uppercase text-muted-foreground">Details</label>
-                    <Textarea 
+                    <Textarea
                       {...form.register("description")}
-                      placeholder="What's happening?" 
-                      className="h-24 resize-none rounded-xl border-border/50 bg-background/50" 
+                      placeholder="What's happening?"
+                      className="h-24 resize-none rounded-xl border-border/50 bg-background/50"
                     />
                     {form.formState.errors.description && <span className="text-xs text-danger">{form.formState.errors.description.message}</span>}
                   </div>
-                  
+
                   <label className="flex items-center gap-2 text-sm text-muted-foreground font-medium cursor-pointer">
                     <input type="checkbox" {...form.register("is_anonymous")} className="rounded border-border text-primary focus:ring-primary" />
                     Submit Anonymously
@@ -169,7 +169,7 @@ export default function CommunityPage() {
               <FilterPill label="Pending" active={verFilter === "Pending"} onClick={() => setVerFilter("Pending")} color="warning" />
               <FilterPill label="Unverified" active={verFilter === "Unverified"} onClick={() => setVerFilter("Unverified")} color="danger" />
             </div>
-            
+
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-2">Filter by Type</span>
             <ScrollArea className="h-10 w-full whitespace-nowrap">
               <div className="flex w-max gap-2 pb-2">
@@ -194,7 +194,7 @@ export default function CommunityPage() {
                </div>
             ) : data && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-8 pb-28">
-                
+
                 {/* Statistics Grid */}
                 <div className="grid grid-cols-2 gap-4">
                   <StatCard label="Total Reports" value={data.statistics.total} />
@@ -238,7 +238,7 @@ export default function CommunityPage() {
                     <h3 className="font-[family-name:var(--font-jakarta)] text-sm font-bold uppercase tracking-wider text-muted-foreground">Live Feed</h3>
                     <span className="text-xs font-bold text-muted-foreground">{reports.length} Found</span>
                   </div>
-                  
+
                   {reports.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-10 text-center opacity-50">
                       <MessageSquare size={32} className="mb-3 text-muted-foreground" />
@@ -261,23 +261,6 @@ export default function CommunityPage() {
 
       {/* Main Map Area */}
       <main className={`relative h-full min-h-0 w-full bg-background/95 lg:col-span-7 ${mobileTab === 'map' ? 'block' : 'hidden lg:block'}`}>
-        
-        {/* Heatmap Toggle HUD */}
-        <div className="absolute top-4 sm:top-6 left-3 sm:left-auto sm:right-6 z-10 glass-card bg-background/80 backdrop-blur-md rounded-xl p-1.5 sm:p-2 border border-border/50 shadow-lg flex items-center gap-1">
-          <Layers size={14} className="mx-1.5 sm:mx-2 text-muted-foreground" />
-          <button 
-            onClick={() => setHeatmapMode("Verified")} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${heatmapMode === 'Verified' ? 'bg-primary text-white shadow-md' : 'hover:bg-secondary text-muted-foreground'}`}
-          >
-            Verified Heatmap
-          </button>
-          <button 
-            onClick={() => setHeatmapMode("All")} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${heatmapMode === 'All' ? 'bg-secondary text-foreground shadow-md' : 'hover:bg-secondary text-muted-foreground'}`}
-          >
-            All Data
-          </button>
-        </div>
 
         {/* Mobile Switch Back Button */}
         <div className="lg:hidden absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
@@ -290,10 +273,37 @@ export default function CommunityPage() {
           </Button>
         </div>
 
-        <SafeMap 
+        <SafeMap
           reports={reports} // Display markers for the currently filtered reports
-          // Heatmap layer integration would go here if Safemap supported heatmap rendering natively. 
-          // For now, it consumes the reports array to render exact marker coordinates.
+          extraControls={
+            <div className="glass-card bg-slate-900/90 backdrop-blur-md rounded-2xl p-1 sm:p-1.5 border border-slate-700 shadow-xl flex items-center gap-1">
+              <Layers size={13} className="mx-1.5 text-slate-400 shrink-0" />
+              <button
+                type="button"
+                onClick={() => setHeatmapMode("Verified")}
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
+                  heatmapMode === 'Verified'
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'hover:bg-slate-800 text-slate-300'
+                }`}
+                title="Filter heatmap to verified reports only"
+              >
+                Verified Heatmap
+              </button>
+              <button
+                type="button"
+                onClick={() => setHeatmapMode("All")}
+                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
+                  heatmapMode === 'All'
+                    ? 'bg-slate-700 text-white shadow-md'
+                    : 'hover:bg-slate-800 text-slate-300'
+                }`}
+                title="Display all crowdsourced report points"
+              >
+                All Data
+              </button>
+            </div>
+          }
         />
       </main>
     </div>
@@ -311,8 +321,8 @@ function FilterPill({ label, active, onClick, color }: { label: string, active: 
   if (color === "danger") baseColor = "border-danger bg-danger text-white";
 
   return (
-    <button 
-      onClick={onClick} 
+    <button
+      onClick={onClick}
       className={`flex-1 min-w-0 truncate rounded-xl border py-2 px-1 text-[10px] sm:text-xs font-bold transition-all duration-200 text-center ${active ? `${baseColor} shadow-md` : "border-transparent bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}
     >
       {label}
@@ -334,14 +344,14 @@ function StatCard({ label, value, icon, color }: { label: string, value: number,
 
 function ReportCard({ report }: { report: CommunityReportResponse }) {
   let styles = { icon: AlertTriangle, color: "text-primary", bg: "bg-primary/10" };
-  
+
   if (report.report_type === 'Harassment') styles = { icon: AlertTriangle, color: "text-danger", bg: "bg-danger/10" };
   else if (report.report_type === 'Dark Area') styles = { icon: Moon, color: "text-warning", bg: "bg-warning/10" };
   else if (report.report_type === 'Heavy Crowd') styles = { icon: Users, color: "text-primary", bg: "bg-primary/10" };
   else if (report.report_type === 'Construction') styles = { icon: Construction, color: "text-muted-foreground", bg: "bg-secondary" };
 
   const Icon = styles.icon;
-  
+
   // Verification Badge Styles
   const verBadge = {
     'Verified': 'bg-success/15 text-success border-success/30',
@@ -357,7 +367,7 @@ function ReportCard({ report }: { report: CommunityReportResponse }) {
 
   return (
     <div className="glass-card flex flex-col gap-4 rounded-3xl p-5 transition-all hover:-translate-y-1 hover:shadow-lg border-border/50 group">
-      
+
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className={`flex h-12 w-12 items-center justify-center rounded-2xl shadow-inner shrink-0 ${styles.bg} ${styles.color}`}>
@@ -370,24 +380,24 @@ function ReportCard({ report }: { report: CommunityReportResponse }) {
             </span>
           </div>
         </div>
-        
+
         {/* Severity Badge */}
         <div className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest shrink-0 ${
-          report.severity === 'High' ? 'border-danger/20 bg-danger/10 text-danger' : 
-          report.severity === 'Medium' ? 'border-warning/20 bg-warning/10 text-warning' : 
+          report.severity === 'High' ? 'border-danger/20 bg-danger/10 text-danger' :
+          report.severity === 'Medium' ? 'border-warning/20 bg-warning/10 text-warning' :
           'border-border/50 bg-secondary/50 text-muted-foreground'
         }`}>
           {report.severity}
         </div>
       </div>
-      
+
       <p className="text-sm font-medium leading-relaxed text-foreground/90">{report.description}</p>
-      
+
       <div className="mt-1 flex items-center justify-between border-t border-border/50 pt-3">
         {/* Verification Status Badge */}
         <div className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${verBadge}`}>
-          <VerIcon size={14} /> 
-          {report.verification_status} 
+          <VerIcon size={14} />
+          {report.verification_status}
           {report.verification_status === 'Verified' && report.verification_timestamp && ` (${report.verification_timestamp})`}
         </div>
 
