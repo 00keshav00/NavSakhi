@@ -263,8 +263,8 @@ export default function CommunityPage() {
       <main className={`relative h-full min-h-0 w-full bg-background/95 lg:col-span-7 ${mobileTab === 'map' ? 'block' : 'hidden lg:block'}`}>
         
         {/* Heatmap Toggle HUD */}
-        <div className="absolute top-6 right-6 z-10 glass-card bg-background/80 backdrop-blur-md rounded-xl p-2 border border-border/50 shadow-lg flex items-center gap-1">
-          <Layers size={14} className="mx-2 text-muted-foreground" />
+        <div className="absolute top-4 sm:top-6 left-3 sm:left-auto sm:right-6 z-10 glass-card bg-background/80 backdrop-blur-md rounded-xl p-1.5 sm:p-2 border border-border/50 shadow-lg flex items-center gap-1">
+          <Layers size={14} className="mx-1.5 sm:mx-2 text-muted-foreground" />
           <button 
             onClick={() => setHeatmapMode("Verified")} 
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${heatmapMode === 'Verified' ? 'bg-primary text-white shadow-md' : 'hover:bg-secondary text-muted-foreground'}`}

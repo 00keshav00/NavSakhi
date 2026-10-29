@@ -198,7 +198,7 @@ class JourneyIntelligenceCoordinator:
                 )
 
             try:
-                return await asyncio.wait_for(loc_provider.forward_geocode(cleaned), timeout=4.0)
+                return await asyncio.wait_for(loc_provider.forward_geocode(cleaned), timeout=3.5)
             except asyncio.TimeoutError:
                 logger.warning(f"Geocoding provider timed out for {role} '{cleaned}'")
                 raise HTTPException(

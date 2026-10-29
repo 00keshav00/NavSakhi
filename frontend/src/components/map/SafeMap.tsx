@@ -305,6 +305,7 @@ interface SafeMapProps {
   onZoneSelect?: (zone: ActivityZone | null) => void;
   onLocationDetected?: (lat: number, lng: number) => void;
   onRouteClick?: (properties: Record<string, unknown>) => void;
+  controlsTopOffset?: "default" | "journey-mobile";
 }
 
 export default function SafeMap({
@@ -327,6 +328,7 @@ export default function SafeMap({
   onPoiSelect,
   onZoneSelect,
   onRouteClick,
+  controlsTopOffset = "default",
 }: SafeMapProps) {
   const mapRef = useRef<MapRef | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -701,7 +703,7 @@ export default function SafeMap({
       )}
 
       {/* 2C. CONSOLIDATED MAP CONTROLS (LAYERS, LEGEND & NAVIGATION) */}
-      <div className="absolute top-4 right-3 sm:top-4 sm:right-4 z-20 flex flex-col items-end gap-2">
+      <div className={`absolute ${controlsTopOffset === "journey-mobile" ? "top-[4.25rem] md:top-4" : "top-4"} right-3 sm:right-4 z-20 flex flex-col items-end gap-2`}>
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Map Layers Toggle - Compact Icon-only on mobile, full pill on desktop */}
           <button
@@ -801,7 +803,7 @@ export default function SafeMap({
 
         {/* Map Layers Popover */}
         {showLayers && (
-          <div className="p-3 bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl text-xs text-slate-200 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="p-3 bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl text-xs text-slate-200 w-[calc(100vw-2rem)] sm:w-80 max-h-[calc(100vh-10rem)] overflow-y-auto space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="font-extrabold uppercase tracking-wider text-[11px] text-white flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5 text-primary" />
@@ -1035,7 +1037,7 @@ export default function SafeMap({
 
         {/* Legend Popover */}
         {showLegend && (
-          <div className="mt-2 p-3 bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl text-xs text-slate-200 w-64 space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="mt-2 p-3 bg-slate-950/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl text-xs text-slate-200 w-[calc(100vw-2rem)] sm:w-64 max-h-[calc(100vh-10rem)] overflow-y-auto space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="font-extrabold uppercase tracking-wider text-[11px] text-white flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5 text-primary" />
