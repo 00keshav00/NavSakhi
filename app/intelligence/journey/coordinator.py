@@ -279,8 +279,9 @@ class JourneyIntelligenceCoordinator:
             # --- PREFERENCE PARSING ---
             pref_list = getattr(request, "preferences", None) or []
             pref_lower = [str(p).lower() for p in pref_list]
-            wants_public = any(p in pref_lower for p in ["public_transport", "transit", "public", "metro", "suburban", "bus", "train"])
-            wants_personal = any(p in pref_lower for p in ["personal_vehicle", "personal", "car", "bike", "driving", "two_wheeler"])
+            req_mode = str(getattr(request, "travel_mode", "") or "").lower()
+            wants_public = any(p in pref_lower for p in ["public_transport", "transit", "public", "metro", "suburban", "bus", "train"]) or any(tm in req_mode for tm in ["public", "transit", "bus", "metro", "train"])
+            wants_personal = any(p in pref_lower for p in ["personal_vehicle", "personal", "car", "bike", "driving", "two_wheeler"]) or any(tm in req_mode for tm in ["personal", "car", "bike", "driving", "cab"])
             
             if not wants_public and not wants_personal:
                 wants_public = True

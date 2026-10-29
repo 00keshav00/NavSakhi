@@ -2,6 +2,7 @@ import os
 import json
 import math
 import logging
+import asyncio
 from typing import List, Dict, Any, Optional, Tuple
 import datetime
 
@@ -202,7 +203,7 @@ class MultimodalRouter:
         # -------------------------------------------------------------
         try:
             # Bus stop catchments: origin walk up to 1.2 km or 30% of trip; dest walk up to 1.2 km
-            bus_walk_max = min(1200.0, max(400.0, direct_road_dist_m * 0.30))
+            bus_walk_max = min(1200.0, max(800.0, direct_road_dist_m * 0.35))
             orig_bus_stops = self.query_nearby_stations(s_lat, s_lon, "bus", max_dist_m=bus_walk_max, k=8)
             dest_bus_stops = self.query_nearby_stations(d_lat, d_lon, "bus", max_dist_m=bus_walk_max, k=8)
 
@@ -226,7 +227,7 @@ class MultimodalRouter:
                             progress = d_orig_to_dest - d_dest_to_dest
                             
                             # Meaningful forward progress requirement (scaled by trip length)
-                            min_progress = min(600.0, max(300.0, dist_direct * 0.35))
+                            min_progress = min(600.0, max(150.0, dist_direct * 0.25))
                             if progress >= min_progress:
                                 sub_stops = pat[o_idx : d_idx + 1]
                                 walk_access_est = haversine_m(s_lat, s_lon, o_stop["lat"], o_stop["lon"])
@@ -287,7 +288,7 @@ class MultimodalRouter:
                         last_pt = pt
 
                 # Meaningful bus ride: at least 2 stops and 400m bus distance
-                if len(bus_geom_coords) < 2 or bus_dist_m < 400:
+                if len(bus_geom_coords) < 2 or bus_dist_m < 250:
                     continue
 
                 # Access and Egress legs via OSRM in parallel
@@ -314,12 +315,12 @@ class MultimodalRouter:
 
                     # Viability check: total walking distance must be significantly less than direct distance,
                     # and total distance must not exceed 1.7x direct road
-                    walk_saving = (acc_r.distance + egr_r.distance) <= (direct_road_dist_m * 0.90)
+                    walk_saving = (acc_r.distance + egr_r.distance) <= max(direct_road_dist_m * 0.95, direct_road_dist_m - 30.0)
                     dist_ok = total_dist <= max(direct_road_dist_m * 1.70, direct_road_dist_m + 800)
                     # Realistic urban bus duration threshold: allow for stopping city bus pace vs unobstructed personal vehicle
                     dur_ok = total_dur <= max(direct_road_dur_s * 4.5, direct_road_dur_s + 3600, 5400)
 
-                    if (walk_saving or direct_road_dist_m > 3000) and dist_ok and dur_ok:
+                    if (walk_saving or direct_road_dist_m > 2500) and dist_ok and dur_ok:
                         acc_coords = acc_r.route_metadata.get("geometry", {}).get("coordinates", [])
                         egr_coords = egr_r.route_metadata.get("geometry", {}).get("coordinates", [])
 
