@@ -266,6 +266,7 @@ export default function JourneyPage() {
       {/* 1. PERSISTENT FULL-BLEED MAP CANVAS */}
       <div className="absolute inset-0 w-full h-full z-0">
         <SafeMap
+          controlsTopOffset="journey-mobile"
           source={{ coordinates: data?.source_loc }}
           destination={{ coordinates: data?.dest_loc }}
           sourceName={lastSearchSource}

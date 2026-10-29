@@ -54,19 +54,19 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 w-full h-16 border-b border-border/80 bg-background/80 backdrop-blur-xl shrink-0 transition-colors">
-      <div className="mx-auto flex h-full items-center justify-between px-4 sm:px-6 lg:px-8 max-w-7xl">
+      <div className="mx-auto flex h-full items-center justify-between px-2.5 sm:px-6 lg:px-8 max-w-7xl">
         
         {/* Left: Brand & Identity */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link href="/home" className="flex items-center gap-2.5 group">
-            <div className="relative h-10 w-36 sm:w-44 flex items-center">
+            <div className="relative h-9 sm:h-10 w-28 xs:w-32 sm:w-44 flex items-center shrink-0">
               <Image 
                 src="/images/navsakhi/navsakhi_logo_official.png" 
                 alt="NavSakhi - Safer Journeys • Stronger Women" 
                 width={175} 
                 height={56} 
-                className="h-9 sm:h-10 w-auto object-contain transition-transform group-hover:scale-[1.02] dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110" 
-                priority 
+                className="h-8 sm:h-10 w-auto object-contain transition-transform group-hover:scale-[1.02] dark:drop-shadow-[0_0_10px_rgba(255,255,255,0.55)] dark:brightness-110"
+                priority
               />
             </div>
           </Link>
@@ -93,14 +93,14 @@ export function Header() {
         </nav>
 
         {/* Right: Actions, Theme Toggle, Profile & Emergency SOS */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3 shrink-0">
           
           {/* Theme Toggle Button with Restrained Spring/Rotation */}
           {mounted && (
             <button
               type="button"
               onClick={() => setTheme(nextTheme)}
-              className="relative p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border transition-colors overflow-hidden"
+              className="relative p-1.5 sm:p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent hover:border-border transition-colors overflow-hidden shrink-0"
               title={`Switch to ${nextTheme === "dark" ? "Dark" : "Light"} Mode`}
               aria-label={`Switch to ${nextTheme === "dark" ? "Dark" : "Light"} Mode`}
             >
@@ -114,9 +114,9 @@ export function Header() {
                   className="flex items-center justify-center"
                 >
                   {currentTheme === "dark" ? (
-                    <Sun size={17} className="text-amber-400" />
+                    <Sun size={16} className="text-amber-400" />
                   ) : (
-                    <Moon size={17} className="text-foreground/80" />
+                    <Moon size={16} className="text-foreground/80" />
                   )}
                 </motion.div>
               </AnimatePresence>
@@ -125,15 +125,15 @@ export function Header() {
 
           {/* User Profile or Guest Sign In */}
           {user ? (
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={() => setIsProfileOpen((prev) => !prev)}
-                className="flex items-center gap-2 p-1 rounded-full hover:bg-secondary transition-colors"
+                className="flex items-center gap-1 sm:gap-2 p-0.5 sm:p-1 rounded-full hover:bg-secondary transition-colors shrink-0"
                 aria-label="User Profile Menu"
                 aria-expanded={isProfileOpen}
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-[#F6C8D7] flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-tr from-primary to-[#F6C8D7] flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0">
                   {user?.full_name ? user.full_name[0].toUpperCase() : "U"}
                 </div>
                 <ChevronDown size={14} className="text-muted-foreground hidden sm:block" />
@@ -238,7 +238,7 @@ export function Header() {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="hidden lg:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-secondary/70 text-muted-foreground border border-border/60">
                 Guest Explorer
               </span>
@@ -246,7 +246,7 @@ export function Header() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="rounded-full text-xs font-bold border-primary/30 text-primary hover:bg-primary/10 px-3.5 py-1.5 h-8 shadow-2xs"
+                  className="rounded-full text-xs font-bold border-primary/30 text-primary hover:bg-primary/10 px-2.5 sm:px-3.5 py-1.5 h-8 shadow-2xs shrink-0"
                 >
                   Sign In
                 </Button>
@@ -255,25 +255,26 @@ export function Header() {
           )}
 
           {/* Emergency SOS Action with Accessible Info Button */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             <Link href="/emergency">
               <Button
                 size="sm"
-                className="rounded-full gap-1.5 bg-danger text-white hover:bg-danger/90 font-bold px-3 sm:px-3.5 py-1.5 text-xs shadow-md shadow-danger/25 transition-transform active:scale-95"
+                className="rounded-full gap-1 sm:gap-1.5 bg-danger text-white hover:bg-danger/90 font-bold px-2.5 sm:px-3.5 py-1.5 text-xs shadow-md shadow-danger/25 transition-transform active:scale-95 shrink-0"
                 aria-label="Emergency SOS"
               >
-                <ShieldAlert size={15} className="shrink-0 animate-pulse-soft" />
-                <span>Emergency SOS</span>
+                <ShieldAlert size={14} className="shrink-0 animate-pulse-soft" />
+                <span className="hidden xs:inline">Emergency </span>
+                <span>SOS</span>
               </Button>
             </Link>
             <button
               type="button"
               onClick={() => setIsSosInfoOpen(true)}
-              className="p-1.5 rounded-full text-muted-foreground hover:text-danger hover:bg-danger/10 border border-border/60 transition-colors shrink-0"
+              className="p-1 sm:p-1.5 rounded-full text-muted-foreground hover:text-danger hover:bg-danger/10 border border-border/60 transition-colors shrink-0"
               title="Emergency SOS Operational Scope & Information"
               aria-label="Emergency SOS Operational Scope"
             >
-              <Info size={14} />
+              <Info size={13} />
             </button>
           </div>
 
